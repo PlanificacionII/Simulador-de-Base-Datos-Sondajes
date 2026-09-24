@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import io
 
 # ====================================================================
-# 🧮 FUNCIONES MATEMÁTICAS Y GEOLÓGICAS (Traducción de Módulos VBA)
+# 🧮 FUNCIONES MATEMÁTICAS Y GEOLÓGICAS (Motor Estadístico Base)
 # ====================================================================
 
 def normal_random(mu, sigma):
@@ -23,12 +23,12 @@ def log_normal_from_mean_sd(mean, sd):
 # ====================================================================
 # 💻 CONFIGURACIÓN INTERFAZ WEB (Streamlit)
 # ====================================================================
-st.set_page_config(page_title="Simulador Geológico Online", layout="wide")
+st.set_page_config(page_title="Simulador Geológico 3D Online", layout="wide")
 
-st.title("⚒️ Software de Simulación Geológica y Campañas de Perforación")
+st.title("⚒️ Software de Simulación Geológica y Campañas de Perforación 3D")
 st.markdown("---")
 
-# PANEL LATERAL DE CONTROL
+# PANEL LATERAL DE CONTROL (UserForm Web)
 st.sidebar.header("⚙️ Parámetros del Proyecto")
 
 b_este = st.sidebar.number_input("Coordenada ESTE Base (X):", value=369957)
@@ -36,7 +36,7 @@ b_norte = st.sidebar.number_input("Coordenada NORTE Base (Y):", value=6986970)
 b_cota = st.sidebar.number_input("ELEVACIÓN / Cota Terreno (Z):", value=2200)
 var_cota = st.sidebar.number_input("Rugosidad de Topografía (+/- m):", value=15)
 espaciamiento = st.sidebar.number_input("Espaciamiento de Malla (m):", value=40)
-cant_sondajes = st.sidebar.number_input("Cantidad Total de Pozos:", value=200, step=10)
+cant_sondajes = st.sidebar.number_input("Cantidad Total de Pozos:", value=60, step=10) # 60 por defecto para fluidez 3D inicial
 
 tipo_yacimiento = st.sidebar.selectbox(
     "Geometría del Depósito:",
@@ -47,8 +47,13 @@ tipo_malla = st.sidebar.selectbox(
     "Configuración Geométrica:",
     ["Malla Regular (Grilla)", "Malla Dispersa (Scout Drilling)"]
 )
+
+elemento_render = st.sidebar.radio(
+    "Visualizar Leyes Metalúrgicas de:",
+    ["Cobre (Cu %)", "Oro (Au g/t)"]
+)
 # ====================================================================
-# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL (Simulación Completa Relacional)
+# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL
 # ====================================================================
 
 collars = []
@@ -60,7 +65,6 @@ dimension_malla = espaciamiento * 20
 centro_x = b_este + (dimension_malla / 2)
 centro_y = b_norte + (dimension_malla / 2)
 centro_z = b_cota - 250
-radio_porfido = 250
 
 for i in range(1, cant_sondajes + 1):
     pozo_id = f"DDH-{i:03d}"
@@ -87,6 +91,7 @@ for i in range(1, cant_sondajes + 1):
         dip = -90 if i % 3 == 0 else int(-60 - np.random.rand() * 15)
         
     collars.append({"ID": pozo_id, "X": x, "Y": y, "Z": elev, "Depth": depth, "Type": "Vertical" if dip == -90 else "Inclinado"})
+    surveys.append({"ID": pozo_id, "Depth": depth, "Azimuth": azimuth, "Dip": dip})
     
     rad_azimuth = np.radians(azimuth)
     rad_dip = np.radians(dip)
@@ -153,92 +158,114 @@ for i in range(1, cant_sondajes + 1):
                 
         lithologies.append({"ID": pozo_id, "From": from_m, "To": to_m, "Lithology": lit})
         assays.append({"ID": pozo_id, "From": from_m, "To": to_m, "Cu_pct": cu, "Au_gpt": au})
-        surveys.append({"ID": pozo_id, "Depth": to_m, "Azimuth": azimuth, "Dip": dip})
 
-# Construir los 4 dataframes relacionales
 df_collar = pd.DataFrame(collars)
 df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Sección Superior)
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Espacial Movil)
 # ====================================================================
-col_vacia, col_grafico, col_vacia2 = st.columns([1, 4, 1])
+col_izq, col_grafico, col_der = st.columns([1, 10, 1])
 
 with col_grafico:
-    st.subheader("🗺️ Plano Técnico: Topografía y Malla de Pozos")
+    st.subheader("🛰️ Visualizador Espacial 3D: Trazas de Pozos y Leyes")
+    st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para ROTAR. Usa la rueda del mouse para hacer ZOOM. Haz clic derecho y arrastra para DESPLAZAR (Pan).")
     
     fig = go.Figure()
+    
+    # 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
     min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
     min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
     rango_y = max_y - min_y
     
-    num_curvas = 12
+    num_curvas = 10
     for c in range(1, num_curvas + 1):
-        cota_curva = round(float(df_collar["Z"].min()) + ((float(df_collar["Z"].max()) - float(df_collar["Z"].min())) * (c / (num_curvas + 1))), 0)
-        x_linea = np.linspace(min_x, max_x, 40)
+        x_linea = np.linspace(min_x, max_x, 30)
         y_base = min_y + espaciamiento + (rango_y * (c / (num_curvas + 1)))
         y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
+        z_linea = round(float(df_collar["Z"].min()) + ((float(df_collar["Z"].max()) - float(df_collar["Z"].min())) * (c / (num_curvas + 1))), 1)
+        z_array = np.full_like(x_linea, z_linea)
         
-        fig.add_trace(go.Scatter(
-            x=x_linea, y=y_linea, mode='lines',
-            line=dict(color='rgba(150, 150, 150, 0.6)', width=1),
-            hoverinfo='none', showlegend=False
-        ))
-        
-        fig.add_trace(go.Scatter(
-            x=[x_linea[-1]], y=[y_linea[-1]], mode='text',
-            text=[f"{int(cota_curva)}m"],
-            textposition="middle right",
-            textfont=dict(size=9, color="gray"),
+        fig.add_trace(go.Scatter3d(
+            x=x_linea, y=y_linea, z=z_array, mode='lines',
+            line=dict(color='rgba(180, 180, 180, 0.4)', width=2),
             showlegend=False, hoverinfo='none'
         ))
+
+    # 2. TRAZADO DE LEYES EN PROFUNDIDAD TRAMO A TRAMO
+    x_tramos, y_tramos, z_tramos, leyes_tramos, textos_hover = [], [], [], [], []
+    columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+    unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
+    escala_colores = "YlOrRd" if columna_ley == "Cu_pct" else "Portland"
+    
+    for idx, row in df_collar.iterrows():
+        p_id = row["ID"]
+        ensayos_pozo = [a for a in assays if a["ID"] == p_id]
+        srv = next((s for s in surveys if s["ID"] == p_id), None)
+        if not srv or not ensayos_pozo: continue
         
-    fig.add_trace(go.Scatter(
-        x=df_collar["X"], y=df_collar["Y"], mode='markers',
-        name='Sondajes',
-        marker=dict(color='red', size=6, symbol='circle'),
-        text=df_collar["ID"] + "<br>Cota: " + df_collar["Z"].astype(str) + "m",
-        hoverinfo='text+x+y', showlegend=False
+        az = np.radians(srv["Azimuth"])
+        dp = np.radians(srv["Dip"])
+        
+        # Punto inicial en superficie
+        x_tramos.append(row["X"]); y_tramos.append(row["Y"]); z_tramos.append(row["Z"])
+        leyes_tramos.append(0.0)
+        textos_hover.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
+        
+        for ens in ensayos_pozo:
+            p_m = ens["From"] + 5
+            int_x = row["X"] + (p_m * np.cos(dp) * np.sin(az))
+            int_y = row["Y"] + (p_m * np.cos(dp) * np.cos(az))
+            int_z = row["Z"] + (p_m * np.sin(dp))
+            
+            x_tramos.append(int_x); y_tramos.append(int_y); z_tramos.append(int_z)
+            leyes_tramos.append(ens[columna_ley])
+            
+            lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
+            textos_hover.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {ens[columna_ley]:,.2f} {unidad_ley}")
+            
+        x_tramos.append(None); y_tramos.append(None); z_tramos.append(None)
+        leyes_tramos.append(None); textos_hover.append(None)
+
+    fig.add_trace(go.Scatter3d(
+        x=x_tramos, y=y_tramos, z=z_tramos, mode='lines+markers',
+        line=dict(color=leyes_tramos, colorscale=escala_colores, width=5, colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=20, x=0.95)),
+        marker=dict(size=2, color=leyes_tramos, colorscale=escala_colores, opacity=0.8),
+        text=textos_hover, hoverinfo='text', showlegend=False
     ))
     
     fig.update_layout(
-        xaxis_title="Coordenada Este (X)", yaxis_title="Coordenada Norte (Y)",
-        plot_bgcolor='white', margin=dict(l=40, r=60, t=10, b=40), height=460,
-        xaxis=dict(gridcolor='whitesmoke', range=[min_x, max_x + (espaciamiento * 2)]),
-        yaxis=dict(gridcolor='whitesmoke', range=[min_y, max_y])
+        width=950, height=650, margin=dict(l=0, r=0, t=10, b=0),
+        scene=dict(
+            xaxis_title="Este (X)", yaxis_title="Norte (Y)", zaxis_title="Cota (Z)", backgroundcolor="white",
+            xaxis=dict(gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+            yaxis=dict(gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+            zaxis=dict(gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+            aspectmode='manual', aspectratio=dict(x=1, y=1, z=0.5)
+        )
     )
     st.plotly_chart(fig, use_container_width=True)
 
+# TABLAS DE DESCARGA INFERIORES
 st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
+tab1, tab2, tab3, tab4 = st.tabs(["📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys"])
 
-# NUEVO: Sistema de 4 Pestañas para ver y descargar cada base de datos de forma independiente
-tab1, tab2, tab3, tab4 = st.tabs(["📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys (Trayectorias)"])
-
-# Función auxiliar técnica para procesar descargas en memoria web
 def crear_boton_descarga(dataframe, nombre_archivo):
     buf = io.StringIO()
     dataframe.to_csv(buf, index=False)
-    st.download_button(
-        label=f"📥 Descargar {nombre_archivo}",
-        data=buf.getvalue(),
-        file_name=nombre_archivo,
-        mime="text/csv"
-    )
+    st.download_button(label=f"📥 Descargar {nombre_archivo}", data=buf.getvalue(), file_name=nombre_archivo, mime="text/csv")
 
 with tab1:
-    st.dataframe(df_collar, use_container_width=True, height=300)
+    st.dataframe(df_collar, use_container_width=True, height=220)
     crear_boton_descarga(df_collar, "Collar.csv")
-
 with tab2:
-    st.dataframe(df_assays, use_container_width=True, height=300)
+    st.dataframe(df_assays, use_container_width=True, height=220)
     crear_boton_descarga(df_assays, "Assays.csv")
-
 with tab3:
-    st.dataframe(df_lithology, use_container_width=True, height=300)
+    st.dataframe(df_lithology, use_container_width=True, height=220)
     crear_boton_descarga(df_lithology, "Litologia.csv")
-
 with tab4:
-    st.dataframe(df_surveys, use_container_width=True, height=300)
+    st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_descarga(df_surveys, "Surveys.csv")
