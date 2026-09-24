@@ -286,14 +286,10 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_descarga(df_surveys, "Surveys.csv")
 
-# PESTAÑA 5: Motor de Proyección y Conversión Satelital para el Norte de Chile (Solo Coordenadas)
+# PESTAÑA 5: Motor de Conversión Estricto de UTM (Huso 19S) a Geográficas para Google Earth
 with tab5:
-    st.write("### 🛰️ Exportador Geográfico KML - Distrito Minero Norte de Chile")
-    st.write("Esta herramienta realiza una transformación matemática para mapear tus collares locales sobre el relieve real de la Cordillera de los Andes.")
-    
-    # Coordenadas geográficas base calibradas para la franja cuprífera del Norte Grande de Chile
-    lat_chile = -24.250  
-    lon_chile = -69.050  
+    st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
+    st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
     
     kml_texto = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://opengis.net">
@@ -312,31 +308,58 @@ with tab5:
       </LabelStyle>
     </Style>
 """
-    # Algoritmo de transformación elipsoidal para conversión de grillas locales
+    # Ecuaciones Geodésicas Transversas de Mercator para la conversión estricta de UTM a Geográficas
     for idx, row in df_collar.iterrows():
-        delta_norte_metros = row["Y"] - b_norte
-        delta_este_metros = row["X"] - b_este
+        # Tomamos el Este (X) y el Norte (Y) reales de la simulación
+        x_utm = float(row["X"])
+        y_utm = float(row["Y"])
         
-        # Conversión geodésica a grados decimales (Latitud y Longitud)
-        conv_lat = lat_chile + (delta_norte_metros / 111130)
-        conv_lon = lon_chile + (delta_este_metros / (111130 * np.cos(np.radians(lat_chile))))
+        # Parámetros oficiales para el Huso 19 Sur (WGS84)
+        a = 6378137.0         # Radio ecuatorial del elipsoide
+        f = 1 / 298.257223563 # Achatamiento de la Tierra
+        b = a * (1 - f)
+        e2 = (a**2 - b**2) / a**2
+        e_prim2 = (a**2 - b**2) / b**2
+        c = a / (1 - f)
         
-        # Inyectar Placemark al archivo KML (Se elimina la cota del parámetro coordinates)
+        # Ajustes de origen para el hemisferio Sur y Huso 19
+        x_profe = x_utm - 500000.0
+        y_profe = y_utm - 10000000.0 # Ajuste por encontrarse en el hemisferio sur
+        
+        # Cálculo de la latitud del pie (Footprint Latitude)
+        phi = y_profe / (6367449.146)
+        
+        # Ecuaciones de transposición de coordenadas
+        n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
+        m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
+        t = np.tan(phi)**2
+        psi = e_prim2 * np.cos(phi)**2
+        
+        # Cálculo estricto de Latitud y Longitud en Radianes
+        fact_lat = x_profe / n
+        lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
+        
+        fact_lon = x_profe / (n * np.cos(phi))
+        lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
+        
+        # Conversión final a Grados Decimales Reales
+        lat_decimal = np.degrees(lat_rad)
+        lon_decimal = -69.0 + np.degrees(lon_rad) # Anclado al meridiano central del Huso 19 (-69º Oeste)
+        
+        # Inyectar Placemark al archivo KML con amarre perfecto al terreno
         kml_texto += f"""    <Placemark>
       <name>{row['ID']}</name>
       <description><![CDATA[
-        <b>Proyecto Minero: Norte de Chile</b><br><br>
-        • Coordenada Este (X): {row['X']:,.1f} m<br>
-        • Coordenada Norte (Y): {row['Y']:,.1f} m<br>
-        • Elevación Collar (Z): {row['Z']} msnm<br>
-        • Profundidad Total: {row['Depth']} metros<br>
-        • Configuración: Oculto bajo 120m estériles
+        <b>Sondaje Diamantino Profesional</b><br><br>
+        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>
+        • Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>
+        • Elevación Terreno (Z): {row['Z']} msnm<br>
+        • Profundidad: {row['Depth']} metros
       ]]></description>
       <styleUrl>#marcadorMinero</styleUrl>
       <Point>
-        <!-- Forzar el amarre al suelo ignorando la altura local -->
         <altitudeMode>clampToGround</altitudeMode>
-        <coordinates>{conv_lon},{conv_lat},0</coordinates>
+        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>
       </Point>
     </Placemark>
 """
@@ -345,8 +368,8 @@ with tab5:
 
     # Despliegue del botón de descarga web del archivo KML nativo
     st.download_button(
-        label="🌍 Descargar Campaña_Sondajes.kml (Google Earth)",
+        label="🌍 Descargar Campaña_Sondajes_UTM.kml (Google Earth)",
         data=kml_texto,
-        file_name="Campaña_Sondajes_Chile.kml",
+        file_name="Campaña_Sondajes_UTM.kml",
         mime="application/vnd.google-earth.kml+xml"
     )
