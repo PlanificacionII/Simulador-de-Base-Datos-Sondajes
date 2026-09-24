@@ -112,8 +112,8 @@ for i in range(1, cant_sondajes + 1):
             
             if "Tabular" not in tipo_yacimiento and abs(int_z - plano_falla_z) < 15:
                 lit = "Fault_Breccia"
-                cu = np.round(max(0.01, normal_random(0.04, 0.01)), 2)
-                au = np.round(max(0.005, normal_random(0.02, 0.005)), 2)
+                cu = np.round(max(2.5, normal_random(0.9, 0.01)), 2)
+                au = np.round(max(4.0, normal_random(0.5, 0.005)), 2)
             else:
                 factor_forma = 0.0
                 
