@@ -141,6 +141,7 @@ df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
+# ====================================================================
 # 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Gran Pantalla Completa)
 # ====================================================================
 st.subheader("🛰️ Visualizador Espacial 3D Ampliado: Trazas de Pozos y Rangos de Ley")
@@ -148,7 +149,7 @@ st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para RO
 
 fig = go.Figure()
 
-# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
+# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
 min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
 min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
 rango_y = max_y - min_y
@@ -194,25 +195,24 @@ for idx, row in df_collar.iterrows():
         
         val_ley = float(ens[columna_ley])
         
-        # Sincronización de intervalos visuales con los nuevos rangos altos
         if columna_ley == "Cu_pct":
             if val_ley < 0.30:
-                codigo = 0.0  # Verde (Capa estéril / Roca caja baja)
+                codigo = 0.0
             elif 0.30 <= val_ley < 1.00:
-                codigo = 1.0  # Amarillo (Ley Baja-Media)
+                codigo = 1.0
             elif 1.00 <= val_ley < 1.80:
-                codigo = 2.0  # Naranja (Alta Ley / Cerca de la Media)
+                codigo = 2.0
             else:
-                codigo = 3.0  # Rojo (Excelente Ley hasta 2.5%)
+                codigo = 3.0
         else:
             if val_ley < 0.90:
-                codigo = 0.0  # Verde (Estéril / Roca caja)
+                codigo = 0.0
             elif 0.90 <= val_ley < 4.00:
-                codigo = 1.0  # Amarillo (Ley Baja)
+                codigo = 1.0
             elif 4.00 <= val_ley < 8.00:
-                codigo = 2.0  # Naranja (Alta ley en torno a la media)
+                codigo = 2.0
             else:
-                codigo = 3.0  # Rojo (Excelente Ley hasta 12 g/t)
+                codigo = 3.0
 
         x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
         codigos_color_total.append(codigo)
@@ -258,10 +258,15 @@ config_escena = dict(
 fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
 st.plotly_chart(fig, use_container_width=True)
 
-# TABLAS DE DESCARGA INFERIORES
+# ====================================================================
+# 📋 TABLAS DE DESCARGA E INTEGRACIÓN NATIVA GOOGLE EARTH KML
+# ====================================================================
 st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
-tab1, tab2, tab3, tab4 = st.tabs(["📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys"])
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Google Earth"
+])
 
 def crear_boton_descarga(dataframe, nombre_archivo):
     buf = io.StringIO()
@@ -280,3 +285,68 @@ with tab3:
 with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_descarga(df_surveys, "Surveys.csv")
+
+# PESTAÑA 5: Motor de Proyección y Conversión Satelital para el Norte de Chile
+with tab5:
+    st.write("### 🛰️ Exportador Geográfico KML - Distrito Minero Norte de Chile")
+    st.write("Esta herramienta realiza una transformación matemática para mapear tus collares locales sobre el relieve real de la Cordillera de los Andes.")
+    
+    # Coordenadas geográficas base calibradas para la franja cuprífera del Norte Grande de Chile
+    lat_chile = -24.250  
+    lon_chile = -69.050  
+    
+    kml_texto = """<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://opengis.net">
+  <Document>
+    <name>Malla de Perforacion Diamantina - Norte de Chile</name>
+    <Style id="marcadorMinero">
+      <IconStyle>
+        <color>ff0000ff</color> <!-- Círculo Rojo Técnico -->
+        <scale>1.2</scale>
+        <Icon>
+          <href>http://google.com</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0.8</scale>
+      </LabelStyle>
+    </Style>
+"""
+    # Algoritmo de transformación elipsoidal aproximada para conversión de grillas locales
+    for idx, row in df_collar.iterrows():
+        delta_norte_metros = row["Y"] - b_norte
+        delta_este_metros = row["X"] - b_este
+        
+        # Conversión geodésica a grados decimales
+        conv_lat = lat_chile + (delta_norte_metros / 111130)
+        conv_lon = lon_chile + (delta_este_metros / (111130 * np.cos(np.radians(lat_chile))))
+        
+        # Inyectar Placemark al archivo KML con los metadatos del pozo
+        kml_texto += f"""    <Placemark>
+      <name>{row['ID']}</name>
+      <description><![CDATA[
+        <b>Proyecto Minero: Norte de Chile</b><br><br>
+        • Coordenada Este (X): {row['X']:,.1f} m<br>
+        • Coordenada Norte (Y): {row['Y']:,.1f} m<br>
+        • Elevación Collar (Z): {row['Z']} msnm<br>
+        • Profundidad Total: {row['Depth']} metros<br>
+        • Configuración: Oculto bajo 120m estériles
+      ]]></description>
+      <styleUrl>#marcadorMinero</styleUrl>
+      <Point>
+        <extrude>1</extrude>
+        <altitudeMode>absolute</altitudeMode>
+        <coordinates>{conv_lon},{conv_lat},{row['Z']}</coordinates>
+      </Point>
+    </Placemark>
+"""
+    kml_texto += """  </Document>
+</kml>"""
+
+    # Despliegue del botón de descarga web del archivo KML nativo
+    st.download_button(
+        label="🌍 Descargar Campaña_Sondajes.kml (Google Earth)",
+        data=kml_texto,
+        file_name="Campaña_Sondajes_Chile.kml",
+        mime="application/vnd.google-earth.kml+xml"
+    )
