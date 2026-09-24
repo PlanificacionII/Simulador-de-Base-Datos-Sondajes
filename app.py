@@ -286,85 +286,79 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_descarga(df_surveys, "Surveys.csv")
 
-# PESTAÑA 5: Motor de Conversión Estricto de UTM (Huso 19S) a Geográficas para Google Earth
+# PESTAÑA 5: Motor de Conversión Estricto de UTM (Huso 19S) a Geográficas para Google Earth (Sintaxis XML Corregida)
 with tab5:
     st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
     st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
     
-    kml_texto = """<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://opengis.net">
-  <Document>
-    <name>Malla de Perforacion Diamantina - Norte de Chile</name>
-    <Style id="marcadorMinero">
-      <IconStyle>
-        <color>ff0000ff</color> <!-- Círculo Rojo Técnico -->
-        <scale>1.2</scale>
-        <Icon>
-          <href>http://google.com</href>
-        </Icon>
-      </IconStyle>
-      <LabelStyle>
-        <scale>0.8</scale>
-      </LabelStyle>
-    </Style>
-"""
-    # Ecuaciones Geodésicas Transversas de Mercator para la conversión estricta de UTM a Geográficas
+    # CORRECCIÓN DE ENCABEZADO: Forzar a que la cabecera XML comience estrictamente en la línea 1 sin espacios
+    kml_texto = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    kml_texto += '<kml xmlns="http://opengis.net">\n'
+    kml_texto += '  <Document>\n'
+    kml_texto += '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>\n'
+    kml_texto += '    <Style id="marcadorMinero">\n'
+    kml_texto += '      <IconStyle>\n'
+    kml_texto += '        <color>ff0000ff</color> <!-- Circulo Rojo Tecnico -->\n'
+    kml_texto += '        <scale>1.2</scale>\n'
+    kml_texto += '        <Icon>\n'
+    kml_texto += '          <href>http://google.com</href>\n'
+    kml_texto += '        </Icon>\n'
+    kml_texto += '      </IconStyle>\n'
+    kml_texto += '      <LabelStyle>\n'
+    kml_texto += '        <scale>0.8</scale>\n'
+    kml_texto += '      </LabelStyle>\n'
+    kml_texto += '    </Style>\n'
+
+    # Ecuaciones Geodésicas Transversas de Mercator para la conversión de grillas locales
     for idx, row in df_collar.iterrows():
-        # Tomamos el Este (X) y el Norte (Y) reales de la simulación
         x_utm = float(row["X"])
         y_utm = float(row["Y"])
         
-        # Parámetros oficiales para el Huso 19 Sur (WGS84)
-        a = 6378137.0         # Radio ecuatorial del elipsoide
-        f = 1 / 298.257223563 # Achatamiento de la Tierra
+        a = 6378137.0         
+        f = 1 / 298.257223563 
         b = a * (1 - f)
         e2 = (a**2 - b**2) / a**2
         e_prim2 = (a**2 - b**2) / b**2
         c = a / (1 - f)
         
-        # Ajustes de origen para el hemisferio Sur y Huso 19
         x_profe = x_utm - 500000.0
-        y_profe = y_utm - 10000000.0 # Ajuste por encontrarse en el hemisferio sur
+        y_profe = y_utm - 10000000.0 
         
-        # Cálculo de la latitud del pie (Footprint Latitude)
         phi = y_profe / (6367449.146)
         
-        # Ecuaciones de transposición de coordenadas
         n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
         m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
         t = np.tan(phi)**2
         psi = e_prim2 * np.cos(phi)**2
         
-        # Cálculo estricto de Latitud y Longitud en Radianes
         fact_lat = x_profe / n
         lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
         
         fact_lon = x_profe / (n * np.cos(phi))
         lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
         
-        # Conversión final a Grados Decimales Reales
         lat_decimal = np.degrees(lat_rad)
-        lon_decimal = -69.0 + np.degrees(lon_rad) # Anclado al meridiano central del Huso 19 (-69º Oeste)
+        lon_decimal = -69.0 + np.degrees(lon_rad) 
         
-        # Inyectar Placemark al archivo KML con amarre perfecto al terreno
-        kml_texto += f"""    <Placemark>
-      <name>{row['ID']}</name>
-      <description><![CDATA[
-        <b>Sondaje Diamantino Profesional</b><br><br>
-        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>
-        • Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>
-        • Elevación Terreno (Z): {row['Z']} msnm<br>
-        • Profundidad: {row['Depth']} metros
-      ]]></description>
-      <styleUrl>#marcadorMinero</styleUrl>
-      <Point>
-        <altitudeMode>clampToGround</altitudeMode>
-        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>
-      </Point>
-    </Placemark>
-"""
-    kml_texto += """  </Document>
-</kml>"""
+        # Concatenar cada punto de forma segura
+        kml_texto += '    <Placemark>\n'
+        kml_texto += f'      <name>{row["ID"]}</name>\n'
+        kml_texto += '      <description><![CDATA[\n'
+        kml_texto += '        <b>Sondaje Diamantino Profesional</b><br><br>\n'
+        kml_texto += f'        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>\n'
+        kml_texto += f'        • Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>\n'
+        kml_texto += f'        • Elevación Terreno (Z): {row["Z"]} msnm<br>\n'
+        kml_texto += f'        • Profundidad: {row["Depth"]} metros\n'
+        kml_texto += '      ]]></description>\n'
+        kml_texto += '      <styleUrl>#marcadorMinero</styleUrl>\n'
+        kml_texto += '      <Point>\n'
+        kml_texto += '        <altitudeMode>clampToGround</altitudeMode>\n'
+        kml_texto += f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>\n'
+        kml_texto += '      </Point>\n'
+        kml_texto += '    </Placemark>\n'
+
+    kml_texto += '  </Document>\n'
+    kml_texto += '</kml>'
 
     # Despliegue del botón de descarga web del archivo KML nativo
     st.download_button(
