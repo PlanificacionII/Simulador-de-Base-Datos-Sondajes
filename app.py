@@ -164,7 +164,7 @@ df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Unificado 3D)
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Seguro Estructural)
 # ====================================================================
 col_izq, col_grafico, col_der = st.columns([1, 10, 1])
 
@@ -189,7 +189,7 @@ with col_grafico:
         
         fig.add_trace(go.Scatter3d(
             x=x_linea, y=y_linea, z=z_array, mode='lines',
-            line=dict(color='rgba(180, 180, 180, 0.4)', width=2),
+            line=dict(color='rgba(150, 150, 150, 0.4)', width=2),
             showlegend=False, hoverinfo='none'
         ))
 
@@ -209,7 +209,6 @@ with col_grafico:
         az = np.radians(srv["Azimuth"])
         dp = np.radians(srv["Dip"])
         
-        # Inyectar punto inicial (Collar)
         x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
         leyes_total.append(0.0)
         textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
@@ -230,7 +229,6 @@ with col_grafico:
         leyes_total.append(0.0)
         textos_total.append("")
 
-    # Añadir la traza gigante unificada de una sola vez
     fig.add_trace(go.Scatter3d(
         x=x_total, y=y_total, z=z_total, mode='lines+markers',
         line=dict(
@@ -252,16 +250,22 @@ with col_grafico:
         text=textos_total, hoverinfo='text', showlegend=False
     ))
 
-    # Ajustes estructurales limpios del Layout sin interferencias de escala
+    # ====================================================================
+    # 🔒 ARQUITECTURA LIMPIA DE ESCENA DE UNA SOLA PIEZA (EVITA ERRORES DE HOVER)
+    # ====================================================================
+    config_escena = dict(
+        xaxis=dict(title="Este (X)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+        yaxis=dict(title="Norte (Y)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+        zaxis=dict(title="Cota (Z)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+        aspectmode="manual",
+        aspectratio=dict(x=1, y=1, z=0.5)
+    )
+
     fig.update_layout(
-        width=950, height=650, margin=dict(l=0, r=0, t=10, b=0),
-        scene=dict(
-            xaxis_title="Este (X)", yaxis_title="Norte (Y)", zaxis_title="Cota (Z)", backgroundcolor="white",
-            xaxis=dict(gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-            yaxis=dict(gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-            zaxis=dict(gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-            aspectmode='manual', aspectratio=dict(x=1, y=1, z=0.5)
-        )
+        width=950,
+        height=650,
+        margin=dict(l=0, r=0, t=10, b=0),
+        scene=config_escena
     )
     st.plotly_chart(fig, use_container_width=True)
 
