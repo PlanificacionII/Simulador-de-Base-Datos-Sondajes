@@ -121,14 +121,12 @@ for i in range(1, cant_sondajes + 1):
                     dist_h = np.sqrt((int_x - centro_x)**2 + (int_y - centro_y)**2)
                     dist_z = abs(int_z - centro_z)
                     factor_forma = np.exp(-(dist_h / 250)**2 - (dist_z / 150)**2)
-                    
                 elif "Botín" in tipo_yacimiento:
                     dx, dy, dz = int_x - centro_x, int_y - centro_y, int_z - centro_z
                     f_cana = np.exp(-(dx / 130)**2 - (dy / 130)**2 - (dz / 200)**2)
                     if dz < -50: f_cana = 0
                     f_puntera = np.exp(-(dx / 150)**2 - ((dy - 180) / 300)**2 - ((dz + 120) / 80)**2)
                     factor_forma = max(f_cana, f_puntera)
-                    
                 elif "Tabular" in tipo_yacimiento:
                     dist_plano = abs((int_x - centro_x) - (int_z - centro_z) * np.tan(np.radians(10)))
                     factor_forma = np.exp(-(dist_plano / 15)**2)
@@ -147,15 +145,16 @@ for i in range(1, cant_sondajes + 1):
                         au = np.clip(normal_random(2.5, 0.65), 2.0, 5.0)
                 elif factor_forma > 0.12:
                     if es_enriquecido:
-                        lit, cu, au = "Enriched_Halo", normal_random(0.9, 0.15), log_normal_from_mean_sd(0.15, 0.04)
+                        lit = "Enriched_Halo"
+                        cu = np.clip(normal_random(0.9, 0.15), 0.15, 1.2)
+                        au = np.clip(normal_random(1.2, 0.4), 0.5, 2.0)
                     else:
                         lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
                         cu = np.clip(normal_random(0.6, 0.2), 0.15, 1.2)
                         au = np.clip(normal_random(1.2, 0.4), 0.5, 2.0)
-
                 else:
+                    lit, cu, au = "Country_Rock", np.random.rand() * 0.05, np.random.rand() * 0.02
                     
-		lit, cu, au = "Country_Rock", np.random.rand() * 0.05, np.random.rand() * 0.02                    
                 cu = np.round(max(0.01, cu), 2)
                 au = np.round(max(0.005, au), 2)
                 
@@ -167,7 +166,7 @@ df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Gran Pantalla Completa Ampliada)
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Gran Pantalla Completa)
 # ====================================================================
 st.subheader("🛰️ Visualizador Espacial 3D Ampliado: Trazas de Pozos y Rangos de Ley")
 st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para ROTAR. Usa la rueda del mouse para hacer ZOOM. Haz clic derecho y arrastra para DESPLAZAR (Pan).")
@@ -208,7 +207,6 @@ for idx, row in df_collar.iterrows():
     az = np.radians(srv["Azimuth"])
     dp = np.radians(srv["Dip"])
     
-    # Inyectar punto inicial (Collar en superficie) - Código 0 de color (Neutro/Bajo)
     x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
     codigos_color_total.append(0.0)
     textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
@@ -221,22 +219,21 @@ for idx, row in df_collar.iterrows():
         
         val_ley = float(ens[columna_ley])
         
-        # ASIGNACIÓN DE CÓDIGOS DE COLOR DISCRETOS SEGÚN RANGOS DE LEY MINEROS REALES
         if columna_ley == "Cu_pct":
-            if val_ley < 0.15:
-                codigo = 0.0  # Verde (Estéril)
-            elif 0.15 <= val_ley < 0.50:
-                codigo = 1.0  # Amarillo (Baja Ley / Marginal)
+            if val_ley < 0.50:
+                codigo = 0.0  # Verde (Baja Ley / Estéril)
             elif 0.50 <= val_ley < 1.20:
+                codigo = 1.0  # Amarillo (Ley Media)
+            elif 1.20 <= val_ley < 2.00:
                 codigo = 2.0  # Naranja (Alta Ley)
             else:
-                codigo = 3.0  # Rojo (Núcleo de Alta Ley)
-        else: # Rangos adaptados para el Oro (Au g/t)
-            if val_ley < 0.10:
+                codigo = 3.0  # Rojo (Excelente Ley / Núcleo)
+        else:
+            if val_ley < 2.50:
                 codigo = 0.0  # Verde
-            elif 0.10 <= val_ley < 0.30:
+            elif 2.50 <= val_ley < 3.50:
                 codigo = 1.0  # Amarillo
-            elif 0.30 <= val_ley < 0.60:
+            elif 3.50 <= val_ley < 4.50:
                 codigo = 2.0  # Naranja
             else:
                 codigo = 3.0  # Rojo
@@ -251,59 +248,38 @@ for idx, row in df_collar.iterrows():
     codigos_color_total.append(0.0)
     textos_total.append("")
 
-# DEFINICIÓN DE LA PALETA DE COLORES PERSONALIZADA POR TRAMO REQUERIDA
 paleta_discreta = [
-    [0.0, "green"],    # Tramo de Ley Estéril / Muy baja
-    [0.25, "green"],
-    [0.25, "yellow"],   # Tramo de Ley Marginal / Baja
-    [0.5, "yellow"],
-    [0.5, "orange"],   # Tramo de Ley Alta
-    [0.75, "orange"],
-    [0.75, "red"],     # Tramo de Ley Económica / Núcleo rico
-    [1.0, "red"]
+    [0.0, "green"], [0.25, "green"],
+    [0.25, "yellow"], [0.5, "yellow"],
+    [0.5, "orange"], [0.75, "orange"],
+    [0.75, "red"], [1.0, "red"]
 ]
 
-# Añadir la traza gigante unificada con espesor grueso de 6 puntos
 fig.add_trace(go.Scatter3d(
     x=x_total, y=y_total, z=z_total, mode='lines+markers',
     line=dict(
-        color=codigos_color_total, 
-        colorscale=paleta_discreta, 
-        width=6,
-        cmin=0.0, cmax=3.0,
+        color=codigos_color_total, colorscale=paleta_discreta, width=6, cmin=0.0, cmax=3.0,
         colorbar=dict(
-            title=f"Rango Leyes ({unidad_ley})", 
-            thickness=20, 
-            x=0.98,
+            title=f"Rangos ({unidad_ley})", thickness=20, x=0.98,
             tickvals=[0.375, 1.125, 1.875, 2.625],
-            ticktext=["Baja / Estéril", "Marginal", "Alta Ley", "Excelente Ley"] if columna_ley=="Cu_pct" else ["< 0.10 g/t", "0.10 - 0.30", "0.30 - 0.60", "> 0.60 g/t"]
+            ticktext=["< 0.50 %" if columna_ley=="Cu_pct" else "< 2.50 g/t", 
+                      "0.50 - 1.20 %" if columna_ley=="Cu_pct" else "2.50 - 3.50 g/t", 
+                      "1.20 - 2.00 %" if columna_ley=="Cu_pct" else "3.50 - 4.50 g/t", 
+                      "> 2.00 %" if columna_ley=="Cu_pct" else "> 4.50 g/t"]
         )
     ),
-    marker=dict(
-        size=2.5, 
-        color=codigos_color_total, 
-        colorscale=paleta_discreta,
-        cmin=0.0, cmax=3.0,
-        opacity=0.9
-    ),
+    marker=dict(size=2.5, color=codigos_color_total, colorscale=paleta_discreta, cmin=0.0, cmax=3.0, opacity=0.9),
     text=textos_total, hoverinfo='text', showlegend=False
 ))
 
-# Ajustes estructurales de la ventana de pantalla completa
 config_escena = dict(
     xaxis=dict(title="Este (X)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
     yaxis=dict(title="Norte (Y)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
     zaxis=dict(title="Cota (Z)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-    aspectmode="manual",
-    aspectratio=dict(x=1, y=1, z=0.5)
+    aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5)
 )
 
-fig.update_layout(
-    width=1300, # Ampliado para abarcar casi toda la pantalla horizontal del navegador
-    height=700, # Mayor altura para un aspecto de cubo imponente
-    margin=dict(l=0, r=0, t=10, b=0),
-    scene=config_escena
-)
+fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
 st.plotly_chart(fig, use_container_width=True)
 
 # TABLAS DE DESCARGA INFERIORES
