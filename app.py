@@ -162,7 +162,8 @@ for i in range(1, cant_sondajes + 1):
 df_collar = pd.DataFrame(collars)
 df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
-d# ====================================================================
+df_surveys = pd.DataFrame(surveys)
+# ====================================================================
 # 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Unificado 3D)
 # ====================================================================
 col_izq, col_grafico, col_der = st.columns([1, 10, 1])
@@ -192,7 +193,7 @@ with col_grafico:
             showlegend=False, hoverinfo='none'
         ))
 
-    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC (EVITA ERRORES DE VALIDACIÓN)
+    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC
     columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
     escala_colores = "YlOrRd" if columna_ley == "Cu_pct" else "Portland"
@@ -225,9 +226,8 @@ with col_grafico:
             lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
             textos_total.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {ens[columna_ley]:,.2f} {unidad_ley}")
             
-        # El estándar técnico de Plotly 3D unificado usa np.nan matemáticos para cortar trazas sin colapsar las barras de color
         x_total.append(np.nan); y_total.append(np.nan); z_total.append(np.nan)
-        leyes_total.append(0.0) # Se rellena con cero neutro para que el vector numérico sea homogéneo
+        leyes_total.append(0.0)
         textos_total.append("")
 
     # Añadir la traza gigante unificada de una sola vez
@@ -239,7 +239,7 @@ with col_grafico:
             width=5,
             cmin=0.0,
             cmax=3.0 if columna_ley=="Cu_pct" else 1.5,
-            colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=15, x=0.9)
+            colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=15, x=0.95)
         ),
         marker=dict(
             size=2, 
@@ -286,5 +286,4 @@ with tab3:
     crear_boton_descarga(df_lithology, "Litologia.csv")
 with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
-    crear_boton_descarga(df_surveys, "Surveys.csv")f_surveys = pd.DataFrame(surveys)
-
+    crear_boton_descarga(df_surveys, "Surveys.csv")
