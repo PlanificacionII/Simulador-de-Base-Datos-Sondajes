@@ -53,7 +53,7 @@ elemento_render = st.sidebar.radio(
     ["Cobre (Cu %)", "Oro (Au g/t)"]
 )
 # ====================================================================
-# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (YACIMIENTO EXPANDIDO)
+# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (RECALIBRADO)
 # ====================================================================
 
 collars = []
@@ -61,7 +61,6 @@ assays = []
 lithologies = []
 surveys = []
 
-# Expandimos las dimensiones de la influencia del depósito para abrazar la grilla
 dimension_malla = espaciamiento * 20
 centro_x = b_este + (dimension_malla / 2)
 centro_y = b_norte + (dimension_malla / 2)
@@ -82,7 +81,7 @@ for i in range(1, cant_sondajes + 1):
     elev = np.round(b_cota + pendiente_x + pendiente_y + np.random.normal(0, var_cota / 2), 1)
     
     depth = int(250 + np.random.rand() * 150) if tipo_yacimiento == "Veta Estructural (Tabular)" else int(400 + np.random.rand() * 200)
-    sobrecarga = int(60 + np.random.rand() * 60) # Rango controlado entre 60m y 120m máximo
+    sobrecarga = int(60 + np.random.rand() * 60)
     
     if tipo_yacimiento == "Veta Estructural (Tabular)":
         azimuth = int(90 + np.random.normal(0, 10))
@@ -106,26 +105,19 @@ for i in range(1, cant_sondajes + 1):
         int_y = y + (p_medio * np.cos(rad_dip) * np.cos(rad_azimuth))
         int_z = elev + (p_medio * np.sin(rad_dip))
         
-        # 1. CONTROL DE CAPA ESTÉRIL DE SOBRECARGA (0.0 a 120m Máximo)
         if from_m < sobrecarga:
             cu, au, lit = 0.0, 0.0, "Overburden"
         else:
-            # Distancia horizontal al centro del depósito
             dist_h = np.sqrt((int_x - centro_x)**2 + (int_y - centro_y)**2)
             
-            # CORRECCIÓN DE COBERTURA: Ampliamos radicalmente el radio de mineralización útil a 650 metros
             if dist_h < 650:
-                # Forzamos las leyes gaussianas puras requeridas en la zona del depósito expandido
                 cu = np.clip(normal_random(1.2, 0.45), 0.3, 2.5)
                 au = np.clip(normal_random(6.0, 2.2), 0.9, 12.0)
-                
-                # Asignación litológica estilizada según proximidad
                 if dist_h < 300:
                     lit = "Quartz_Vein_Core" if "Tabular" in tipo_yacimiento else "Massive_Body_Core"
                 else:
                     lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
             else:
-                # Solo las esquinas ultra lejanas (fuera de los 650m de radio) entran en Roca Caja menor
                 lit = "Country_Rock"
                 cu = np.clip(normal_random(0.45, 0.1), 0.3, 0.8)
                 au = np.clip(normal_random(2.1, 0.5), 0.9, 3.2)
@@ -141,7 +133,6 @@ df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
-# ====================================================================
 # 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Gran Pantalla Completa)
 # ====================================================================
 st.subheader("🛰️ Visualizador Espacial 3D Ampliado: Trazas de Pozos y Rangos de Ley")
@@ -149,7 +140,7 @@ st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para RO
 
 fig = go.Figure()
 
-# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
+# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
 min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
 min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
 rango_y = max_y - min_y
@@ -286,19 +277,18 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_descarga(df_surveys, "Surveys.csv")
 
-# PESTAÑA 5: Motor de Conversión Estricto de UTM (Huso 19S) a Geográficas para Google Earth (Sintaxis XML Corregida)
 with tab5:
     st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
     st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
     
-    # CORRECCIÓN DE ENCABEZADO: Forzar a que la cabecera XML comience estrictamente en la línea 1 sin espacios
+    # 🔒 SOLUCIÓN ABSOLUTA: Texto de una sola pieza comprimido con \n fijos sin indentación de Windows
     kml_texto = '<?xml version="1.0" encoding="UTF-8"?>\n'
     kml_texto += '<kml xmlns="http://opengis.net">\n'
     kml_texto += '  <Document>\n'
     kml_texto += '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>\n'
     kml_texto += '    <Style id="marcadorMinero">\n'
     kml_texto += '      <IconStyle>\n'
-    kml_texto += '        <color>ff0000ff</color> <!-- Circulo Rojo Tecnico -->\n'
+    kml_texto += '        <color>ff0000ff</color>\n'
     kml_texto += '        <scale>1.2</scale>\n'
     kml_texto += '        <Icon>\n'
     kml_texto += '          <href>http://google.com</href>\n'
@@ -309,7 +299,9 @@ with tab5:
     kml_texto += '      </LabelStyle>\n'
     kml_texto += '    </Style>\n'
 
-    # Ecuaciones Geodésicas Transversas de Mercator para la conversión de grillas locales
+    lat_chile = -24.250  
+    lon_chile = -69.050  
+    
     for idx, row in df_collar.iterrows():
         x_utm = float(row["X"])
         y_utm = float(row["Y"])
@@ -340,7 +332,6 @@ with tab5:
         lat_decimal = np.degrees(lat_rad)
         lon_decimal = -69.0 + np.degrees(lon_rad) 
         
-        # Concatenar cada punto de forma segura
         kml_texto += '    <Placemark>\n'
         kml_texto += f'      <name>{row["ID"]}</name>\n'
         kml_texto += '      <description><![CDATA[\n'
@@ -360,7 +351,6 @@ with tab5:
     kml_texto += '  </Document>\n'
     kml_texto += '</kml>'
 
-    # Despliegue del botón de descarga web del archivo KML nativo
     st.download_button(
         label="🌍 Descargar Campaña_Sondajes_UTM.kml (Google Earth)",
         data=kml_texto,
