@@ -164,9 +164,9 @@ df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Seguro Calibrado)
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Corrección st.columns(3))
 # ====================================================================
-col_izq, col_grafico, col_der = st.columns()
+col_izq, col_grafico, col_der = st.columns(3) # NUEVO: Se definió explícitamente el número 3
 
 with col_grafico:
     st.subheader("🛰️ Visualizador Espacial 3D: Trazas de Pozos y Leyes")
@@ -174,7 +174,7 @@ with col_grafico:
     
     fig = go.Figure()
     
-    # 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
+    # 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
     min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
     min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
     rango_y = max_y - min_y
@@ -193,13 +193,12 @@ with col_grafico:
             showlegend=False, hoverinfo='none'
         ))
 
-    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC CON ALTO CONTRASTE
+    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC DE ALTO CONTRASTE
     columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
     
-    # NUEVA CALIBRACIÓN DE ESCALAS MINERAS DE ALTO CONTRASTE
-    escala_colores = "Jet" # Escala clásica de arcoíris térmico de alta definición
-    val_max_barra = 1.6 if columna_ley == "Cu_pct" else 0.8 # Zoom al rango crítico de leyes
+    escala_colores = "Jet" # Paleta térmica clásica minera
+    val_max_barra = 1.6 if columna_ley == "Cu_pct" else 0.8 # Calibración del techo visual
     
     x_total, y_total, z_total, leyes_total, textos_total = [], [], [], [], []
     
@@ -212,7 +211,7 @@ with col_grafico:
         az = np.radians(srv["Azimuth"])
         dp = np.radians(srv["Dip"])
         
-        # Inyectar punto inicial (Collar en superficie)
+        # Inyectar punto inicial (Collar)
         x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
         leyes_total.append(0.0)
         textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
@@ -233,13 +232,13 @@ with col_grafico:
         leyes_total.append(0.0)
         textos_total.append("")
 
-    # Añadir la traza gigante unificada con espesor optimizado y colores vivos
+    # Añadir la traza gigante unificada con espesor grueso para máxima claridad de tramos
     fig.add_trace(go.Scatter3d(
         x=x_total, y=y_total, z=z_total, mode='lines+markers',
         line=dict(
             color=leyes_total, 
             colorscale=escala_colores, 
-            width=6, # Traza más gruesa para mejor visibilidad en el monitor
+            width=6, # Traza más gruesa y clara
             cmin=0.0,
             cmax=val_max_barra,
             colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=15, x=0.95)
