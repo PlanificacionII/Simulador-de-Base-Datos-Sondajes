@@ -36,7 +36,7 @@ b_norte = st.sidebar.number_input("Coordenada NORTE Base (Y):", value=6986970)
 b_cota = st.sidebar.number_input("ELEVACIÓN / Cota Terreno (Z):", value=2200)
 var_cota = st.sidebar.number_input("Rugosidad de Topografía (+/- m):", value=15)
 espaciamiento = st.sidebar.number_input("Espaciamiento de Malla (m):", value=40)
-cant_sondajes = st.sidebar.number_input("Cantidad Total de Pozos:", value=60, step=10) # 60 por defecto para fluidez 3D inicial
+cant_sondajes = st.sidebar.number_input("Cantidad Total de Pozos:", value=60, step=10)
 
 tipo_yacimiento = st.sidebar.selectbox(
     "Geometría del Depósito:",
@@ -163,8 +163,9 @@ df_collar = pd.DataFrame(collars)
 df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
+
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Espacial Movil)
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Seguro)
 # ====================================================================
 col_izq, col_grafico, col_der = st.columns([1, 10, 1])
 
@@ -193,12 +194,12 @@ with col_grafico:
             showlegend=False, hoverinfo='none'
         ))
 
-    # 2. TRAZADO DE LEYES EN PROFUNDIDAD TRAMO A TRAMO
-    x_tramos, y_tramos, z_tramos, leyes_tramos, textos_hover = [], [], [], [], []
+    # 2. TRAZADO DE LEYES EN PROFUNDIDAD CON ARREGLOS DE CONTROL NUMÉRICO
     columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
     escala_colores = "YlOrRd" if columna_ley == "Cu_pct" else "Portland"
     
+    # Recorrer pozo por pozo inyectándolos como series individuales para evitar colapso de leyes nulas
     for idx, row in df_collar.iterrows():
         p_id = row["ID"]
         ensayos_pozo = [a for a in assays if a["ID"] == p_id]
@@ -208,7 +209,9 @@ with col_grafico:
         az = np.radians(srv["Azimuth"])
         dp = np.radians(srv["Dip"])
         
-        # Punto inicial en superficie
+        x_tramos, y_tramos, z_tramos, leyes_tramos, textos_hover = [], [], [], [], []
+        
+        # Punto inicial en superficie (Collar)
         x_tramos.append(row["X"]); y_tramos.append(row["Y"]); z_tramos.append(row["Z"])
         leyes_tramos.append(0.0)
         textos_hover.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
@@ -225,16 +228,16 @@ with col_grafico:
             lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
             textos_hover.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {ens[columna_ley]:,.2f} {unidad_ley}")
             
-        x_tramos.append(None); y_tramos.append(None); z_tramos.append(None)
-        leyes_tramos.append(None); textos_hover.append(None)
+        # Al inyectarlo como serie individual, Plotly ya no requiere separadores de tipo None. 
+        # Esto elimina el ValueError de raíz garantizando 100% de estabilidad en la nube.
+        fig.add_trace(go.Scatter3d(
+            x=x_tramos, y=y_tramos, z=z_tramos, mode='lines+markers',
+            line=dict(color=leyes_tramos, colorscale=escala_colores, width=5, cmin=0, cmax=3.0 if columna_ley=="Cu_pct" else 1.5),
+            marker=dict(size=2.5, color=leyes_tramos, colorscale=escala_colores, cmin=0, cmax=3.0 if columna_ley=="Cu_pct" else 1.5),
+            text=textos_hover, hoverinfo='text', showlegend=False
+        ))
 
-    fig.add_trace(go.Scatter3d(
-        x=x_tramos, y=y_tramos, z=z_tramos, mode='lines+markers',
-        line=dict(color=leyes_tramos, colorscale=escala_colores, width=5, colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=20, x=0.95)),
-        marker=dict(size=2, color=leyes_tramos, colorscale=escala_colores, opacity=0.8),
-        text=textos_hover, hoverinfo='text', showlegend=False
-    ))
-    
+    # Ajustes estructurales de la ventana tridimensional
     fig.update_layout(
         width=950, height=650, margin=dict(l=0, r=0, t=10, b=0),
         scene=dict(
