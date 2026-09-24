@@ -149,13 +149,13 @@ for i in range(1, cant_sondajes + 1):
                     if es_enriquecido:
                         lit, cu, au = "Enriched_Halo", normal_random(0.9, 0.15), log_normal_from_mean_sd(0.15, 0.04)
                     else:
-                          lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
+                        lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
                         cu = np.clip(normal_random(0.6, 0.2), 0.15, 1.2)
                         au = np.clip(normal_random(1.2, 0.4), 0.5, 2.0)
 
                 else:
-                    lit, cu, au = "Country_Rock", np.random.rand() * 0.05, np.random.rand() * 0.02
                     
+		lit, cu, au = "Country_Rock", np.random.rand() * 0.05, np.random.rand() * 0.02                    
                 cu = np.round(max(0.01, cu), 2)
                 au = np.round(max(0.005, au), 2)
                 
