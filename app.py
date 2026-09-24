@@ -164,112 +164,135 @@ df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Corrección st.columns(3))
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Diseño Expandido 100% Ancho)
 # ====================================================================
-col_izq, col_grafico, col_der = st.columns(3) # NUEVO: Se definió explícitamente el número 3
+st.subheader("🛰️ Visualizador Espacial 3D: Trazas de Pozos y Bloques de Ley")
+st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para ROTAR. Usa la rueda del mouse para hacer ZOOM. Haz clic derecho y arrastra para DESPLAZAR (Pan).")
 
-with col_grafico:
-    st.subheader("🛰️ Visualizador Espacial 3D: Trazas de Pozos y Leyes")
-    st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para ROTAR. Usa la rueda del mouse para hacer ZOOM. Haz clic derecho y arrastra para DESPLAZAR (Pan).")
-    
-    fig = go.Figure()
-    
-    # 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
-    min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
-    min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
-    rango_y = max_y - min_y
-    
-    num_curvas = 10
-    for c in range(1, num_curvas + 1):
-        x_linea = np.linspace(min_x, max_x, 30)
-        y_base = min_y + espaciamiento + (rango_y * (c / (num_curvas + 1)))
-        y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
-        z_linea = round(float(df_collar["Z"].min()) + ((float(df_collar["Z"].max()) - float(df_collar["Z"].min())) * (c / (num_curvas + 1))), 1)
-        z_array = np.full_like(x_linea, z_linea)
-        
-        fig.add_trace(go.Scatter3d(
-            x=x_linea, y=y_linea, z=z_array, mode='lines',
-            line=dict(color='rgba(160, 160, 160, 0.3)', width=1.5),
-            showlegend=False, hoverinfo='none'
-        ))
+fig = go.Figure()
 
-    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC DE ALTO CONTRASTE
-    columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-    unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
-    
-    escala_colores = "Jet" # Paleta térmica clásica minera
-    val_max_barra = 1.6 if columna_ley == "Cu_pct" else 0.8 # Calibración del techo visual
-    
-    x_total, y_total, z_total, leyes_total, textos_total = [], [], [], [], []
-    
-    for idx, row in df_collar.iterrows():
-        p_id = row["ID"]
-        ensayos_pozo = [a for a in assays if a["ID"] == p_id]
-        srv = next((s for s in surveys if s["ID"] == p_id), None)
-        if not srv or not ensayos_pozo: continue
-        
-        az = np.radians(srv["Azimuth"])
-        dp = np.radians(srv["Dip"])
-        
-        # Inyectar punto inicial (Collar)
-        x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
-        leyes_total.append(0.0)
-        textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
-        
-        for ens in ensayos_pozo:
-            p_m = ens["From"] + 5
-            int_x = row["X"] + (p_m * np.cos(dp) * np.sin(az))
-            int_y = row["Y"] + (p_m * np.cos(dp) * np.cos(az))
-            int_z = row["Z"] + (p_m * np.sin(dp))
-            
-            x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
-            leyes_total.append(float(ens[columna_ley]))
-            
-            lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
-            textos_total.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {ens[columna_ley]:,.2f} {unidad_ley}")
-            
-        x_total.append(np.nan); y_total.append(np.nan); z_total.append(np.nan)
-        leyes_total.append(0.0)
-        textos_total.append("")
+# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
+min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
+min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
+rango_y = max_y - min_y
 
-    # Añadir la traza gigante unificada con espesor grueso para máxima claridad de tramos
+num_curvas = 10
+for c in range(1, num_curvas + 1):
+    x_linea = np.linspace(min_x, max_x, 30)
+    y_base = min_y + espaciamiento + (rango_y * (c / (num_curvas + 1)))
+    y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
+    z_linea = round(float(df_collar["Z"].min()) + ((float(df_collar["Z"].max()) - float(df_collar["Z"].min())) * (c / (num_curvas + 1))), 1)
+    z_array = np.full_like(x_linea, z_linea)
+    
     fig.add_trace(go.Scatter3d(
-        x=x_total, y=y_total, z=z_total, mode='lines+markers',
-        line=dict(
-            color=leyes_total, 
-            colorscale=escala_colores, 
-            width=6, # Traza más gruesa y clara
-            cmin=0.0,
-            cmax=val_max_barra,
-            colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=15, x=0.95)
-        ),
-        marker=dict(
-            size=2.5, 
-            color=leyes_total, 
-            colorscale=escala_colores,
-            cmin=0.0,
-            cmax=val_max_barra,
-            opacity=0.9
-        ),
-        text=textos_total, hoverinfo='text', showlegend=False
+        x=x_linea, y=y_linea, z=z_array, mode='lines',
+        line=dict(color='rgba(160, 160, 160, 0.3)', width=1.5),
+        showlegend=False, hoverinfo='none'
     ))
 
-    # Ajustes estructurales de la ventana tridimensional
-    config_escena = dict(
-        xaxis=dict(title="Este (X)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-        yaxis=dict(title="Norte (Y)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-        zaxis=dict(title="Cota (Z)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-        aspectmode="manual",
-        aspectratio=dict(x=1, y=1, z=0.5)
-    )
+# 2. CONSTRUCCIÓN DE LA PALETA DE COLORES RESTRITA POR RANGOS MINEROS REALES
+columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
 
-    fig.update_layout(
-        width=950,
-        height=650,
-        margin=dict(l=0, r=0, t=10, b=0),
-        scene=config_escena
-    )
-    st.plotly_chart(fig, use_container_width=True)
+# NUEVO: Definición estricta de intervalos de ley estilo bloque geoestadístico
+if columna_ley == "Cu_pct":
+    # Escala Cobre: [0 a 0.2] -> Verde, [0.2 a 0.6] -> Amarillo, [0.6 a 1.0] -> Naranja, [>1.0] -> Rojo
+    paleta_discreta = [
+        [0.0, 'forestgreen'],   # Estéril / Roca de caja
+        [0.15, 'forestgreen'],
+        [0.15, 'gold'],          # Ley Baja / Halo stockwork
+        [0.45, 'gold'],
+        [0.45, 'darkorange'],    # Ley Media
+        [0.75, 'darkorange'],
+        [0.75, 'crimson'],       # Ley Alta / Núcleo rico
+        [1.0, 'crimson']
+    ]
+    val_max_barra = 1.3
+else:
+    # Escala Oro: [0 a 0.1] -> Verde, [0.1 a 0.3] -> Amarillo, [0.3 a 0.6] -> Naranja, [>0.6] -> Rojo
+    paleta_discreta = [
+        [0.0, 'forestgreen'],
+        [0.12, 'forestgreen'],
+        [0.12, 'gold'],
+        [0.37, 'gold'],
+        [0.37, 'darkorange'],
+        [0.75, 'darkorange'],
+        [0.75, 'crimson'],
+        [1.0, 'crimson']
+    ]
+    val_max_barra = 0.8
+
+x_total, y_total, z_total, leyes_total, textos_total = [], [], [], [], []
+
+for idx, row in df_collar.iterrows():
+    p_id = row["ID"]
+    ensayos_pozo = [a for a in assays if a["ID"] == p_id]
+    srv = next((s for s in surveys if s["ID"] == p_id), None)
+    if not srv or not ensayos_pozo: continue
+    
+    az = np.radians(srv["Azimuth"])
+    dp = np.radians(srv["Dip"])
+    
+    x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
+    leyes_total.append(0.0)
+    textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
+    
+    for ens in ensayos_pozo:
+        p_m = ens["From"] + 5
+        int_x = row["X"] + (p_m * np.cos(dp) * np.sin(az))
+        int_y = row["Y"] + (p_m * np.cos(dp) * np.cos(az))
+        int_z = row["Z"] + (p_m * np.sin(dp))
+        
+        x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
+        leyes_total.append(float(ens[columna_ley]))
+        
+        lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
+        textos_total.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {ens[columna_ley]:,.2f} {unidad_ley}")
+        
+    x_total.append(np.nan); y_total.append(np.nan); z_total.append(np.nan)
+    leyes_total.append(0.0)
+    textos_total.append("")
+
+# Dibujar la traza gruesa unificada con la escala discreta por rangos
+fig.add_trace(go.Scatter3d(
+    x=x_total, y=y_total, z=z_total, mode='lines+markers',
+    line=dict(
+        color=leyes_total, 
+        colorscale=paleta_discreta, # Inyección de la paleta por rangos
+        width=6.5,                  # Mayor espesor de línea para máxima claridad
+        cmin=0.0,
+        cmax=val_max_barra,
+        colorbar=dict(title=f"Rango Leyes ({unidad_ley})", thickness=18, x=0.98)
+    ),
+    marker=dict(
+        size=2.5, 
+        color=leyes_total, 
+        colorscale=paleta_discreta,
+        cmin=0.0,
+        cmax=val_max_barra,
+        opacity=0.9
+    ),
+    text=textos_total, hoverinfo='text', showlegend=False
+))
+
+# Ajustes estructurales ampliados a pantalla completa
+config_escena = dict(
+    xaxis=dict(title="Este (X)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+    yaxis=dict(title="Norte (Y)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+    zaxis=dict(title="Cota (Z)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
+    aspectmode="manual",
+    aspectratio=dict(x=1.3, y=1.3, z=0.55) # Cubo más ancho y espaciado
+)
+
+fig.update_layout(
+    width=1300, # Ampliado para ocupar todo el ancho del monitor
+    height=700,
+    margin=dict(l=0, r=0, t=10, b=0),
+    scene=config_escena
+)
+
+# Renderizado a ancho completo
+st.plotly_chart(fig, use_container_width=True)
 
 # TABLAS DE DESCARGA INFERIORES
 st.markdown("---")
