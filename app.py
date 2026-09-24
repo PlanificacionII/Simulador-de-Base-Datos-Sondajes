@@ -162,10 +162,8 @@ for i in range(1, cant_sondajes + 1):
 df_collar = pd.DataFrame(collars)
 df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
-df_surveys = pd.DataFrame(surveys)
-
-# ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Seguro)
+d# ====================================================================
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Unificado 3D)
 # ====================================================================
 col_izq, col_grafico, col_der = st.columns([1, 10, 1])
 
@@ -194,12 +192,13 @@ with col_grafico:
             showlegend=False, hoverinfo='none'
         ))
 
-    # 2. TRAZADO DE LEYES EN PROFUNDIDAD CON ARREGLOS DE CONTROL NUMÉRICO
+    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC (EVITA ERRORES DE VALIDACIÓN)
     columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
     escala_colores = "YlOrRd" if columna_ley == "Cu_pct" else "Portland"
     
-    # Recorrer pozo por pozo inyectándolos como series individuales para evitar colapso de leyes nulas
+    x_total, y_total, z_total, leyes_total, textos_total = [], [], [], [], []
+    
     for idx, row in df_collar.iterrows():
         p_id = row["ID"]
         ensayos_pozo = [a for a in assays if a["ID"] == p_id]
@@ -209,12 +208,10 @@ with col_grafico:
         az = np.radians(srv["Azimuth"])
         dp = np.radians(srv["Dip"])
         
-        x_tramos, y_tramos, z_tramos, leyes_tramos, textos_hover = [], [], [], [], []
-        
-        # Punto inicial en superficie (Collar)
-        x_tramos.append(row["X"]); y_tramos.append(row["Y"]); z_tramos.append(row["Z"])
-        leyes_tramos.append(0.0)
-        textos_hover.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
+        # Inyectar punto inicial (Collar)
+        x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
+        leyes_total.append(0.0)
+        textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
         
         for ens in ensayos_pozo:
             p_m = ens["From"] + 5
@@ -222,22 +219,40 @@ with col_grafico:
             int_y = row["Y"] + (p_m * np.cos(dp) * np.cos(az))
             int_z = row["Z"] + (p_m * np.sin(dp))
             
-            x_tramos.append(int_x); y_tramos.append(int_y); z_tramos.append(int_z)
-            leyes_tramos.append(ens[columna_ley])
+            x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
+            leyes_total.append(float(ens[columna_ley]))
             
             lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
-            textos_hover.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {ens[columna_ley]:,.2f} {unidad_ley}")
+            textos_total.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {ens[columna_ley]:,.2f} {unidad_ley}")
             
-        # Al inyectarlo como serie individual, Plotly ya no requiere separadores de tipo None. 
-        # Esto elimina el ValueError de raíz garantizando 100% de estabilidad en la nube.
-        fig.add_trace(go.Scatter3d(
-            x=x_tramos, y=y_tramos, z=z_tramos, mode='lines+markers',
-            line=dict(color=leyes_tramos, colorscale=escala_colores, width=5, cmin=0, cmax=3.0 if columna_ley=="Cu_pct" else 1.5),
-            marker=dict(size=2.5, color=leyes_tramos, colorscale=escala_colores, cmin=0, cmax=3.0 if columna_ley=="Cu_pct" else 1.5),
-            text=textos_hover, hoverinfo='text', showlegend=False
-        ))
+        # El estándar técnico de Plotly 3D unificado usa np.nan matemáticos para cortar trazas sin colapsar las barras de color
+        x_total.append(np.nan); y_total.append(np.nan); z_total.append(np.nan)
+        leyes_total.append(0.0) # Se rellena con cero neutro para que el vector numérico sea homogéneo
+        textos_total.append("")
 
-    # Ajustes estructurales de la ventana tridimensional
+    # Añadir la traza gigante unificada de una sola vez
+    fig.add_trace(go.Scatter3d(
+        x=x_total, y=y_total, z=z_total, mode='lines+markers',
+        line=dict(
+            color=leyes_total, 
+            colorscale=escala_colores, 
+            width=5,
+            cmin=0.0,
+            cmax=3.0 if columna_ley=="Cu_pct" else 1.5,
+            colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=15, x=0.9)
+        ),
+        marker=dict(
+            size=2, 
+            color=leyes_total, 
+            colorscale=escala_colores,
+            cmin=0.0,
+            cmax=3.0 if columna_ley=="Cu_pct" else 1.5,
+            opacity=0.8
+        ),
+        text=textos_total, hoverinfo='text', showlegend=False
+    ))
+
+    # Ajustes estructurales limpios del Layout sin interferencias de escala
     fig.update_layout(
         width=950, height=650, margin=dict(l=0, r=0, t=10, b=0),
         scene=dict(
@@ -271,4 +286,5 @@ with tab3:
     crear_boton_descarga(df_lithology, "Litologia.csv")
 with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
-    crear_boton_descarga(df_surveys, "Surveys.csv")
+    crear_boton_descarga(df_surveys, "Surveys.csv")f_surveys = pd.DataFrame(surveys)
+
