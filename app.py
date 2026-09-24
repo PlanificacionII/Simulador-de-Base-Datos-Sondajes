@@ -286,7 +286,7 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_descarga(df_surveys, "Surveys.csv")
 
-# PESTAÑA 5: Motor de Proyección y Conversión Satelital para el Norte de Chile
+# PESTAÑA 5: Motor de Proyección y Conversión Satelital para el Norte de Chile (Solo Coordenadas)
 with tab5:
     st.write("### 🛰️ Exportador Geográfico KML - Distrito Minero Norte de Chile")
     st.write("Esta herramienta realiza una transformación matemática para mapear tus collares locales sobre el relieve real de la Cordillera de los Andes.")
@@ -312,16 +312,16 @@ with tab5:
       </LabelStyle>
     </Style>
 """
-    # Algoritmo de transformación elipsoidal aproximada para conversión de grillas locales
+    # Algoritmo de transformación elipsoidal para conversión de grillas locales
     for idx, row in df_collar.iterrows():
         delta_norte_metros = row["Y"] - b_norte
         delta_este_metros = row["X"] - b_este
         
-        # Conversión geodésica a grados decimales
+        # Conversión geodésica a grados decimales (Latitud y Longitud)
         conv_lat = lat_chile + (delta_norte_metros / 111130)
         conv_lon = lon_chile + (delta_este_metros / (111130 * np.cos(np.radians(lat_chile))))
         
-        # Inyectar Placemark al archivo KML con los metadatos del pozo
+        # Inyectar Placemark al archivo KML (Se elimina la cota del parámetro coordinates)
         kml_texto += f"""    <Placemark>
       <name>{row['ID']}</name>
       <description><![CDATA[
@@ -334,9 +334,9 @@ with tab5:
       ]]></description>
       <styleUrl>#marcadorMinero</styleUrl>
       <Point>
-        <extrude>1</extrude>
-        <altitudeMode>absolute</altitudeMode>
-        <coordinates>{conv_lon},{conv_lat},{row['Z']}</coordinates>
+        <!-- Forzar el amarre al suelo ignorando la altura local -->
+        <altitudeMode>clampToGround</altitudeMode>
+        <coordinates>{conv_lon},{conv_lat},0</coordinates>
       </Point>
     </Placemark>
 """
