@@ -164,9 +164,9 @@ df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Seguro Estructural)
+# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Renderizado Seguro Calibrado)
 # ====================================================================
-col_izq, col_grafico, col_der = st.columns([1, 10, 1])
+col_izq, col_grafico, col_der = st.columns()
 
 with col_grafico:
     st.subheader("🛰️ Visualizador Espacial 3D: Trazas de Pozos y Leyes")
@@ -174,7 +174,7 @@ with col_grafico:
     
     fig = go.Figure()
     
-    # 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
+    # 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
     min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
     min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
     rango_y = max_y - min_y
@@ -189,14 +189,17 @@ with col_grafico:
         
         fig.add_trace(go.Scatter3d(
             x=x_linea, y=y_linea, z=z_array, mode='lines',
-            line=dict(color='rgba(150, 150, 150, 0.4)', width=2),
+            line=dict(color='rgba(160, 160, 160, 0.3)', width=1.5),
             showlegend=False, hoverinfo='none'
         ))
 
-    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC
+    # 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA PURE-NUMERIC CON ALTO CONTRASTE
     columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
-    escala_colores = "YlOrRd" if columna_ley == "Cu_pct" else "Portland"
+    
+    # NUEVA CALIBRACIÓN DE ESCALAS MINERAS DE ALTO CONTRASTE
+    escala_colores = "Jet" # Escala clásica de arcoíris térmico de alta definición
+    val_max_barra = 1.6 if columna_ley == "Cu_pct" else 0.8 # Zoom al rango crítico de leyes
     
     x_total, y_total, z_total, leyes_total, textos_total = [], [], [], [], []
     
@@ -209,6 +212,7 @@ with col_grafico:
         az = np.radians(srv["Azimuth"])
         dp = np.radians(srv["Dip"])
         
+        # Inyectar punto inicial (Collar en superficie)
         x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
         leyes_total.append(0.0)
         textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
@@ -229,30 +233,29 @@ with col_grafico:
         leyes_total.append(0.0)
         textos_total.append("")
 
+    # Añadir la traza gigante unificada con espesor optimizado y colores vivos
     fig.add_trace(go.Scatter3d(
         x=x_total, y=y_total, z=z_total, mode='lines+markers',
         line=dict(
             color=leyes_total, 
             colorscale=escala_colores, 
-            width=5,
+            width=6, # Traza más gruesa para mejor visibilidad en el monitor
             cmin=0.0,
-            cmax=3.0 if columna_ley=="Cu_pct" else 1.5,
+            cmax=val_max_barra,
             colorbar=dict(title=f"Leyes ({unidad_ley})", thickness=15, x=0.95)
         ),
         marker=dict(
-            size=2, 
+            size=2.5, 
             color=leyes_total, 
             colorscale=escala_colores,
             cmin=0.0,
-            cmax=3.0 if columna_ley=="Cu_pct" else 1.5,
-            opacity=0.8
+            cmax=val_max_barra,
+            opacity=0.9
         ),
         text=textos_total, hoverinfo='text', showlegend=False
     ))
 
-    # ====================================================================
-    # 🔒 ARQUITECTURA LIMPIA DE ESCENA DE UNA SOLA PIEZA (EVITA ERRORES DE HOVER)
-    # ====================================================================
+    # Ajustes estructurales de la ventana tridimensional
     config_escena = dict(
         xaxis=dict(title="Este (X)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
         yaxis=dict(title="Norte (Y)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
