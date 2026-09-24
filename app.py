@@ -53,7 +53,7 @@ elemento_render = st.sidebar.radio(
     ["Cobre (Cu %)", "Oro (Au g/t)"]
 )
 # ====================================================================
-# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL
+# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (RECALIBRADO)
 # ====================================================================
 
 collars = []
@@ -80,8 +80,11 @@ for i in range(1, cant_sondajes + 1):
     pendiente_y = (y - b_norte) * 0.02
     elev = np.round(b_cota + pendiente_x + pendiente_y + np.random.normal(0, var_cota / 2), 1)
     
+    # Configuración de profundidad general
     depth = int(250 + np.random.rand() * 150) if tipo_yacimiento == "Veta Estructural (Tabular)" else int(400 + np.random.rand() * 200)
-    sobrecarga = int(40 + np.random.rand() * 25)
+    
+    # NUEVO: Sobrecarga estéril obligatoria condicionada a no ser mayor a 120 metros
+    sobrecarga = int(60 + np.random.rand() * 60) # Rango aleatorio entre 60m y 120m
     
     if tipo_yacimiento == "Veta Estructural (Tabular)":
         azimuth = int(90 + np.random.normal(0, 10))
@@ -105,58 +108,33 @@ for i in range(1, cant_sondajes + 1):
         int_y = y + (p_medio * np.cos(rad_dip) * np.cos(rad_azimuth))
         int_z = elev + (p_medio * np.sin(rad_dip))
         
+        # 1. CONTROL DE CAPA ESTÉRIL DE SOBRECARGA (0.0 a 120m Máximo)
         if from_m < sobrecarga:
             cu, au, lit = 0.0, 0.0, "Overburden"
         else:
-            plano_falla_z = (b_cota - 200) + 0.5 * (int_x - centro_x) - 0.3 * (int_y - centro_y)
+            # Determinar factor de forma solo para control litológico, no para reducir leyes
+            dist_h = np.sqrt((int_x - centro_x)**2 + (int_y - centro_y)**2)
             
-            if "Tabular" not in tipo_yacimiento and abs(int_z - plano_falla_z) < 15:
-                lit = "Fault_Breccia"
-                cu = np.round(max(0.01, normal_random(0.04, 0.01)), 2)
-                au = np.round(max(0.005, normal_random(0.02, 0.005)), 2)
+            # 2. SIMULACIÓN PURA DE LEYES BAJO PARAMETRIZACIÓN DOCENTE ESTRICTA
+            # Cobre: Mínimo 0.3, Máximo 2.5, Media 1.2
+            cu = np.clip(normal_random(1.2, 0.45), 0.3, 2.5)
+            
+            # Oro: Mínimo 0.9, Máximo 12.0, Media 6.0
+            au = np.clip(normal_random(6.0, 2.2), 0.9, 12.0)
+            
+            # Clasificación de litologías estructurales según cercanía
+            if dist_h < 200:
+                lit = "Quartz_Vein_Core" if "Tabular" in tipo_yacimiento else "Massive_Body_Core"
+            elif dist_h < 400:
+                lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
             else:
-                factor_forma = 0.0
+                lit = "Country_Rock"
+                # Fuera del depósito las leyes caen a niveles de roca caja base
+                cu = np.clip(normal_random(0.12, 0.05), 0.01, 0.25)
+                au = np.clip(normal_random(0.2, 0.1), 0.005, 0.4)
                 
-                if "Pórfido" in tipo_yacimiento:
-                    dist_h = np.sqrt((int_x - centro_x)**2 + (int_y - centro_y)**2)
-                    dist_z = abs(int_z - centro_z)
-                    factor_forma = np.exp(-(dist_h / 250)**2 - (dist_z / 150)**2)
-                elif "Botín" in tipo_yacimiento:
-                    dx, dy, dz = int_x - centro_x, int_y - centro_y, int_z - centro_z
-                    f_cana = np.exp(-(dx / 130)**2 - (dy / 130)**2 - (dz / 200)**2)
-                    if dz < -50: f_cana = 0
-                    f_puntera = np.exp(-(dx / 150)**2 - ((dy - 180) / 300)**2 - ((dz + 120) / 80)**2)
-                    factor_forma = max(f_cana, f_puntera)
-                elif "Tabular" in tipo_yacimiento:
-                    dist_plano = abs((int_x - centro_x) - (int_z - centro_z) * np.tan(np.radians(10)))
-                    factor_forma = np.exp(-(dist_plano / 15)**2)
-                
-                dist_superficie = elev - int_z
-                es_enriquecido = ("Tabular" not in tipo_yacimiento) and (sobrecarga <= dist_superficie <= sobrecarga + 45)
-                
-                if factor_forma > 0.45:
-                    if es_enriquecido:
-                        lit = "Supergene_Chalcocite"
-                        cu = np.clip(normal_random(2.5, 0.3), 0.5, 2.5)
-                        au = np.clip(normal_random(2.5, 0.5), 2.0, 5.0)
-                    else:
-                        lit = "Quartz_Vein_Core" if "Tabular" in tipo_yacimiento else "Massive_Body_Core"
-                        cu = np.clip(normal_random(1.2, 0.45), 0.5, 2.5)
-                        au = np.clip(normal_random(2.5, 0.65), 2.0, 5.0)
-                elif factor_forma > 0.12:
-                    if es_enriquecido:
-                        lit = "Enriched_Halo"
-                        cu = np.clip(normal_random(0.9, 0.15), 0.15, 1.2)
-                        au = np.clip(normal_random(1.2, 0.4), 0.5, 2.0)
-                    else:
-                        lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
-                        cu = np.clip(normal_random(0.6, 0.2), 0.15, 1.2)
-                        au = np.clip(normal_random(1.2, 0.4), 0.5, 2.0)
-                else:
-                    lit, cu, au = "Country_Rock", np.random.rand() * 0.05, np.random.rand() * 0.02
-                    
-                cu = np.round(max(0.01, cu), 2)
-                au = np.round(max(0.005, au), 2)
+        cu = np.round(max(0.0, cu), 2)
+        au = np.round(max(0.0, au), 2)
                 
         lithologies.append({"ID": pozo_id, "From": from_m, "To": to_m, "Lithology": lit})
         assays.append({"ID": pozo_id, "From": from_m, "To": to_m, "Cu_pct": cu, "Au_gpt": au})
@@ -173,7 +151,7 @@ st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para RO
 
 fig = go.Figure()
 
-# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
+# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
 min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
 min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
 rango_y = max_y - min_y
@@ -192,7 +170,7 @@ for c in range(1, num_curvas + 1):
         showlegend=False, hoverinfo='none'
     ))
 
-# 2. CONSTRUCCIÓN DE MATRIZ UNIFICADA CON ESCALA DE COLORES POR INTERVALO DE CORTE (CUT-OFF)
+# 2. CONSTRUCCIÓN DE MATRIZ CON MAPEO DE COLORES POR INTERVALOS RECALIBRADOS
 columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
 unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
 
@@ -219,24 +197,25 @@ for idx, row in df_collar.iterrows():
         
         val_ley = float(ens[columna_ley])
         
+        # Sincronización de intervalos visuales con los nuevos rangos altos
         if columna_ley == "Cu_pct":
-            if val_ley < 0.50:
-                codigo = 0.0  # Verde (Baja Ley / Estéril)
-            elif 0.50 <= val_ley < 1.20:
-                codigo = 1.0  # Amarillo (Ley Media)
-            elif 1.20 <= val_ley < 2.00:
-                codigo = 2.0  # Naranja (Alta Ley)
+            if val_ley < 0.30:
+                codigo = 0.0  # Verde (Capa estéril / Roca caja baja)
+            elif 0.30 <= val_ley < 1.00:
+                codigo = 1.0  # Amarillo (Ley Baja-Media)
+            elif 1.00 <= val_ley < 1.80:
+                codigo = 2.0  # Naranja (Alta Ley / Cerca de la Media)
             else:
-                codigo = 3.0  # Rojo (Excelente Ley / Núcleo)
+                codigo = 3.0  # Rojo (Excelente Ley hasta 2.5%)
         else:
-            if val_ley < 2.50:
-                codigo = 0.0  # Verde
-            elif 2.50 <= val_ley < 3.50:
-                codigo = 1.0  # Amarillo
-            elif 3.50 <= val_ley < 4.50:
-                codigo = 2.0  # Naranja
+            if val_ley < 0.90:
+                codigo = 0.0  # Verde (Estéril / Roca caja)
+            elif 0.90 <= val_ley < 4.00:
+                codigo = 1.0  # Amarillo (Ley Baja)
+            elif 4.00 <= val_ley < 8.00:
+                codigo = 2.0  # Naranja (Alta ley en torno a la media)
             else:
-                codigo = 3.0  # Rojo
+                codigo = 3.0  # Rojo (Excelente Ley hasta 12 g/t)
 
         x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
         codigos_color_total.append(codigo)
@@ -262,10 +241,10 @@ fig.add_trace(go.Scatter3d(
         colorbar=dict(
             title=f"Rangos ({unidad_ley})", thickness=20, x=0.98,
             tickvals=[0.375, 1.125, 1.875, 2.625],
-            ticktext=["< 0.50 %" if columna_ley=="Cu_pct" else "< 2.50 g/t", 
-                      "0.50 - 1.20 %" if columna_ley=="Cu_pct" else "2.50 - 3.50 g/t", 
-                      "1.20 - 2.00 %" if columna_ley=="Cu_pct" else "3.50 - 4.50 g/t", 
-                      "> 2.00 %" if columna_ley=="Cu_pct" else "> 4.50 g/t"]
+            ticktext=["Estéril (<0.30%)" if columna_ley=="Cu_pct" else "Estéril (<0.9 g/t)", 
+                      "Baja-Media (0.30-1.0%)" if columna_ley=="Cu_pct" else "Baja (0.9-4.0 g/t)", 
+                      "Alta Ley (1.0-1.8%)" if columna_ley=="Cu_pct" else "Alta Ley (4.0-8.0 g/t)", 
+                      "Excelente (>1.80%)" if columna_ley=="Cu_pct" else "Excelente (>8.0 g/t)"]
         )
     ),
     marker=dict(size=2.5, color=codigos_color_total, colorscale=paleta_discreta, cmin=0.0, cmax=3.0, opacity=0.9),
