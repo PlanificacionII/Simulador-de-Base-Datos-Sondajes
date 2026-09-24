@@ -53,7 +53,7 @@ elemento_render = st.sidebar.radio(
     ["Cobre (Cu %)", "Oro (Au g/t)"]
 )
 # ====================================================================
-# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (RECALIBRADO)
+# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (YACIMIENTO EXPANDIDO)
 # ====================================================================
 
 collars = []
@@ -61,6 +61,7 @@ assays = []
 lithologies = []
 surveys = []
 
+# Expandimos las dimensiones de la influencia del depósito para abrazar la grilla
 dimension_malla = espaciamiento * 20
 centro_x = b_este + (dimension_malla / 2)
 centro_y = b_norte + (dimension_malla / 2)
@@ -80,11 +81,8 @@ for i in range(1, cant_sondajes + 1):
     pendiente_y = (y - b_norte) * 0.02
     elev = np.round(b_cota + pendiente_x + pendiente_y + np.random.normal(0, var_cota / 2), 1)
     
-    # Configuración de profundidad general
     depth = int(250 + np.random.rand() * 150) if tipo_yacimiento == "Veta Estructural (Tabular)" else int(400 + np.random.rand() * 200)
-    
-    # NUEVO: Sobrecarga estéril obligatoria condicionada a no ser mayor a 120 metros
-    sobrecarga = int(60 + np.random.rand() * 60) # Rango aleatorio entre 60m y 120m
+    sobrecarga = int(60 + np.random.rand() * 60) # Rango controlado entre 60m y 120m máximo
     
     if tipo_yacimiento == "Veta Estructural (Tabular)":
         azimuth = int(90 + np.random.normal(0, 10))
@@ -112,26 +110,25 @@ for i in range(1, cant_sondajes + 1):
         if from_m < sobrecarga:
             cu, au, lit = 0.0, 0.0, "Overburden"
         else:
-            # Determinar factor de forma solo para control litológico, no para reducir leyes
+            # Distancia horizontal al centro del depósito
             dist_h = np.sqrt((int_x - centro_x)**2 + (int_y - centro_y)**2)
             
-            # 2. SIMULACIÓN PURA DE LEYES BAJO PARAMETRIZACIÓN DOCENTE ESTRICTA
-            # Cobre: Mínimo 0.3, Máximo 2.5, Media 1.2
-            cu = np.clip(normal_random(1.2, 0.45), 0.3, 2.5)
-            
-            # Oro: Mínimo 0.9, Máximo 12.0, Media 6.0
-            au = np.clip(normal_random(6.0, 2.2), 0.9, 12.0)
-            
-            # Clasificación de litologías estructurales según cercanía
-            if dist_h < 200:
-                lit = "Quartz_Vein_Core" if "Tabular" in tipo_yacimiento else "Massive_Body_Core"
-            elif dist_h < 400:
-                lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
+            # CORRECCIÓN DE COBERTURA: Ampliamos radicalmente el radio de mineralización útil a 650 metros
+            if dist_h < 650:
+                # Forzamos las leyes gaussianas puras requeridas en la zona del depósito expandido
+                cu = np.clip(normal_random(1.2, 0.45), 0.3, 2.5)
+                au = np.clip(normal_random(6.0, 2.2), 0.9, 12.0)
+                
+                # Asignación litológica estilizada según proximidad
+                if dist_h < 300:
+                    lit = "Quartz_Vein_Core" if "Tabular" in tipo_yacimiento else "Massive_Body_Core"
+                else:
+                    lit = "Stockwork_Halo" if "Tabular" in tipo_yacimiento else "Mineralized_Breccia"
             else:
+                # Solo las esquinas ultra lejanas (fuera de los 650m de radio) entran en Roca Caja menor
                 lit = "Country_Rock"
-                # Fuera del depósito las leyes caen a niveles de roca caja base
-                cu = np.clip(normal_random(0.12, 0.05), 0.01, 0.25)
-                au = np.clip(normal_random(0.2, 0.1), 0.005, 0.4)
+                cu = np.clip(normal_random(0.45, 0.1), 0.3, 0.8)
+                au = np.clip(normal_random(2.1, 0.5), 0.9, 3.2)
                 
         cu = np.round(max(0.0, cu), 2)
         au = np.round(max(0.0, au), 2)
