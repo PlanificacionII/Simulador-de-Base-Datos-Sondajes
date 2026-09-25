@@ -387,7 +387,8 @@ with tab5:
                             pnt.style.labelstyle.scale = 0.8
 
                         # Compilar la estructura completa a bytes binarios UTF-8 puros directos de fábrica
-                        kml_bytes_perfectos = kml_objeto.tostring().encode("utf-8")
+                         # CORRECCIÓN: .kml() es el comando nativo oficial de simplekml para compilar el archivo
+                        kml_bytes_perfectos = kml_objeto.kml().encode("utf-8")
                         
                         st.balloons() # Animación festiva de Streamlit para los alumnos
                         st.success("🎉 ¡Conversión Geodésica Finalizada con Éxito!")
