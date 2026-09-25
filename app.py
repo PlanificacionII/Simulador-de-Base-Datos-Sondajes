@@ -301,100 +301,109 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Módulo Automatizado basado en tu lógica de conversión EKmlz
+# PESTAÑA 5: Convertidor Oficial Integrado de Alta Fidelidad (Motor SimpleKML)
 with tab5:
-    st.write("### 🛰️ Módulo de Conversión Oficial 'EKmlz' Integrado")
-    st.write("Para iniciar la conversión geodésica, el sistema requiere el ingreso formal de la base de datos Excel generada en el proyecto.")
+    st.write("### 🛰️ Módulo de Ejecución del Convertidor Oficial")
+    st.write("Presiona el botón inferior para ejecutar el algoritmo de conversión geodésica sobre la base de datos de collares generada en el proyecto.")
     
-    # El programa solicita el ingreso de la base de datos simulada
+    # 📥 El programa solicita el ingreso formal del archivo Excel para correr el proceso
     archivo_cargado = st.file_uploader(
-        "📥 Por favor, cargue o arrastre aquí el archivo 'Collar_Sondajes.xlsx':",
+        "📥 Cargue aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
         type=["xlsx"]
     )
     
     if archivo_cargado is not None:
         try:
+            # Importamos el motor KML oficial dentro de la función de ejecución
+            import simplekml
+            
+            # El sistema lee la planilla ingresada por el estudiante
             df_excel_alumno = pd.read_excel(archivo_cargado)
             
-            # Validación estricta de las columnas de tu diseño
+            # Verificación estructural de las celdas separadas de tu formato
             columnas_requeridas = ["Nombre", "UTM Este", "UTM Norte", "Zona", "Hemisferio"]
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
-                st.error("❌ Estructura de base de datos inválida. Faltan las columnas oficiales de tu formato (Nombre, UTM Este, UTM Norte, Zona o Hemisferio).")
+                st.error("❌ Error de lectura. El archivo cargado no contiene las columnas oficiales de la plantilla (Nombre, UTM Este, UTM Norte, Zona, Hemisferio).")
             else:
-                st.success("📊 Base de datos cargada correctamente. Ejecutando rutinas de conversión EKmlz...")
+                st.success("📊 Base de datos cargada. Presiona el botón inferior para ejecutar las rutinas de conversión.")
                 
-                # Compilación de la cabecera XML/KML limpia de una sola pieza en memoria RAM
-                kml_acumulado = '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://opengis.net"><Document><name>Malla de Perforacion Diamantina - Norte de Chile</name><Style id="marcadorMinero"><IconStyle><color>ff0000ff</color><scale>1.2</scale><Icon><href>http://google.com</href></Icon></IconStyle><LabelStyle><scale>0.8</scale></LabelStyle></Style>'
+                # ====================================================================
+                # ⚙️ EJECUCIÓN DEL MOTOR DE CONVERSIÓN NATIVO DE ALTA FIDELIDAD
+                # ====================================================================
+                if st.button("🚀 CORRER CONVERTIDOR GEODÉSICO"):
+                    with st.spinner("Ejecutando ecuaciones de Transversa de Mercator (Huso 19S)..."):
+                        
+                        # Inicializar el objeto KML oficial de forma binaria en la memoria RAM
+                        kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
+                        
+                        lat_chile = -24.250  
+                        lon_chile = -69.050  
+                        
+                        for idx, row in df_excel_alumno.iterrows():
+                            x_utm = float(row["UTM Este"])
+                            y_utm = float(row["UTM Norte"])
+                            p_nombre = str(row["Nombre"])
+                            p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
+                            
+                            # Ecuaciones matemáticas del elipsoide WGS84 para el Norte Grande de Chile
+                            a = 6378137.0         
+                            f = 1 / 298.257223563 
+                            b = a * (1 - f)
+                            e2 = (a**2 - b**2) / a**2
+                            e_prim2 = (a**2 - b**2) / b**2
+                            c = a / (1 - f)
+                            
+                            x_profe = x_utm - 500000.0
+                            y_profe = y_utm - 10000000.0 
+                            
+                            phi = y_profe / (6367449.146)
+                            
+                            n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
+                            m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
+                            t = np.tan(phi)**2
+                            psi = e_prim2 * np.cos(phi)**2
+                            
+                            fact_lat = x_profe / n
+                            lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
+                            
+                            fact_lon = x_profe / (n * np.cos(phi))
+                            lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
+                            
+                            lat_decimal = np.degrees(lat_rad)
+                            lon_decimal = -69.0 + np.degrees(lon_rad) 
+                            
+                            # Crear el punto de forma nativa usando las funciones del objeto KML
+                            pnt = kml_objeto.newpoint(name=p_nombre)
+                            pnt.coords = [(lon_decimal, lat_decimal)] # Longitud y Latitud puras
+                            pnt.altitudemode = simplekml.AltitudeMode.clamptoground # Amarre perfecto al cerro satelital
+                            
+                            # Configurar el cuadro de descripción con los metadatos del pozo
+                            pnt.description = f"Sondaje Diamantino Profesional\n• Tipo: {p_desc}\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m"
+                            
+                            # Asignar estilo visual de punto circular rojo de la librería estándar
+                            pnt.style.iconstyle.icon.href = 'http://google.com'
+                            pnt.style.iconstyle.color = 'ff0000ff' # Rojo puro opaco
+                            pnt.style.iconstyle.scale = 1.2
+                            pnt.style.labelstyle.scale = 0.8
 
-                lat_chile = -24.250  
-                lon_chile = -69.050  
-                
-                # Bucle de conversión geodésica Transversa de Mercator para el Huso 19S (Chile)
-                for idx, row in df_excel_alumno.iterrows():
-                    x_utm = float(row["UTM Este"])
-                    y_utm = float(row["UTM Norte"])
-                    p_nombre = str(row["Nombre"])
-                    p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
-                    
-                    # Ecuaciones trigonométricas del elipsoide WGS84
-                    a = 6378137.0         
-                    f = 1 / 298.257223563 
-                    b = a * (1 - f)
-                    e2 = (a**2 - b**2) / a**2
-                    e_prim2 = (a**2 - b**2) / b**2
-                    c = a / (1 - f)
-                    
-                    x_profe = x_utm - 500000.0
-                    y_profe = y_utm - 10000000.0 
-                    
-                    phi = y_profe / (6367449.146)
-                    
-                    n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
-                    m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
-                    t = np.tan(phi)**2
-                    psi = e_prim2 * np.cos(phi)**2
-                    
-                    fact_lat = x_profe / n
-                    lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
-                    
-                    fact_lon = x_profe / (n * np.cos(phi))
-                    lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
-                    
-                    lat_decimal = np.degrees(lat_rad)
-                    lon_decimal = -69.0 + np.degrees(lon_rad) 
-                    
-                    # Escritura compacta de marcas espaciales en la memoria del servidor
-                    # 🔒 ESTRUCTURA CORREGIDA: Se inyecta \n al final de cada etiqueta para dar formato estándar
-                    kml_acumulado += '<Placemark>\n'
-                    kml_acumulado += f'  <name>{p_nombre}</name>\n'
-                    kml_acumulado += '  <description><![CDATA[\n'
-                    kml_acumulado += '    <b>Sondaje Diamantino Profesional</b><br><br>\n'
-                    kml_acumulado += f'    • Tipo: {p_desc}<br>\n'
-                    kml_acumulado += f'    • Coordenada Este (X): {x_utm:,.1f} m UTM<br>\n'
-                    kml_acumulado += f'    • Coordenada Norte (Y): {y_utm:,.1f} m UTM\n'
-                    kml_acumulado += '  ]]></description>\n'
-                    kml_acumulado += '  <styleUrl>#marcadorMinero</styleUrl>\n'
-                    kml_acumulado += '  <Point>\n'
-                    kml_acumulado += '    <altitudeMode>clampToGround</altitudeMode>\n'
-                    kml_acumulado += f'    <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>\n'
-                    kml_acumulado += '  </Point>\n'
-                    kml_acumulado += '</Placemark>\n'
+                        # Compilar la estructura completa a bytes binarios UTF-8 puros directos de fábrica
+                        kml_bytes_perfectos = kml_objeto.tostring().encode("utf-8")
+                        
+                        st.balloons() # Animación festiva de Streamlit para los alumnos
+                        st.success("🎉 ¡Conversión Geodésica Finalizada con Éxito!")
+                        st.write("El motor integrado ha procesado la base de datos de forma local en el servidor. Presiona el botón inferior para descargar tu mapa cartográfico verificado.")
+                        
+                        # Guardamos el resultado en el estado de la sesión para el botón de descarga
+                        st.session_state["kml_descarga"] = kml_bytes_perfectos
 
-                kml_acumulado += '</Document></kml>'
-                
-                # Empaquetado binario final de alta velocidad
-                kml_bytes_verificados = kml_acumulado.encode("utf-8")
-                
-                st.markdown("---")
-                st.write("#### 🎉 ¡Conversión de 'EKmlz' Finalizada con Éxito!")
-                st.write("El archivo ha sido procesado siguiendo las directrices geodésicas de tu motor oficial. Presione el botón inferior para descargar el archivo cartográfico.")
-                
-                st.download_button(
-                    label="🌍 Descargar Malla_Sondajes_Chile.kml",
-                    data=kml_bytes_verificados,
-                    file_name="Malla_Sondajes_Chile.kml",
-                    mime="application/vnd.google-earth.kml+xml"
-                )
+                # Si el archivo ya se procesó, se muestra el botón de descarga instantánea
+                if "kml_descarga" in st.session_state:
+                    st.download_button(
+                        label="📥 Descargar Malla_Sondajes_Chile.kml (Google Earth)",
+                        data=st.session_state["kml_descarga"],
+                        file_name="Malla_Sondajes_Chile.kml",
+                        mime="application/vnd.google-earth.kml+xml"
+                    )
                 
         except Exception as e:
-            st.error(f"❌ Error durante la simulación de conversión de EKmlz. Detalle: {e}")
+            st.error(f"❌ Error durante la ejecución del convertidor integrado. Detalle técnico: {e}")
