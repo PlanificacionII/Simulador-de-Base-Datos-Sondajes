@@ -53,7 +53,7 @@ elemento_render = st.sidebar.radio(
     ["Cobre (Cu %)", "Oro (Au g/t)"]
 )
 # ====================================================================
-# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (RECALIBRADO)
+# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (RANGOS FORMALES)
 # ====================================================================
 
 collars = []
@@ -90,7 +90,19 @@ for i in range(1, cant_sondajes + 1):
         azimuth = int(np.random.rand() * 360)
         dip = -90 if i % 3 == 0 else int(-60 - np.random.rand() * 15)
         
-    collars.append({"ID": pozo_id, "X": x, "Y": y, "Z": elev, "Depth": depth, "Type": "Vertical" if dip == -90 else "Inclinado"})
+    # INTEGRACIÓN: Armamos la estructura de columnas idéntica a tu imagen de Excel
+    collars.append({
+        "Nombre": pozo_id,
+        "UTM Este": int(x),
+        "UTM Norte": int(y),
+        "Z_Cota": elev,             # Mantenemos Z interno para el visualizador 3D
+        "Profundidad": depth,        # Mantenemos Depth interno para tablas
+        "Zona": "19 S",
+        "Hemisferio": "S",
+        "Descripcion": "sondajes",
+        "Estilo": "Marcador Gota Azul"
+    })
+    
     surveys.append({"ID": pozo_id, "Depth": depth, "Azimuth": azimuth, "Dip": dip})
     
     rad_azimuth = np.radians(azimuth)
@@ -140,9 +152,11 @@ st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para RO
 
 fig = go.Figure()
 
-# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D
-min_x, max_x = float(df_collar["X"].min() - espaciamiento), float(df_collar["X"].max() + espaciamiento)
-min_y, max_y = float(df_collar["Y"].min() - espaciamiento), float(df_collar["Y"].max() + espaciamiento)
+# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
+min_x = float(df_collar["UTM Este"].min() - espaciamiento)
+max_x = float(df_collar["UTM Este"].max() + espaciamiento)
+min_y = float(df_collar["UTM Norte"].min() - espaciamiento)
+max_y = float(df_collar["UTM Norte"].max() + espaciamiento)
 rango_y = max_y - min_y
 
 num_curvas = 10
@@ -150,7 +164,7 @@ for c in range(1, num_curvas + 1):
     x_linea = np.linspace(min_x, max_x, 30)
     y_base = min_y + espaciamiento + (rango_y * (c / (num_curvas + 1)))
     y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
-    z_linea = round(float(df_collar["Z"].min()) + ((float(df_collar["Z"].max()) - float(df_collar["Z"].min())) * (c / (num_curvas + 1))), 1)
+    z_linea = round(float(df_collar["Z_Cota"].min()) + ((float(df_collar["Z_Cota"].max()) - float(df_collar["Z_Cota"].min())) * (c / (num_curvas + 1))), 1)
     z_array = np.full_like(x_linea, z_linea)
     
     fig.add_trace(go.Scatter3d(
@@ -159,14 +173,14 @@ for c in range(1, num_curvas + 1):
         showlegend=False, hoverinfo='none'
     ))
 
-# 2. CONSTRUCCIÓN DE MATRIZ CON MAPEO DE COLORES POR INTERVALOS RECALIBRADOS
+# 2. CONSTRUCCIÓN DE MATRIZ CON MAPEO DE COLORES POR INTERVALOS
 columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
 unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
 
 x_total, y_total, z_total, codigos_color_total, textos_total = [], [], [], [], []
 
 for idx, row in df_collar.iterrows():
-    p_id = row["ID"]
+    p_id = row["Nombre"]
     ensayos_pozo = [a for a in assays if a["ID"] == p_id]
     srv = next((s for s in surveys if s["ID"] == p_id), None)
     if not srv or not ensayos_pozo: continue
@@ -174,15 +188,17 @@ for idx, row in df_collar.iterrows():
     az = np.radians(srv["Azimuth"])
     dp = np.radians(srv["Dip"])
     
-    x_total.append(row["X"]); y_total.append(row["Y"]); z_total.append(row["Z"])
+    x_total.append(float(row["UTM Este"]))
+    y_total.append(float(row["UTM Norte"]))
+    z_total.append(float(row["Z_Cota"]))
     codigos_color_total.append(0.0)
-    textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z']}m")
+    textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z_Cota']}m")
     
     for ens in ensayos_pozo:
         p_m = ens["From"] + 5
-        int_x = row["X"] + (p_m * np.cos(dp) * np.sin(az))
-        int_y = row["Y"] + (p_m * np.cos(dp) * np.cos(az))
-        int_z = row["Z"] + (p_m * np.sin(dp))
+        int_x = float(row["UTM Este"]) + (p_m * np.cos(dp) * np.sin(az))
+        int_y = float(row["UTM Norte"]) + (p_m * np.cos(dp) * np.cos(az))
+        int_z = float(row["Z_Cota"]) + (p_m * np.sin(dp))
         
         val_ley = float(ens[columna_ley])
         
@@ -251,10 +267,13 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth"
 ])
 
-def crear_boton_excel(dataframe, nombre_archivo):
+def crear_boton_excel(dataframe, nombre_archivo, ocultar_columnas=None):
     output = io.BytesIO()
+    df_salida = dataframe.copy()
+    if ocultar_columnas:
+        df_salida = df_salida.drop(columns=ocultar_columnas, errors='ignore')
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        dataframe.to_excel(writer, index=False, sheet_name='Datos_Sondajes')
+        df_salida.to_excel(writer, index=False, sheet_name='Datos_Sondajes')
     st.download_button(
         label=f"📊 Descargar {nombre_archivo}.xlsx",
         data=output.getvalue(),
@@ -263,8 +282,10 @@ def crear_boton_excel(dataframe, nombre_archivo):
     )
 
 with tab1:
-    st.dataframe(df_collar, use_container_width=True, height=220)
-    crear_boton_excel(df_collar, "Collar_Sondajes")
+    # Mostramos la cuadrícula en Streamlit. Ocultamos las cotas de la visualización para replicar tu imagen limpia
+    st.dataframe(df_collar.drop(columns=["Z_Cota", "Profundidad"]), use_container_width=True, height=220)
+    # Genera el archivo Excel idéntico al de tu imagen
+    crear_boton_excel(df_collar, "Collar_Sondajes", ocultar_columnas=["Z_Cota", "Profundidad"])
 with tab2:
     st.dataframe(df_assays, use_container_width=True, height=220)
     crear_boton_excel(df_assays, "Assays_Leyes")
@@ -274,12 +295,12 @@ with tab3:
 with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
-# PESTAÑA 5: Cargador Centralizado y Convertidor Automatizado a Google Earth KML
+
+# PESTAÑA 5: Convertidor Web Adaptado a los Nombres de tu Imagen de Excel
 with tab5:
-    st.write("### 🛰️ Convertidor Integrado: Carga tu Excel y Genera tu KML")
-    st.write("Para evitar errores de formato en tu computadora, este convertidor procesa tu planilla Excel descargada directamente en el servidor y te entrega un archivo KML de alta fidelidad.")
+    st.write("### 🛰 convertidor Integrado: Carga tu Excel y Genera tu KML")
+    st.write("Sube el archivo Excel oficial para transformarlo de manera inmediata al formato georreferenciado compatible con Google Earth Pro.")
     
-    # Componente web nativo para que el alumno arrastre o seleccione su archivo Excel
     archivo_cargado = st.file_uploader(
         "📂 Arrastra aquí tu archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
         type=["xlsx"]
@@ -287,99 +308,30 @@ with tab5:
     
     if archivo_cargado is not None:
         try:
-            # Leer el binario cargado por el estudiante usando pandas y openpyxl
             df_excel_alumno = pd.read_excel(archivo_cargado)
             
-            st.success("📊 Archivo Excel cargado e inspeccionado con éxito. Procesando coordenadas geodésicas...")
-            
-            # Inicializar la estructura KML como una lista de líneas limpias
-            lineas_kml = [
-                '<?xml version="1.0" encoding="UTF-8"?>',
-                '<kml xmlns="http://opengis.net">',
-                '  <Document>',
-                '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>',
-                '    <Style id="marcadorMinero">',
-                '      <IconStyle>',
-                '        <color>ff0000ff</color>',
-                '        <scale>1.2</scale>',
-                '        <Icon>',
-                '          <href>http://google.com</href>',
-                '        </Icon>',
-                '      </IconStyle>',
-                '      <LabelStyle>',
-                '        <scale>0.8</scale>',
-                '      </LabelStyle>',
-                '    </Style>'
-            ]
-
-            lat_chile = -24.250  
-            lon_chile = -69.050  
-            
-            # Ecuaciones Geodésicas Transversas de Mercator para el Huso 19S (Norte de Chile)
-            for idx, row in df_excel_alumno.iterrows():
-                x_utm = float(row["X"])
-                y_utm = float(row["Y"])
+            # Verificación de Seguridad: Asegurar que existan los títulos exactos de tu imagen
+            columnas_requeridas = ["Nombre", "UTM Este", "UTM Norte", "Zona", "Hemisferio"]
+            if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
+                st.error("❌ El archivo Excel subido no tiene la estructura oficial. Debe contener las columnas: Nombre, UTM Este, UTM Norte, Zona, Hemisferio.")
+            else:
+                st.success("📊 Estructura de Excel verificada con éxito. Procesando conversión geodésica para Huso 19S...")
                 
-                a = 6378137.0         
-                f = 1 / 298.257223563 
-                b = a * (1 - f)
-                e2 = (a**2 - b**2) / a**2
-                e_prim2 = (a**2 - b**2) / b**2
-                c = a / (1 - f)
-                
-                x_profe = x_utm - 500000.0
-                y_profe = y_utm - 10000000.0 
-                
-                phi = y_profe / (6367449.146)
-                
-                n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
-                m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
-                t = np.tan(phi)**2
-                psi = e_prim2 * np.cos(phi)**2
-                
-                fact_lat = x_profe / n
-                lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
-                
-                fact_lon = x_profe / (n * np.cos(phi))
-                lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
-                
-                lat_decimal = np.degrees(lat_rad)
-                lon_decimal = -69.0 + np.degrees(lon_rad) 
-                
-                lineas_kml.append('    <Placemark>')
-                lineas_kml.append(f'      <name>{row["ID"]}</name>')
-                lineas_kml.append('      <description><![CDATA[')
-                lineas_kml.append('        <b>Sondaje Diamantino Profesional</b><br><br>')
-                lineas_kml.append(f'        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>')
-                lineas_kml.append(f'        • Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>')
-                lineas_kml.append(f'        • Elevación Terreno (Z): {row["Z"]} msnm<br>')
-                lineas_kml.append(f'        • Profundidad: {row["Depth"]} metros')
-                lineas_kml.append('      ]]></description>')
-                lineas_kml.append('      <styleUrl>#marcadorMinero</styleUrl>')
-                lineas_kml.append('      <Point>')
-                lineas_kml.append('        <altitudeMode>clampToGround</altitudeMode>')
-                lineas_kml.append(f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>')
-                lineas_kml.append('      </Point>')
-                lineas_kml.append('    </Placemark>')
-
-            lineas_kml.append('  </Document>')
-            lineas_kml.append('</kml>')
-            
-            kml_final_texto = "\n".join(lineas_kml)
-            
-            # Codificación binaria estricta inmune a formatos locales de Windows
-            kml_bytes_limpios = bytes(kml_final_texto, "utf-8")
-            
-            st.markdown("---")
-            st.write("#### 🎉 ¡Conversión Completada de Forma Exitosa!")
-            
-            # Botón de descarga instantánea del KML verificado
-            st.download_button(
-                label="🌍 Descargar Malla_Sondajes_Chile.kml",
-                data=kml_bytes_limpios,
-                file_name="Malla_Sondajes_Chile.kml",
-                mime="application/vnd.google-earth.kml+xml"
-            )
-            
-        except Exception as e:
-            st.error(f"❌ Error al procesar el archivo. Asegúrate de estar subiendo exactamente la planilla Excel descargada en la pestaña 1. Detalle técnico: {e}")
+                lineas_kml = [
+                    '<?xml version="1.0" encoding="UTF-8"?>',
+                    '<kml xmlns="http://opengis.net">',
+                    '  <Document>',
+                    '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>',
+                    '    <Style id="marcadorMinero">',
+                    '      <IconStyle>',
+                    '        <color>ff0000ff</color>',
+                    '        <scale>1.2</scale>',
+                    '        <Icon>',
+                    '          <href>http://google.com</href>',
+                    '        </Icon>',
+                    '      </IconStyle>',
+                    '      <LabelStyle>',
+                    '        <scale>0.8</scale>',
+                    '      </LabelStyle>',
+                    '    </Style>'
+                ]
