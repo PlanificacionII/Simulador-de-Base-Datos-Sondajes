@@ -280,39 +280,14 @@ with tab5:
     st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
     st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
     
-    # 🔒 SOLUCIÓN MAESTRA: Usar el motor constructor de XML nativo de Python
-    import xml.etree.ElementTree as ET
+    # 🔒 BLINDAJE ABSOLUTO: Arranca directo con la etiqueta kml para que no exista línea 2.
+    # Toda la estructura base comprimida en una sola línea de memoria RAM.
+    cabecera_limpia = '<kml xmlns="http://opengis.net"><Document><name>Malla de Perforacion Diamantina - Norte de Chile</name><Style id="marcadorMinero"><IconStyle><color>ff0000ff</color><scale>1.2</scale><Icon><href>http://google.com</href></Icon></IconStyle><LabelStyle><scale>0.8</scale></LabelStyle></Style>'
     
-    # Crear la raíz estructural <kml> con su espacio de nombres oficial OGC
-    raiz_kml = ET.Element('kml', xmlns="http://opengis.net")
-    documento = ET.SubElement(raiz_kml, 'Document')
-    
-    # Nombre del proyecto dentro de Google Earth
-    nombre_doc = ET.SubElement(documento, 'name')
-    nombre_doc.text = "Malla de Perforacion Diamantina - Norte de Chile"
-    
-    # Definición de Estilos Técnicos para el Marcador Redondo Rojo
-    estilo = ET.SubElement(documento, 'Style', id="marcadorMinero")
-    icon_style = ET.SubElement(estilo, 'IconStyle')
-    
-    color_icon = ET.SubElement(icon_style, 'color')
-    color_icon.text = "ff0000ff" # Rojo opaco
-    
-    escala_icon = ET.SubElement(icon_style, 'scale')
-    escala_icon.text = "1.2"
-    
-    icono = ET.SubElement(icon_style, 'Icon')
-    href_icon = ET.SubElement(icono, 'href')
-    href_icon.text = "http://google.com"
-    
-    label_style = ET.SubElement(estilo, 'LabelStyle')
-    escala_label = ET.SubElement(label_style, 'scale')
-    escala_label.text = "0.8"
-
+    cuerpo_placemarks = ""
     lat_chile = -24.250  
     lon_chile = -69.050  
     
-    # Bucle de conversión de coordenadas e inyección de puntos
     for idx, row in df_collar.iterrows():
         x_utm = float(row["X"])
         y_utm = float(row["Y"])
@@ -344,37 +319,26 @@ with tab5:
         lat_decimal = np.degrees(lat_rad)
         lon_decimal = -69.0 + np.degrees(lon_rad) 
         
-        # Crear componente <Placemark> de forma estructurada en memoria
-        placemark = ET.SubElement(documento, 'Placemark')
-        
-        p_name = ET.SubElement(placemark, 'name')
-        p_name.text = str(row["ID"])
-        
-        p_desc = ET.SubElement(placemark, 'description')
-        p_desc.text = f"Sondaje Diamantino - Este: {x_utm:,.1f}m, Norte: {y_utm:,.1f}m, Cota: {row['Z']}m, Profundidad: {row['Depth']}m"
-        
-        p_style = ET.SubElement(placemark, 'styleUrl')
-        p_style.text = "#marcadorMinero"
-        
-        punto = ET.SubElement(placemark, 'Point')
-        alt_mode = ET.SubElement(punto, 'altitudeMode')
-        alt_mode.text = "clampToGround"
-        
-        coordenadas = ET.SubElement(punto, 'coordinates')
-        coordenadas.text = f"{lon_decimal:.7f},{lat_decimal:.7f},0"
+        # Unir los tramos sin usar saltos de línea ni caracters enriquecidos
+        cuerpo_placemarks += '<Placemark>'
+        cuerpo_placemarks += f'<name>{row["ID"]}</name>'
+        cuerpo_placemarks += f'<description>Sondaje Diamantino - Este: {x_utm:,.1f}m, Norte: {y_utm:,.1f}m, Cota: {row["Z"]}m, Profundidad: {row["Depth"]}m</description>'
+        cuerpo_placemarks += '<styleUrl>#marcadorMinero</styleUrl>'
+        cuerpo_placemarks += '<Point>'
+        cuerpo_placemarks += '<altitudeMode>clampToGround</altitudeMode>'
+        cuerpo_placemarks += f'<coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>'
+        cuerpo_placemarks += '</Point>'
+        cuerpo_placemarks += '</Placemark>'
 
-    # Convertir el objeto de memoria a un árbol binario real sin usar strings manuales
-    instancia_arbol = ET.ElementTree(raiz_kml)
-    bufer_binario = io.BytesIO()
+    # Cierre total de la cadena en memoria plana
+    kml_plano_total = cabecera_limpia + cuerpo_placemarks + '</Document></kml>'
     
-    # Compilar el archivo inyectando la cabecera XML oficial de forma nativa por sistema
-    instancia_arbol.write(bufer_binario, encoding='utf-8', xml_declaration=True)
-    kml_final_bytes = bufer_binario.getvalue()
+    # Transformación binaria directa (Fuerza el bit inicial sin firmas de texto de Windows)
+    kml_binario_final = kml_plano_total.encode("utf-8")
 
-    # Despliegue del botón de descarga enviando los bytes estructurados puros
     st.download_button(
         label="🌍 Descargar Campaña_Sondajes_UTM.kml (Google Earth)",
-        data=kml_final_bytes,
+        data=kml_binario_final,
         file_name="Campana_Sondajes_UTM.kml",
         mime="application/vnd.google-earth.kml+xml"
     )
