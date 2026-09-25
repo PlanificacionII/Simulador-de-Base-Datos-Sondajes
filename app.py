@@ -51,6 +51,7 @@ tipo_malla = st.sidebar.selectbox(
 elemento_render = st.sidebar.radio(
     "Visualizar Leyes Metalúrgicas de:",
     ["Cobre (Cu %)", "Oro (Au g/t)"]
+)
 # ====================================================================
 # ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (CELDAS SEPARADAS)
 # ====================================================================
