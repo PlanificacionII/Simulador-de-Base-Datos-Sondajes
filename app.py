@@ -364,20 +364,21 @@ with tab5:
                     lon_decimal = -69.0 + np.degrees(lon_rad) 
                     
                     # Escritura compacta de marcas espaciales en la memoria del servidor
-                    kml_acumulado += '<Placemark>'
-                    kml_acumulado += f'<name>{p_nombre}</name>'
-                    kml_acumulado += '<description><![CDATA['
-                    kml_acumulado += '<b>Sondaje Diamantino Profesional</b><br><br>'
-                    kml_acumulado += f'• Tipo: {p_desc}<br>'
-                    kml_acumulado += f'• Coordenada Este (X): {x_utm:,.1f} m UTM<br>'
-                    kml_acumulado += f'• Coordenada Norte (Y): {y_utm:,.1f} m UTM'
-                    kml_acumulado += ']]></description>'
-                    kml_acumulado += '<styleUrl>#marcadorMinero</styleUrl>'
-                    kml_acumulado += '<Point>'
-                    kml_acumulado += '<altitudeMode>clampToGround</altitudeMode>'
-                    kml_acumulado += f'<coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>'
-                    kml_acumulado += '</Point>'
-                    kml_acumulado += '</Placemark>'
+                    # 🔒 ESTRUCTURA CORREGIDA: Se inyecta \n al final de cada etiqueta para dar formato estándar
+                    kml_acumulado += '<Placemark>\n'
+                    kml_acumulado += f'  <name>{p_nombre}</name>\n'
+                    kml_acumulado += '  <description><![CDATA[\n'
+                    kml_acumulado += '    <b>Sondaje Diamantino Profesional</b><br><br>\n'
+                    kml_acumulado += f'    • Tipo: {p_desc}<br>\n'
+                    kml_acumulado += f'    • Coordenada Este (X): {x_utm:,.1f} m UTM<br>\n'
+                    kml_acumulado += f'    • Coordenada Norte (Y): {y_utm:,.1f} m UTM\n'
+                    kml_acumulado += '  ]]></description>\n'
+                    kml_acumulado += '  <styleUrl>#marcadorMinero</styleUrl>\n'
+                    kml_acumulado += '  <Point>\n'
+                    kml_acumulado += '    <altitudeMode>clampToGround</altitudeMode>\n'
+                    kml_acumulado += f'    <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>\n'
+                    kml_acumulado += '  </Point>\n'
+                    kml_acumulado += '</Placemark>\n'
 
                 kml_acumulado += '</Document></kml>'
                 
