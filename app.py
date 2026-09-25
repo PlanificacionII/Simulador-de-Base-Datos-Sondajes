@@ -187,23 +187,15 @@ for idx, row in df_collar.iterrows():
         val_ley = float(ens[columna_ley])
         
         if columna_ley == "Cu_pct":
-            if val_ley < 0.30:
-                codigo = 0.0
-            elif 0.30 <= val_ley < 1.00:
-                codigo = 1.0
-            elif 1.00 <= val_ley < 1.80:
-                codigo = 2.0
-            else:
-                codigo = 3.0
+            if val_ley < 0.30: codigo = 0.0
+            elif 0.30 <= val_ley < 1.00: codigo = 1.0
+            elif 1.00 <= val_ley < 1.80: codigo = 2.0
+            else: codigo = 3.0
         else:
-            if val_ley < 0.90:
-                codigo = 0.0
-            elif 0.90 <= val_ley < 4.00:
-                codigo = 1.0
-            elif 4.00 <= val_ley < 8.00:
-                codigo = 2.0
-            else:
-                codigo = 3.0
+            if val_ley < 0.90: codigo = 0.0
+            elif 0.90 <= val_ley < 4.00: codigo = 1.0
+            elif 4.00 <= val_ley < 8.00: codigo = 2.0
+            else: codigo = 3.0
 
         x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
         codigos_color_total.append(codigo)
@@ -248,85 +240,146 @@ config_escena = dict(
 
 fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
 st.plotly_chart(fig, use_container_width=True)
+
 # ====================================================================
-# 📋 TABLAS DE DESCARGA E INTEGRACIÓN NATIVA GOOGLE EARTH KML
+# 📋 TABLAS DE DESCARGA E INTEGRACIÓN DE EXCEL REAL NATIVO (.XLSX)
 # ====================================================================
 st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Google Earth"
+    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth"
 ])
 
-def crear_boton_descarga(dataframe, nombre_archivo):
-    buf = io.StringIO()
-    dataframe.to_csv(buf, index=False)
-    st.download_button(label=f"📥 Descargar {nombre_archivo}", data=buf.getvalue(), file_name=nombre_archivo, mime="text/csv")
+def crear_boton_excel(dataframe, nombre_archivo):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        dataframe.to_excel(writer, index=False, sheet_name='Datos_Sondajes')
+    st.download_button(
+        label=f"📊 Descargar {nombre_archivo}.xlsx",
+        data=output.getvalue(),
+        file_name=f"{nombre_archivo}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 with tab1:
     st.dataframe(df_collar, use_container_width=True, height=220)
-    crear_boton_descarga(df_collar, "Collar.csv")
+    crear_boton_excel(df_collar, "Collar_Sondajes")
 with tab2:
     st.dataframe(df_assays, use_container_width=True, height=220)
-    crear_boton_descarga(df_assays, "Assays.csv")
+    crear_boton_excel(df_assays, "Assays_Leyes")
 with tab3:
     st.dataframe(df_lithology, use_container_width=True, height=220)
-    crear_boton_descarga(df_lithology, "Litologia.csv")
+    crear_boton_excel(df_lithology, "Litologia_Sondajes")
 with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
-    crear_boton_descarga(df_surveys, "Surveys.csv")
-
-# PESTAÑA 5: Exportador Geográfico de Collares mediante Tabla de Texto Inmune a Errores
+    crear_boton_excel(df_surveys, "Surveys_Trayectorias")
+# PESTAÑA 5: Cargador Centralizado y Convertidor Automatizado a Google Earth KML
 with tab5:
-    st.write("### 🛰️ Exportador Geográfico por Tabla de Texto (Google Earth)")
-    st.write("Esta herramienta genera una base de datos de texto plano (.txt). Al no utilizar códigos XML, evita cualquier error de lectura o corrupción de archivos en internet.")
+    st.write("### 🛰️ Convertidor Integrado: Carga tu Excel y Genera tu KML")
+    st.write("Para evitar errores de formato en tu computadora, este convertidor procesa tu planilla Excel descargada directamente en el servidor y te entrega un archivo KML de alta fidelidad.")
     
-    # Encabezado técnico de columnas que Google Earth reconoce de forma nativa al arrastrar
-    txt_acumulado = "ID\tEste_X\tNorte_Y\tElevacion_Z\tProfundidad\tLatitud\tLongitud\n"
-
-    lat_chile = -24.250  
-    lon_chile = -69.050  
-    
-    for idx, row in df_collar.iterrows():
-        x_utm = float(row["X"])
-        y_utm = float(row["Y"])
-        
-        # Ecuaciones Geodésicas de Transversa de Mercator (Huso 19S)
-        a = 6378137.0         
-        f = 1 / 298.257223563 
-        b = a * (1 - f)
-        e2 = (a**2 - b**2) / a**2
-        e_prim2 = (a**2 - b**2) / b**2
-        c = a / (1 - f)
-        
-        x_profe = x_utm - 500000.0
-        y_profe = y_utm - 10000000.0 
-        
-        phi = y_profe / (6367449.146)
-        
-        n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
-        m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
-        t = np.tan(phi)**2
-        psi = e_prim2 * np.cos(phi)**2
-        
-        fact_lat = x_profe / n
-        lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
-        
-        fact_lon = x_profe / (n * np.cos(phi))
-        lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
-        
-        lat_decimal = np.degrees(lat_rad)
-        lon_decimal = -69.0 + np.degrees(lon_rad) 
-        
-        # Guardar cada pozo en una fila separada por tabulaciones limpias (\t)
-        txt_acumulado += f"{row['ID']}\t{x_utm:,.1f}\t{y_utm:,.1f}\t{row['Z']}\t{row['Depth']}\t{lat_decimal:.7f}\t{lon_decimal:.7f}\n"
-
-    # Conversión directa a bytes puros UTF-8
-    txt_bytes = bytes(txt_acumulado, "utf-8")
-
-    st.download_button(
-        label="🌍 Descargar Collares_Sondajes.txt (Para Google Earth)",
-        data=txt_bytes,
-        file_name="Collares_Sondajes.txt",
-        mime="text/plain"
+    # Componente web nativo para que el alumno arrastre o seleccione su archivo Excel
+    archivo_cargado = st.file_uploader(
+        "📂 Arrastra aquí tu archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
+        type=["xlsx"]
     )
+    
+    if archivo_cargado is not None:
+        try:
+            # Leer el binario cargado por el estudiante usando pandas y openpyxl
+            df_excel_alumno = pd.read_excel(archivo_cargado)
+            
+            st.success("📊 Archivo Excel cargado e inspeccionado con éxito. Procesando coordenadas geodésicas...")
+            
+            # Inicializar la estructura KML como una lista de líneas limpias
+            lineas_kml = [
+                '<?xml version="1.0" encoding="UTF-8"?>',
+                '<kml xmlns="http://opengis.net">',
+                '  <Document>',
+                '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>',
+                '    <Style id="marcadorMinero">',
+                '      <IconStyle>',
+                '        <color>ff0000ff</color>',
+                '        <scale>1.2</scale>',
+                '        <Icon>',
+                '          <href>http://google.com</href>',
+                '        </Icon>',
+                '      </IconStyle>',
+                '      <LabelStyle>',
+                '        <scale>0.8</scale>',
+                '      </LabelStyle>',
+                '    </Style>'
+            ]
+
+            lat_chile = -24.250  
+            lon_chile = -69.050  
+            
+            # Ecuaciones Geodésicas Transversas de Mercator para el Huso 19S (Norte de Chile)
+            for idx, row in df_excel_alumno.iterrows():
+                x_utm = float(row["X"])
+                y_utm = float(row["Y"])
+                
+                a = 6378137.0         
+                f = 1 / 298.257223563 
+                b = a * (1 - f)
+                e2 = (a**2 - b**2) / a**2
+                e_prim2 = (a**2 - b**2) / b**2
+                c = a / (1 - f)
+                
+                x_profe = x_utm - 500000.0
+                y_profe = y_utm - 10000000.0 
+                
+                phi = y_profe / (6367449.146)
+                
+                n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
+                m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
+                t = np.tan(phi)**2
+                psi = e_prim2 * np.cos(phi)**2
+                
+                fact_lat = x_profe / n
+                lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
+                
+                fact_lon = x_profe / (n * np.cos(phi))
+                lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
+                
+                lat_decimal = np.degrees(lat_rad)
+                lon_decimal = -69.0 + np.degrees(lon_rad) 
+                
+                lineas_kml.append('    <Placemark>')
+                lineas_kml.append(f'      <name>{row["ID"]}</name>')
+                lineas_kml.append('      <description><![CDATA[')
+                lineas_kml.append('        <b>Sondaje Diamantino Profesional</b><br><br>')
+                lineas_kml.append(f'        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>')
+                lineas_kml.append(f'        • Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>')
+                lineas_kml.append(f'        • Elevación Terreno (Z): {row["Z"]} msnm<br>')
+                lineas_kml.append(f'        • Profundidad: {row["Depth"]} metros')
+                lineas_kml.append('      ]]></description>')
+                lineas_kml.append('      <styleUrl>#marcadorMinero</styleUrl>')
+                lineas_kml.append('      <Point>')
+                lineas_kml.append('        <altitudeMode>clampToGround</altitudeMode>')
+                lineas_kml.append(f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>')
+                lineas_kml.append('      </Point>')
+                lineas_kml.append('    </Placemark>')
+
+            lineas_kml.append('  </Document>')
+            lineas_kml.append('</kml>')
+            
+            kml_final_texto = "\n".join(lineas_kml)
+            
+            # Codificación binaria estricta inmune a formatos locales de Windows
+            kml_bytes_limpios = bytes(kml_final_texto, "utf-8")
+            
+            st.markdown("---")
+            st.write("#### 🎉 ¡Conversión Completada de Forma Exitosa!")
+            
+            # Botón de descarga instantánea del KML verificado
+            st.download_button(
+                label="🌍 Descargar Malla_Sondajes_Chile.kml",
+                data=kml_bytes_limpios,
+                file_name="Malla_Sondajes_Chile.kml",
+                mime="application/vnd.google-earth.kml+xml"
+            )
+            
+        except Exception as e:
+            st.error(f"❌ Error al procesar el archivo. Asegúrate de estar subiendo exactamente la planilla Excel descargada en la pestaña 1. Detalle técnico: {e}")
