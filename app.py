@@ -301,10 +301,10 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor Oficial Integrado con Motor UTM Estricto (Coticchia-Surace)
+# PESTAÑA 5: Convertidor Integrado con Capa Satelital ESRI Estable e Inmune a Bloqueos
 with tab5:
     st.write("### 🛰️ Módulo de Conversión 'EKmlz' con Visor Satelital Integrado")
-    st.write("Carga tu archivo Excel para ejecutar el convertidor y levantar la malla de sondajes sobre el mapa de Google Satellite de forma inmediata en esta misma pantalla.")
+    st.write("Carga tu archivo Excel para ejecutar el convertidor y levantar la malla de sondajes sobre el mapa satelital de forma inmediata en esta misma pantalla.")
     
     archivo_cargado = st.file_uploader(
         "📥 Seleccione o arrastre aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
@@ -326,38 +326,29 @@ with tab5:
                 # Inicializar el objeto KML de memoria
                 kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
                 
-                # Arrays para calcular el centro dinámico de la cámara del mapa
                 lista_lats, lista_lons = [], []
                 puntos_mapa = []
                 
-                # ====================================================================
-                # 🗮️ ALGORITMO GEODÉSICO OFICIAL UTM A GEOGRÁFICAS (HUSO 19 SUR - CHILE)
-                # ====================================================================
                 for idx, row in df_excel_alumno.iterrows():
                     x_utm = float(row["UTM Este"])
                     y_utm = float(row["UTM Norte"])
                     p_nombre = str(row["Nombre"])
                     p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
                     
-                    # Parámetros del Elipsoide WGS84
+                    # Ecuaciones Geodésicas de Precisión UTM a WGS84 (Huso 19S)
                     a = 6378137.0
                     f = 1 / 298.257223563
                     b = a * (1 - f)
                     e2 = (a**2 - b**2) / (a**2)
                     e_prim2 = (a**2 - b**2) / (b**2)
                     
-                    # Ajustes de origen para Huso 19 Sur
                     x_profe = x_utm - 500000.0
-                    y_profe = y_utm - 10000000.0  # Hemisferio Sur
+                    y_profe = y_utm - 10000000.0  
                     
-                    # Radio de curvatura polar
                     c = a / (1 - f)
-                    
-                    # Cálculo de la latitud del pie (Footprint Latitude)
                     mu = y_profe / (6367449.146)
                     phi = mu
                     
-                    # Iteraciones de precisión geodésica
                     for _ in range(5):
                         sin_2phi = np.sin(2 * phi)
                         sin_4phi = np.sin(4 * phi)
@@ -369,36 +360,32 @@ with tab5:
                     t = np.tan(phi)**2
                     psi = e_prim2 * np.cos(phi)**2
                     
-                    # Ecuaciones estrictas de inversión
                     fact_lat = x_profe / n
                     lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 - (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
                     
                     fact_lon = x_profe / (n * np.cos(phi))
                     lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
                     
-                    # Coordenadas finales exactas WGS84
                     lat_decimal = np.degrees(lat_rad)
-                    lon_decimal = -69.0 + np.degrees(lon_rad)  # Meridiano central Huso 19
+                    lon_decimal = -69.0 + np.degrees(lon_rad)  
                     
                     lista_lats.append(lat_decimal)
                     lista_lons.append(lon_decimal)
                     
-                    # 1. COMPILAR EL OBJETO KML INTERNO
+                    # 1. COMPILAR EL OBJETO KML INTERNO LIMPIO SIN ETIQUETAS COMPLEJAS
                     pnt = kml_objeto.newpoint(name=p_nombre)
                     pnt.coords = [(lon_decimal, lat_decimal)]
                     pnt.altitudemode = simplekml.AltitudeMode.clamptoground
-                    pnt.description = f"Sondaje Diamantino\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m"
                     pnt.style.iconstyle.icon.href = 'http://google.com'
                     pnt.style.iconstyle.color = 'ff0000ff'
                     
-                    # 2. ALMACENAR DATOS PARA EL MARCADOR MAPA IN SITU
+                    # 2. CUADRO INFORMATIVO DEL MAPA EN VIVO
                     html_pop = f"""
                     <div style="font-family: Arial, sans-serif; font-size: 12px; width: 190px;">
                         <h4 style="margin:0 0 5px 0; color:#b30000;">⚒️ Sondaje: {p_nombre}</h4>
                         <hr style="margin:4px 0; border:0; border-top:1px solid #ccc;">
                         <b>Coordenada X (Este):</b> {x_utm:,.1f} m<br>
                         <b>Coordenada Y (Norte):</b> {y_utm:,.1f} m<br>
-                        <b>Tipo Mapeo:</b> {p_desc}<br>
                         <b>Huso Proyección:</b> UTM 19S
                     </div>
                     """
@@ -408,18 +395,18 @@ with tab5:
                         "tooltip": f"Pozo: {p_nombre}"
                     })
 
-                # CREACIÓN DINÁMICA DEL MAPA EN BASE AL CENTRO REAL DE LOS SONDAJES
                 centro_lat = np.mean(lista_lats)
                 centro_lon = np.mean(lista_lons)
                 
+                # 🔒 SOLUCIÓN ABSOLUTA AL VISOR GRIS: Usar el servidor de mosaicos ESRI World Imagery (Ultraestable)
                 mapa_servidor = folium.Map(
                     location=[centro_lat, centro_lon],
                     zoom_start=14,
-                    tiles='https://google.com{x}&y={y}&z={z}',
-                    attr='Google Satellite'
+                    tiles='https://arcgisonline.com{z}/{y}/{x}',
+                    attr='Esri World Imagery'
                 )
                 
-                # Inyectar los marcadores verificados al mapa base
+                # Inyectar marcadores al mapa base
                 for p in puntos_mapa:
                     folium.Marker(
                         location=p["loc"],
@@ -428,13 +415,13 @@ with tab5:
                         icon=folium.Icon(color='red', icon='screenshot', prefix='glyphicon')
                     ).add_to(mapa_servidor)
 
-                # Renderizado fluido en pantalla completa
                 st.markdown("---")
                 st.write("#### 🗺️ Visor Geográfico Satelital en Tiempo Real:")
                 st.caption("🔍 Usa los controles del mapa (+/-) o la rueda del mouse para hacer ZOOM. Haz clic sobre cualquier marcador rojo para desplegar las coordenadas UTM del pozo.")
                 
                 st_folium(mapa_servidor, width=1300, height=550, returned_objects=[])
                 
+                # Generación directa de bytes KML blindados
                 kml_bytes_perfectos = kml_objeto.kml().encode("utf-8")
                 st.markdown("---")
                 st.write("*(Opcional) Descarga el archivo KML de escritorio para Google Earth:*")
