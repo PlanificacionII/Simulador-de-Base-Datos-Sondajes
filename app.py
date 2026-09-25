@@ -276,15 +276,14 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_descarga(df_surveys, "Surveys.csv")
 
+# PESTAÑA 5: Exportador Geográfico de Collares mediante Tabla de Texto Inmune a Errores
 with tab5:
-    st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
-    st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
+    st.write("### 🛰️ Exportador Geográfico por Tabla de Texto (Google Earth)")
+    st.write("Esta herramienta genera una base de datos de texto plano (.txt). Al no utilizar códigos XML, evita cualquier error de lectura o corrupción de archivos en internet.")
     
-    # 🔒 BLINDAJE ABSOLUTO: Arranca directo con la etiqueta kml para que no exista línea 2.
-    # Toda la estructura base comprimida en una sola línea de memoria RAM.
-    cabecera_limpia = '<kml xmlns="http://opengis.net"><Document><name>Malla de Perforacion Diamantina - Norte de Chile</name><Style id="marcadorMinero"><IconStyle><color>ff0000ff</color><scale>1.2</scale><Icon><href>http://google.com</href></Icon></IconStyle><LabelStyle><scale>0.8</scale></LabelStyle></Style>'
-    
-    cuerpo_placemarks = ""
+    # Encabezado técnico de columnas que Google Earth reconoce de forma nativa al arrastrar
+    txt_acumulado = "ID\tEste_X\tNorte_Y\tElevacion_Z\tProfundidad\tLatitud\tLongitud\n"
+
     lat_chile = -24.250  
     lon_chile = -69.050  
     
@@ -319,26 +318,15 @@ with tab5:
         lat_decimal = np.degrees(lat_rad)
         lon_decimal = -69.0 + np.degrees(lon_rad) 
         
-        # Unir los tramos sin usar saltos de línea ni caracters enriquecidos
-        cuerpo_placemarks += '<Placemark>'
-        cuerpo_placemarks += f'<name>{row["ID"]}</name>'
-        cuerpo_placemarks += f'<description>Sondaje Diamantino - Este: {x_utm:,.1f}m, Norte: {y_utm:,.1f}m, Cota: {row["Z"]}m, Profundidad: {row["Depth"]}m</description>'
-        cuerpo_placemarks += '<styleUrl>#marcadorMinero</styleUrl>'
-        cuerpo_placemarks += '<Point>'
-        cuerpo_placemarks += '<altitudeMode>clampToGround</altitudeMode>'
-        cuerpo_placemarks += f'<coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>'
-        cuerpo_placemarks += '</Point>'
-        cuerpo_placemarks += '</Placemark>'
+        # Guardar cada pozo en una fila separada por tabulaciones limpias (\t)
+        txt_acumulado += f"{row['ID']}\t{x_utm:,.1f}\t{y_utm:,.1f}\t{row['Z']}\t{row['Depth']}\t{lat_decimal:.7f}\t{lon_decimal:.7f}\n"
 
-    # Cierre total de la cadena en memoria plana
-    kml_plano_total = cabecera_limpia + cuerpo_placemarks + '</Document></kml>'
-    
-    # Transformación binaria directa (Fuerza el bit inicial sin firmas de texto de Windows)
-    kml_binario_final = kml_plano_total.encode("utf-8")
+    # Conversión directa a bytes puros UTF-8
+    txt_bytes = bytes(txt_acumulado, "utf-8")
 
     st.download_button(
-        label="🌍 Descargar Campaña_Sondajes_UTM.kml (Google Earth)",
-        data=kml_binario_final,
-        file_name="Campana_Sondajes_UTM.kml",
-        mime="application/vnd.google-earth.kml+xml"
+        label="🌍 Descargar Collares_Sondajes.txt (Para Google Earth)",
+        data=txt_bytes,
+        file_name="Collares_Sondajes.txt",
+        mime="text/plain"
     )
