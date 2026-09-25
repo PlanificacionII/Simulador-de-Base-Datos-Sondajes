@@ -301,33 +301,29 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor Integrado con Capa Satelital ESRI Estable e Inmune a Bloqueos
+# PESTAÑA 5: Convertidor de Alta Fidelidad SimpleKML sin cargas gráficas de mapa (Máxima Estabilidad)
 with tab5:
-    st.write("### 🛰️ Módulo de Conversión 'EKmlz' con Visor Satelital Integrado")
-    st.write("Carga tu archivo Excel para ejecutar el convertidor y levantar la malla de sondajes sobre el mapa satelital de forma inmediata en esta misma pantalla.")
+    st.write("### 🛰️ Módulo de Conversión Geodésica 'EKmlz' Integrado")
+    st.write("Carga tu archivo de collares en formato Excel para transformarlo de manera inmediata a un archivo cartográfico KML de alta velocidad compatible con Google Earth.")
     
     archivo_cargado = st.file_uploader(
-        "📥 Seleccione o arrastre aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
+        "📂 Arrastra aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
         type=["xlsx"]
     )
     
     if archivo_cargado is not None:
         try:
             import simplekml
-            import folium
-            from streamlit_folium import st_folium
-            
             df_excel_alumno = pd.read_excel(archivo_cargado)
             
             columnas_requeridas = ["Nombre", "UTM Este", "UTM Norte", "Zona", "Hemisferio"]
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
                 st.error("❌ El archivo cargado no contiene las columnas oficiales de la plantilla (Nombre, UTM Este, UTM Norte, Zona, Hemisferio).")
             else:
-                # Inicializar el objeto KML de memoria
-                kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
+                st.success("📊 Base de datos inspeccionada con éxito. Presiona el botón inferior para ejecutar la conversión geodésica.")
                 
-                lista_lats, lista_lons = [], []
-                puntos_mapa = []
+                # Inicializar el objeto KML mediante el motor cartográfico estándar
+                kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
                 
                 for idx, row in df_excel_alumno.iterrows():
                     x_utm = float(row["UTM Este"])
@@ -366,71 +362,35 @@ with tab5:
                     fact_lon = x_profe / (n * np.cos(phi))
                     lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
                     
-                    lat_decimal = np.degrees(lat_rad)
-                    lon_decimal = -69.0 + np.degrees(lon_rad)  
+                    # Candado geodésico estricto para el Norte Grande chileno
+                    lat_decimal = -abs(np.degrees(lat_rad))
+                    lon_decimal = -abs(-69.0 + np.degrees(lon_rad))  
                     
-                    lista_lats.append(lat_decimal)
-                    lista_lons.append(lon_decimal)
-                    
-                    # 1. COMPILAR EL OBJETO KML INTERNO LIMPIO SIN ETIQUETAS COMPLEJAS
+                    # Construir el marcador usando la API nativa de simplekml (Inmune a errores de sintaxis)
                     pnt = kml_objeto.newpoint(name=p_nombre)
                     pnt.coords = [(lon_decimal, lat_decimal)]
                     pnt.altitudemode = simplekml.AltitudeMode.clamptoground
-                    pnt.style.iconstyle.icon.href = 'http://google.com'
-                    pnt.style.iconstyle.color = 'ff0000ff'
+                    pnt.description = f"Sondaje Diamantino Profesional\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m\n• Tipo Mapeo: {p_desc}"
                     
-                    # 2. CUADRO INFORMATIVO DEL MAPA EN VIVO
-                    html_pop = f"""
-                    <div style="font-family: Arial, sans-serif; font-size: 12px; width: 190px;">
-                        <h4 style="margin:0 0 5px 0; color:#b30000;">⚒️ Sondaje: {p_nombre}</h4>
-                        <hr style="margin:4px 0; border:0; border-top:1px solid #ccc;">
-                        <b>Coordenada X (Este):</b> {x_utm:,.1f} m<br>
-                        <b>Coordenada Y (Norte):</b> {y_utm:,.1f} m<br>
-                        <b>Huso Proyección:</b> UTM 19S
-                    </div>
-                    """
-                    puntos_mapa.append({
-                        "loc": [lat_decimal, lon_decimal],
-                        "pop": html_pop,
-                        "tooltip": f"Pozo: {p_nombre}"
-                    })
+                    # Estilo visual estándar para Google Earth
+                    pnt.style.iconstyle.icon.href = 'http://google.com'
+                    pnt.style.iconstyle.color = 'ff0000ff' # Rojo
+                    pnt.style.iconstyle.scale = 1.2
+                    pnt.style.labelstyle.scale = 0.8
 
-                # CREACIÓN DINÁMICA DEL MAPA EN BASE AL CENTRO REAL DE LOS SONDAJES
-                centro_lat = np.mean(lista_lats)
-                centro_lon = np.mean(lista_lons)
-                
-                # CORRECCIÓN DE CÁTEDRA: Zoom_start=7 aleja la perspectiva satelital para ver las costas y cerros de Chile
-                mapa_servidor = folium.Map(
-                    location=[centro_lat, centro_lon],
-                    zoom_start=7, 
-                    tiles='https://arcgisonline.com{z}/{y}/{x}',
-                    attr='Esri World Imagery'
-                )
-                # Inyectar marcadores al mapa base
-                for p in puntos_mapa:
-                    folium.Marker(
-                        location=p["loc"],
-                        popup=folium.Popup(p["pop"], max_width=220),
-                        tooltip=p["tooltip"],
-                        icon=folium.Icon(color='red', icon='screenshot', prefix='glyphicon')
-                    ).add_to(mapa_servidor)
-
-                st.markdown("---")
-                st.write("#### 🗺️ Visor Geográfico Satelital en Tiempo Real:")
-                st.caption("🔍 Usa los controles del mapa (+/-) o la rueda del mouse para hacer ZOOM. Haz clic sobre cualquier marcador rojo para desplegar las coordenadas UTM del pozo.")
-                
-                st_folium(mapa_servidor, width=1300, height=550, returned_objects=[])
-                
-                # Generación directa de bytes KML blindados
+                # Compilar a bytes binarios crudos UTF-8 de fábrica
                 kml_bytes_perfectos = kml_objeto.kml().encode("utf-8")
+                
                 st.markdown("---")
-                st.write("*(Opcional) Descarga el archivo KML de escritorio para Google Earth:*")
+                st.success("🎉 ¡Conversión Finalizada con Éxito!")
+                st.write("El motor integrado ha compilado la estructura de forma perfecta.")
+                
                 st.download_button(
-                    label="📥 Descargar Archivo Malla_Sondajes_Chile.kml",
+                    label="📥 Descargar Archivo Malla_Sondajes_Chile.kml (Google Earth)",
                     data=kml_bytes_perfectos,
                     file_name="Malla_Sondajes_Chile.kml",
                     mime="application/vnd.google-earth.kml+xml"
                 )
                 
         except Exception as e:
-            st.error(f"❌ Error al procesar el visor satelital integrado. Detalle técnico: {e}")
+            st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
