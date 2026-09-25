@@ -271,7 +271,7 @@ st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Integrado EKmlz"
+    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth"
 ])
 
 def crear_boton_excel(dataframe, nombre_archivo, ocultar_columnas=None):
@@ -301,7 +301,7 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor Integrado con Visor Satelital Oficial Reparado
+# PESTAÑA 5: Convertidor Oficial Integrado con Motor UTM Estricto (Coticchia-Surace)
 with tab5:
     st.write("### 🛰️ Módulo de Conversión 'EKmlz' con Visor Satelital Integrado")
     st.write("Carga tu archivo Excel para ejecutar el convertidor y levantar la malla de sondajes sobre el mapa de Google Satellite de forma inmediata en esta misma pantalla.")
@@ -323,55 +323,65 @@ with tab5:
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
                 st.error("❌ El archivo cargado no contiene las columnas oficiales de la plantilla (Nombre, UTM Este, UTM Norte, Zona, Hemisferio).")
             else:
-                st.success("📊 Base de datos de collares inspeccionada con éxito.")
-                
                 # Inicializar el objeto KML de memoria
                 kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
                 
-                # Coordenadas geográficas base del distrito minero en el Norte de Chile
-                lat_chile = -24.250  
-                lon_chile = -69.050  
+                # Arrays para calcular el centro dinámico de la cámara del mapa
+                lista_lats, lista_lons = [], []
+                puntos_mapa = []
                 
-                # CREACIÓN DEL MAPA BASE SATELITAL
-                mapa_servidor = folium.Map(
-                    location=[lat_chile, lon_chile],
-                    zoom_start=15, # Un zoom más cercano para apreciar el relieve de los cerros
-                    tiles='https://google.com{x}&y={y}&z={z}',
-                    attr='Google Satellite'
-                )
-                
-                # Bucle de conversión geodésica Transversa de Mercator (Huso 19S)
+                # ====================================================================
+                # 🗮️ ALGORITMO GEODÉSICO OFICIAL UTM A GEOGRÁFICAS (HUSO 19 SUR - CHILE)
+                # ====================================================================
                 for idx, row in df_excel_alumno.iterrows():
                     x_utm = float(row["UTM Este"])
                     y_utm = float(row["UTM Norte"])
                     p_nombre = str(row["Nombre"])
                     p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
                     
-                    a = 6378137.0         
-                    f = 1 / 298.257223563 
+                    # Parámetros del Elipsoide WGS84
+                    a = 6378137.0
+                    f = 1 / 298.257223563
                     b = a * (1 - f)
-                    e2 = (a**2 - b**2) / a**2
-                    e_prim2 = (a**2 - b**2) / b**2
+                    e2 = (a**2 - b**2) / (a**2)
+                    e_prim2 = (a**2 - b**2) / (b**2)
+                    
+                    # Ajustes de origen para Huso 19 Sur
+                    x_profe = x_utm - 500000.0
+                    y_profe = y_utm - 10000000.0  # Hemisferio Sur
+                    
+                    # Radio de curvatura polar
                     c = a / (1 - f)
                     
-                    x_profe = x_utm - 500000.0
-                    y_profe = y_utm - 10000000.0 
+                    # Cálculo de la latitud del pie (Footprint Latitude)
+                    mu = y_profe / (6367449.146)
+                    phi = mu
                     
-                    phi = y_profe / (6367449.146)
+                    # Iteraciones de precisión geodésica
+                    for _ in range(5):
+                        sin_2phi = np.sin(2 * phi)
+                        sin_4phi = np.sin(4 * phi)
+                        sin_6phi = np.sin(6 * phi)
+                        phi = mu + (3 * e2 / 2 - 27 * e2**2 / 32) * sin_2phi + (21 * e2**2 / 16 - 55 * e2**3 / 32) * sin_4phi + (151 * e2**3 / 96) * sin_6phi
                     
                     n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
                     m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
                     t = np.tan(phi)**2
                     psi = e_prim2 * np.cos(phi)**2
                     
+                    # Ecuaciones estrictas de inversión
                     fact_lat = x_profe / n
-                    lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
+                    lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 - (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
                     
                     fact_lon = x_profe / (n * np.cos(phi))
                     lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
                     
+                    # Coordenadas finales exactas WGS84
                     lat_decimal = np.degrees(lat_rad)
-                    lon_decimal = -69.0 + np.degrees(lon_rad) 
+                    lon_decimal = -69.0 + np.degrees(lon_rad)  # Meridiano central Huso 19
+                    
+                    lista_lats.append(lat_decimal)
+                    lista_lons.append(lon_decimal)
                     
                     # 1. COMPILAR EL OBJETO KML INTERNO
                     pnt = kml_objeto.newpoint(name=p_nombre)
@@ -381,7 +391,7 @@ with tab5:
                     pnt.style.iconstyle.icon.href = 'http://google.com'
                     pnt.style.iconstyle.color = 'ff0000ff'
                     
-                    # 2. DISEÑO DEL CUADRO INFORMATIVO DEL POZO EN EL MAPA (Popup)
+                    # 2. ALMACENAR DATOS PARA EL MARCADOR MAPA IN SITU
                     html_pop = f"""
                     <div style="font-family: Arial, sans-serif; font-size: 12px; width: 190px;">
                         <h4 style="margin:0 0 5px 0; color:#b30000;">⚒️ Sondaje: {p_nombre}</h4>
@@ -392,28 +402,42 @@ with tab5:
                         <b>Huso Proyección:</b> UTM 19S
                     </div>
                     """
-                    
-                    # CORRECCIÓN DEFINITIVA: Se pasa Latitud y Longitud de forma exacta al marcador
+                    puntos_mapa.append({
+                        "loc": [lat_decimal, lon_decimal],
+                        "pop": html_pop,
+                        "tooltip": f"Pozo: {p_nombre}"
+                    })
+
+                # CREACIÓN DINÁMICA DEL MAPA EN BASE AL CENTRO REAL DE LOS SONDAJES
+                centro_lat = np.mean(lista_lats)
+                centro_lon = np.mean(lista_lons)
+                
+                mapa_servidor = folium.Map(
+                    location=[centro_lat, centro_lon],
+                    zoom_start=14,
+                    tiles='https://google.com{x}&y={y}&z={z}',
+                    attr='Google Satellite'
+                )
+                
+                # Inyectar los marcadores verificados al mapa base
+                for p in puntos_mapa:
                     folium.Marker(
-                        location=[lat_decimal, lon_decimal], 
-                        popup=folium.Popup(html_pop, max_width=220),
-                        tooltip=f"Pozo: {p_nombre}",
+                        location=p["loc"],
+                        popup=folium.Popup(p["pop"], max_width=220),
+                        tooltip=p["tooltip"],
                         icon=folium.Icon(color='red', icon='screenshot', prefix='glyphicon')
                     ).add_to(mapa_servidor)
 
-                # Renderizado directo en la interfaz sin saltos de página
+                # Renderizado fluido en pantalla completa
                 st.markdown("---")
                 st.write("#### 🗺️ Visor Geográfico Satelital en Tiempo Real:")
                 st.caption("🔍 Usa los controles del mapa (+/-) o la rueda del mouse para hacer ZOOM. Haz clic sobre cualquier marcador rojo para desplegar las coordenadas UTM del pozo.")
                 
-                # Desplegar el mapa satelital de Google integrado a lo ancho de la pantalla
                 st_folium(mapa_servidor, width=1300, height=550, returned_objects=[])
                 
-                # Compilar el archivo KML de respaldo por si el alumno quiere guardarlo
                 kml_bytes_perfectos = kml_objeto.kml().encode("utf-8")
-                
                 st.markdown("---")
-                st.write("*(Opcional) Si necesitas registrar esta campaña en tu informe, descarga el archivo KML verificado para Google Earth Pro de escritorio:*")
+                st.write("*(Opcional) Descarga el archivo KML de escritorio para Google Earth:*")
                 st.download_button(
                     label="📥 Descargar Archivo Malla_Sondajes_Chile.kml",
                     data=kml_bytes_perfectos,
