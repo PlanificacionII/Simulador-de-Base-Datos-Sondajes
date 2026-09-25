@@ -301,28 +301,18 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor de Alta Fidelidad SimpleKML con Reseteo de Memoria Reactivo
+# PESTAÑA 5: Convertidor Oficial Integrado de Alta Reactividad (Con Botón de Ejecución Forzada)
 with tab5:
     st.write("### 🛰️ Módulo de Conversión Geodésica 'EKmlz' Integrado")
     st.write("Carga tu archivo de collares en formato Excel para transformarlo de manera inmediata a un archivo cartográfico KML compatible con Google Earth.")
     
-    # 📥 Cargador de archivos que detecta cambios de inmediato
+    # Cargador de archivos limpio
     archivo_cargado = st.file_uploader(
         "📂 Arrastra aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
         type=["xlsx"],
-        key="kml_uploader_key"
+        key="kml_uploader_manual_key"
     )
     
-    # 🔒 CONTROL DE RESETEO: Si el alumno sube un nuevo archivo o cambia datos, limpiamos la memoria vieja
-    if "ultimo_archivo" not in st.session_state:
-        st.session_state["ultimo_archivo"] = None
-        
-    if archivo_cargado is not None and archivo_cargado != st.session_state["ultimo_archivo"]:
-        st.session_state["ultimo_archivo"] = archivo_cargado
-        if "kml_descarga" in st.session_state:
-            del st.session_state["kml_descarga"] # Borrar el KML antiguo del yacimiento anterior
-            st.rerun() # Forzar el refresco limpio de la pestaña
-            
     if archivo_cargado is not None:
         try:
             import simplekml
@@ -332,77 +322,82 @@ with tab5:
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
                 st.error("❌ El archivo cargado no contiene las columnas oficiales de la plantilla (Nombre, UTM Este, UTM Norte, Zona, Hemisferio).")
             else:
-                st.success("📊 Base de datos nueva detectada con éxito. Presiona el botón inferior para ejecutar la conversión geodésica.")
+                st.success("📊 Base de datos nueva detectada con éxito. Presiona el botón inferior para forzar la conversión geodésica actual.")
                 
-                # Inicializar el objeto KML mediante el motor cartográfico estándar
-                kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
-                
-                for idx, row in df_excel_alumno.iterrows():
-                    x_utm = float(row["UTM Este"])
-                    y_utm = float(row["UTM Norte"])
-                    p_nombre = str(row["Nombre"])
-                    p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
-                    
-                    # Ecuaciones Geodésicas de Precisión UTM a WGS84 (Huso 19S)
-                    a = 6378137.0
-                    f = 1 / 298.257223563
-                    b = a * (1 - f)
-                    e2 = (a**2 - b**2) / (a**2)
-                    e_prim2 = (a**2 - b**2) / (b**2)
-                    
-                    x_profe = x_utm - 500000.0
-                    y_profe = y_utm - 10000000.0  
-                    
-                    c = a / (1 - f)
-                    mu = y_profe / (6367449.146)
-                    phi = mu
-                    
-                    for _ in range(5):
-                        sin_2phi = np.sin(2 * phi)
-                        sin_4phi = np.sin(4 * phi)
-                        sin_6phi = np.sin(6 * phi)
-                        phi = mu + (3 * e2 / 2 - 27 * e2**2 / 32) * sin_2phi + (21 * e2**2 / 16 - 55 * e2**3 / 32) * sin_4phi + (151 * e2**3 / 96) * sin_6phi
-                    
-                    n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
-                    m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
-                    t = np.tan(phi)**2
-                    psi = e_prim2 * np.cos(phi)**2
-                    
-                    fact_lat = x_profe / n
-                    lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 - (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
-                    
-                    fact_lon = x_profe / (n * np.cos(phi))
-                    lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
-                    
-                    # Candado geodésico estricto para el Norte Grande chileno
-                    lat_decimal = -abs(np.degrees(lat_rad))
-                    lon_decimal = -abs(-69.0 + np.degrees(lon_rad))  
-                    
-                    # Construir el marcador usando la API nativa de simplekml
-                    pnt = kml_objeto.newpoint(name=p_nombre)
-                    pnt.coords = [(lon_decimal, lat_decimal)]
-                    pnt.altitudemode = simplekml.AltitudeMode.clamptoground
-                    pnt.description = f"Sondaje Diamantino Profesional\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m\n• Tipo Mapeo: {p_desc}"
-                    
-                    # Estilo visual estándar para Google Earth
-                    pnt.style.iconstyle.icon.href = 'http://google.com'
-                    pnt.style.iconstyle.color = 'ff0000ff' # Rojo
-                    pnt.style.iconstyle.scale = 1.2
-                    pnt.style.labelstyle.scale = 0.8
+                # 🔒 EL FILTRO DE REACTIVIDAD: Un botón físico que obliga a Python a recalcular todo desde cero
+                if st.button("🚀 INICIAR CONVERSIÓN GEODÉSICA"):
+                    with st.spinner("Procesando tu nueva simulación..."):
+                        
+                        # Inicializar un objeto KML completamente limpio en la RAM
+                        kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
+                        
+                        for idx, row in df_excel_alumno.iterrows():
+                            x_utm = float(row["UTM Este"])
+                            y_utm = float(row["UTM Norte"])
+                            p_nombre = str(row["Nombre"])
+                            p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
+                            
+                            # Ecuaciones Geodésicas de Precisión UTM a WGS84 (Huso 19S)
+                            a = 6378137.0
+                            f = 1 / 298.257223563
+                            b = a * (1 - f)
+                            e2 = (a**2 - b**2) / (a**2)
+                            e_prim2 = (a**2 - b**2) / (b**2)
+                            
+                            x_profe = x_utm - 500000.0
+                            y_profe = y_utm - 10000000.0  
+                            
+                            c = a / (1 - f)
+                            mu = y_profe / (6367449.146)
+                            phi = mu
+                            
+                            for _ in range(5):
+                                sin_2phi = np.sin(2 * phi)
+                                sin_4phi = np.sin(4 * phi)
+                                sin_6phi = np.sin(6 * phi)
+                                phi = mu + (3 * e2 / 2 - 27 * e2**2 / 32) * sin_2phi + (21 * e2**2 / 16 - 55 * e2**3 / 32) * sin_4phi + (151 * e2**3 / 96) * sin_6phi
+                            
+                            n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
+                            m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
+                            t = np.tan(phi)**2
+                            psi = e_prim2 * np.cos(phi)**2
+                            
+                            fact_lat = x_profe / n
+                            lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 - (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
+                            
+                            fact_lon = x_profe / (n * np.cos(phi))
+                            lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
+                            
+                            # Candado geodésico estricto para el Norte Grande chileno
+                            lat_decimal = -abs(np.degrees(lat_rad))
+                            lon_decimal = -abs(-69.0 + np.degrees(lon_rad))  
+                            
+                            # Construir el marcador diamantino de forma nativa
+                            pnt = kml_objeto.newpoint(name=p_nombre)
+                            pnt.coords = [(lon_decimal, lat_decimal)]
+                            pnt.altitudemode = simplekml.AltitudeMode.clamptoground
+                            pnt.description = f"Sondaje Diamantino Profesional\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m\n• Tipo Mapeo: {p_desc}"
+                            
+                            pnt.style.iconstyle.icon.href = 'http://google.com'
+                            pnt.style.iconstyle.color = 'ff0000ff' # Rojo
+                            pnt.style.iconstyle.scale = 1.2
+                            pnt.style.labelstyle.scale = 0.8
 
-                # Compilar a bytes binarios crudos UTF-8 de fábrica
-                kml_bytes_perfectos = kml_objeto.kml().encode("utf-8")
-                
-                st.markdown("---")
-                st.success("🎉 ¡Conversión Finalizada con Éxito!")
-                st.write("El motor integrado ha compilado la estructura de forma perfecta para esta nueva simulación.")
-                
-                st.download_button(
-                    label="📥 Descargar Archivo Malla_Sondajes_Chile.kml (Google Earth)",
-                    data=kml_bytes_perfectos,
-                    file_name="Malla_Sondajes_Chile.kml",
-                    mime="application/vnd.google-earth.kml+xml"
-                )
+                        # Guardamos los bytes nuevos directamente en el estado de la sesión activa
+                        st.session_state["kml_bytes_nuevos"] = kml_objeto.kml().encode("utf-8")
+                        st.balloons() # Globos de éxito académico
+
+                # Mostrar el botón de descarga solo si ya se presionó el botón de calcular arriba
+                if "kml_bytes_nuevos" in st.session_state:
+                    st.markdown("---")
+                    st.success("🎉 ¡Conversión de tu Nueva Simulación Finalizada con Éxito!")
+                    st.write("El motor ha procesado los datos actuales. Presiona el botón inferior para descargar el archivo georreferenciado:")
+                    st.download_button(
+                        label="📥 Descargar Archivo Malla_Sondajes_Chile.kml (Google Earth)",
+                        data=st.session_state["kml_bytes_nuevos"],
+                        file_name="Malla_Sondajes_Chile.kml",
+                        mime="application/vnd.google-earth.kml+xml"
+                    )
                 
         except Exception as e:
             st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
