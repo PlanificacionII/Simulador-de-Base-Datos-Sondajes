@@ -395,17 +395,17 @@ with tab5:
                         "tooltip": f"Pozo: {p_nombre}"
                     })
 
+                # CREACIÓN DINÁMICA DEL MAPA EN BASE AL CENTRO REAL DE LOS SONDAJES
                 centro_lat = np.mean(lista_lats)
                 centro_lon = np.mean(lista_lons)
                 
-                # 🔒 SOLUCIÓN ABSOLUTA AL VISOR GRIS: Usar el servidor de mosaicos ESRI World Imagery (Ultraestable)
+                # CORRECCIÓN DE CÁTEDRA: Zoom_start=7 aleja la perspectiva satelital para ver las costas y cerros de Chile
                 mapa_servidor = folium.Map(
                     location=[centro_lat, centro_lon],
-                    zoom_start=14,
+                    zoom_start=7, 
                     tiles='https://arcgisonline.com{z}/{y}/{x}',
                     attr='Esri World Imagery'
                 )
-                
                 # Inyectar marcadores al mapa base
                 for p in puntos_mapa:
                     folium.Marker(
