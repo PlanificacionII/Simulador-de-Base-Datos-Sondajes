@@ -280,25 +280,8 @@ with tab5:
     st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
     st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
     
-    # Estructuración segura basada en lista pura de Python para evitar saltos ocultos
-    lineas_kml = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<kml xmlns="http://opengis.net">',
-        '  <Document>',
-        '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>',
-        '    <Style id="marcadorMinero">',
-        '      <IconStyle>',
-        '        <color>ff0000ff</color>',
-        '        <scale>1.2</scale>',
-        '        <Icon>',
-        '          <href>http://google.com</href>',
-        '        </Icon>',
-        '      </IconStyle>',
-        '      <LabelStyle>',
-        '        <scale>0.8</scale>',
-        '      </LabelStyle>',
-        '    </Style>'
-    ]
+    # 🔒 ARQUITECTURA SEGURA: Se eliminó la cabecera XML para forzar el inicio absoluto en la línea 1 con <kml>
+    kml_acumulado = '<kml xmlns="http://opengis.net"><Document><name>Malla de Perforacion Diamantina - Norte de Chile</name><Style id="marcadorMinero"><IconStyle><color>ff0000ff</color><scale>1.2</scale><Icon><href>http://google.com</href></Icon></IconStyle><LabelStyle><scale>0.8</scale></LabelStyle></Style>'
 
     lat_chile = -24.250  
     lon_chile = -69.050  
@@ -333,29 +316,27 @@ with tab5:
         lat_decimal = np.degrees(lat_rad)
         lon_decimal = -69.0 + np.degrees(lon_rad) 
         
-        lineas_kml.append('    <Placemark>')
-        lineas_kml.append(f'      <name>{row["ID"]}</name>')
-        lineas_kml.append('      <description><![CDATA[')
-        lineas_kml.append('        <b>Sondaje Diamantino Profesional</b><br><br>')
-        lineas_kml.append(f'        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>')
-        lineas_kml.append(f'        • Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>')
-        lineas_kml.append(f'        • Elevación Terreno (Z): {row["Z"]} msnm<br>')
-        lineas_kml.append(f'        • Profundidad: {row["Depth"]} metros')
-        lineas_kml.append('      ]]></description>')
-        lineas_kml.append('      <styleUrl>#marcadorMinero</styleUrl>')
-        lineas_kml.append('      <Point>')
-        lineas_kml.append('        <altitudeMode>clampToGround</altitudeMode>')
-        lineas_kml.append(f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>')
-        lineas_kml.append('      </Point>')
-        lineas_kml.append('    </Placemark>')
+        # Concatenación compacta continua en memoria
+        kml_acumulado += '<Placemark>'
+        kml_acumulado += f'<name>{row["ID"]}</name>'
+        kml_acumulado += '<description><![CDATA['
+        kml_acumulado += '<b>Sondaje Diamantino Profesional</b><br><br>'
+        kml_acumulado += f'• Coordenada Este (X): {x_utm:,.1f} m UTM<br>'
+        kml_acumulado += f'• Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>'
+        kml_acumulado += f'• Elevación Terreno (Z): {row["Z"]} msnm<br>'
+        kml_acumulado += f'• Profundidad: {row["Depth"]} metros'
+        kml_acumulado += ']]></description>'
+        kml_acumulado += '<styleUrl>#marcadorMinero</styleUrl>'
+        kml_acumulado += '<Point>'
+        kml_acumulado += '<altitudeMode>clampToGround</altitudeMode>'
+        kml_acumulado += f'<coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>'
+        kml_acumulado += '</Point>'
+        kml_acumulado += '</Placemark>'
 
-    lineas_kml.append('  </Document>')
-    lineas_kml.append('</kml>')
+    kml_acumulado += '</Document></kml>'
     
-    kml_final_texto = "\n".join(lineas_kml)
-
-    # Convertir a arreglo binario puro para saltarse firmas de Windows (BOM)
-    kml_bytes_limpios = bytes(kml_final_texto, "utf-8")
+    # 🔒 EL FILTRO DE PERMISOS ABSOLUTO: Convierte a binario UTF-8 plano sin retornos de carro (CRLF) de Windows
+    kml_bytes_limpios = kml_acumulado.encode("utf-8")
 
     st.download_button(
         label="🌍 Descargar Campaña_Sondajes_UTM.kml (Google Earth)",
