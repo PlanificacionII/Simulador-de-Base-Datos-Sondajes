@@ -280,8 +280,23 @@ with tab5:
     st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
     st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
     
-    # 🔒 EL FILTRO DEFINITIVO: Todo el encabezado XML + KML fundido en una sola línea continua sin saltos de texto
-    kml_acumulado = '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://opengis.net"><Document><name>Malla de Perforacion Diamantina - Norte de Chile</name><Style id="marcadorMinero"><IconStyle><color>ff0000ff</color><scale>1.2</scale><Icon><href>http://google.com</href></Icon></IconStyle><LabelStyle><scale>0.8</scale></LabelStyle></Style>'
+    # 🔒 ARQUITECTURA BLINDADA: Cabecera XML separada estrictamente de la raíz KML por un salto de línea estándar Unix
+    kml_acumulado = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    kml_acumulado += '<kml xmlns="http://opengis.net">\n'
+    kml_acumulado += '  <Document>\n'
+    kml_acumulado += '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>\n'
+    kml_acumulado += '    <Style id="marcadorMinero">\n'
+    kml_acumulado += '      <IconStyle>\n'
+    kml_acumulado += '        <color>ff0000ff</color>\n'
+    kml_acumulado += '        <scale>1.2</scale>\n'
+    kml_acumulado += '        <Icon>\n'
+    kml_acumulado += '          <href>http://google.com</href>\n'
+    kml_acumulado += '        </Icon>\n'
+    kml_acumulado += '      </IconStyle>\n'
+    kml_acumulado += '      <LabelStyle>\n'
+    kml_acumulado += '        <scale>0.8</scale>\n'
+    kml_acumulado += '      </LabelStyle>\n'
+    kml_acumulado += '    </Style>\n'
 
     lat_chile = -24.250  
     lon_chile = -69.050  
@@ -316,23 +331,19 @@ with tab5:
         lat_decimal = np.degrees(lat_rad)
         lon_decimal = -69.0 + np.degrees(lon_rad) 
         
-        kml_acumulado += '<Placemark>'
-        kml_acumulado += f'<name>{row["ID"]}</name>'
-        kml_acumulado += '<description><![CDATA['
-        kml_acumulado += '<b>Sondaje Diamantino Profesional</b><br><br>'
-        kml_acumulado += f'• Coordenada Este (X): {x_utm:,.1f} m UTM<br>'
-        kml_acumulado += f'• Coordenada Norte (Y): {y_utm:,.1f} m UTM<br>'
-        kml_acumulado += f'• Elevación Terreno (Z): {row["Z"]} msnm<br>'
-        kml_acumulado += f'• Profundidad: {row["Depth"]} metros'
-        kml_acumulado += ']]></description>'
-        kml_acumulado += '<styleUrl>#marcadorMinero</styleUrl>'
-        kml_acumulado += '<Point>'
-        kml_acumulado += '<altitudeMode>clampToGround</altitudeMode>'
-        kml_acumulado += f'<coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>'
-        kml_acumulado += '</Point>'
-        kml_acumulado += '</Placemark>'
+        # Concatenación de etiquetas KML limpias sin bloques CDATA complejos que puedan corromper la memoria
+        kml_acumulado += '    <Placemark>\n'
+        kml_acumulado += f'      <name>{row["ID"]}</name>\n'
+        kml_acumulado += f'      <description>Sondaje Diamantino - Este: {x_utm:,.1f}m, Norte: {y_utm:,.1f}m, Cota: {row["Z"]}m, Profundidad: {row["Depth"]}m</description>\n'
+        kml_acumulado += '      <styleUrl>#marcadorMinero</styleUrl>\n'
+        kml_acumulado += '      <Point>\n'
+        kml_acumulado += '        <altitudeMode>clampToGround</altitudeMode>\n'
+        kml_acumulado += f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>\n'
+        kml_acumulado += '      </Point>\n'
+        kml_acumulado += '    </Placemark>\n'
 
-    kml_acumulado += '</Document></kml>'
+    kml_acumulado += '  </Document>\n'
+    kml_acumulado += '</kml>\n'
     
     # Transformación binaria directa a nivel de memoria RAM (Elimina cualquier formato de texto de Windows)
     kml_bytes_limpios = kml_acumulado.encode("utf-8")
