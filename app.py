@@ -53,7 +53,7 @@ elemento_render = st.sidebar.radio(
     ["Cobre (Cu %)", "Oro (Au g/t)"]
 )
 # ====================================================================
-# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (RANGOS FORMALES)
+# ⚙️ MOTOR DE CÁLCULO TRIDIMENSIONAL RELACIONAL (CELDAS SEPARADAS)
 # ====================================================================
 
 collars = []
@@ -90,14 +90,14 @@ for i in range(1, cant_sondajes + 1):
         azimuth = int(np.random.rand() * 360)
         dip = -90 if i % 3 == 0 else int(-60 - np.random.rand() * 15)
         
-    # INTEGRACIÓN: Armamos la estructura de columnas idéntica a tu imagen de Excel
+    # CORRECCIÓN: Separamos estrictamente 'Zona' (19) y 'Hemisferio' (S) en celdas independientes
     collars.append({
         "Nombre": pozo_id,
         "UTM Este": int(x),
         "UTM Norte": int(y),
-        "Z_Cota": elev,             # Mantenemos Z interno para el visualizador 3D
-        "Profundidad": depth,        # Mantenemos Depth interno para tablas
-        "Zona": "19 S",
+        "Z_Cota": elev,             
+        "Profundidad": depth,        
+        "Zona": 19,
         "Hemisferio": "S",
         "Descripcion": "sondajes",
         "Estilo": "Marcador Gota Azul"
@@ -144,118 +144,6 @@ df_collar = pd.DataFrame(collars)
 df_assays = pd.DataFrame(assays)
 df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
-# ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Gran Pantalla Completa)
-# ====================================================================
-st.subheader("🛰️ Visualizador Espacial 3D Ampliado: Trazas de Pozos y Rangos de Ley")
-st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para ROTAR. Usa la rueda del mouse para hacer ZOOM. Haz clic derecho y arrastra para DESPLAZAR (Pan).")
-
-fig = go.Figure()
-
-# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
-min_x = float(df_collar["UTM Este"].min() - espaciamiento)
-max_x = float(df_collar["UTM Este"].max() + espaciamiento)
-min_y = float(df_collar["UTM Norte"].min() - espaciamiento)
-max_y = float(df_collar["UTM Norte"].max() + espaciamiento)
-rango_y = max_y - min_y
-
-num_curvas = 10
-for c in range(1, num_curvas + 1):
-    x_linea = np.linspace(min_x, max_x, 30)
-    y_base = min_y + espaciamiento + (rango_y * (c / (num_curvas + 1)))
-    y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
-    z_linea = round(float(df_collar["Z_Cota"].min()) + ((float(df_collar["Z_Cota"].max()) - float(df_collar["Z_Cota"].min())) * (c / (num_curvas + 1))), 1)
-    z_array = np.full_like(x_linea, z_linea)
-    
-    fig.add_trace(go.Scatter3d(
-        x=x_linea, y=y_linea, z=z_array, mode='lines',
-        line=dict(color='rgba(150, 150, 150, 0.3)', width=1.5),
-        showlegend=False, hoverinfo='none'
-    ))
-
-# 2. CONSTRUCCIÓN DE MATRIZ CON MAPEO DE COLORES POR INTERVALOS
-columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
-
-x_total, y_total, z_total, codigos_color_total, textos_total = [], [], [], [], []
-
-for idx, row in df_collar.iterrows():
-    p_id = row["Nombre"]
-    ensayos_pozo = [a for a in assays if a["ID"] == p_id]
-    srv = next((s for s in surveys if s["ID"] == p_id), None)
-    if not srv or not ensayos_pozo: continue
-    
-    az = np.radians(srv["Azimuth"])
-    dp = np.radians(srv["Dip"])
-    
-    x_total.append(float(row["UTM Este"]))
-    y_total.append(float(row["UTM Norte"]))
-    z_total.append(float(row["Z_Cota"]))
-    codigos_color_total.append(0.0)
-    textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z_Cota']}m")
-    
-    for ens in ensayos_pozo:
-        p_m = ens["From"] + 5
-        int_x = float(row["UTM Este"]) + (p_m * np.cos(dp) * np.sin(az))
-        int_y = float(row["UTM Norte"]) + (p_m * np.cos(dp) * np.cos(az))
-        int_z = float(row["Z_Cota"]) + (p_m * np.sin(dp))
-        
-        val_ley = float(ens[columna_ley])
-        
-        if columna_ley == "Cu_pct":
-            if val_ley < 0.30: codigo = 0.0
-            elif 0.30 <= val_ley < 1.00: codigo = 1.0
-            elif 1.00 <= val_ley < 1.80: codigo = 2.0
-            else: codigo = 3.0
-        else:
-            if val_ley < 0.90: codigo = 0.0
-            elif 0.90 <= val_ley < 4.00: codigo = 1.0
-            elif 4.00 <= val_ley < 8.00: codigo = 2.0
-            else: codigo = 3.0
-
-        x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
-        codigos_color_total.append(codigo)
-        
-        lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
-        textos_total.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {val_ley:,.2f} {unidad_ley}")
-        
-    x_total.append(np.nan); y_total.append(np.nan); z_total.append(np.nan)
-    codigos_color_total.append(0.0)
-    textos_total.append("")
-
-paleta_discreta = [
-    [0.0, "green"], [0.25, "green"],
-    [0.25, "yellow"], [0.5, "yellow"],
-    [0.5, "orange"], [0.75, "orange"],
-    [0.75, "red"], [1.0, "red"]
-]
-
-fig.add_trace(go.Scatter3d(
-    x=x_total, y=y_total, z=z_total, mode='lines+markers',
-    line=dict(
-        color=codigos_color_total, colorscale=paleta_discreta, width=6, cmin=0.0, cmax=3.0,
-        colorbar=dict(
-            title=f"Rangos ({unidad_ley})", thickness=20, x=0.98,
-            tickvals=[0.375, 1.125, 1.875, 2.625],
-            ticktext=["Estéril (<0.30%)" if columna_ley=="Cu_pct" else "Estéril (<0.9 g/t)", 
-                      "Baja-Media (0.30-1.0%)" if columna_ley=="Cu_pct" else "Baja (0.9-4.0 g/t)", 
-                      "Alta Ley (1.0-1.8%)" if columna_ley=="Cu_pct" else "Alta Ley (4.0-8.0 g/t)", 
-                      "Excelente (>1.80%)" if columna_ley=="Cu_pct" else "Excelente (>8.0 g/t)"]
-        )
-    ),
-    marker=dict(size=2.5, color=codigos_color_total, colorscale=paleta_discreta, cmin=0.0, cmax=3.0, opacity=0.9),
-    text=textos_total, hoverinfo='text', showlegend=False
-))
-
-config_escena = dict(
-    xaxis=dict(title="Este (X)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-    yaxis=dict(title="Norte (Y)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-    zaxis=dict(title="Cota (Z)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-    aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5)
-)
-
-fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
-st.plotly_chart(fig, use_container_width=True)
 # ====================================================================
 # 📋 TABLAS DE DESCARGA E INTEGRACIÓN DE EXCEL REAL NATIVO (.XLSX)
 # ====================================================================
@@ -306,11 +194,12 @@ with tab5:
         try:
             df_excel_alumno = pd.read_excel(archivo_cargado)
             
+            # Verificación de Seguridad Calibrada: Exigimos estrictamente que existan las columnas por separado
             columnas_requeridas = ["Nombre", "UTM Este", "UTM Norte", "Zona", "Hemisferio"]
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
-                st.error("❌ El archivo Excel subido no tiene la estructura oficial. Debe contener las columnas: Nombre, UTM Este, UTM Norte, Zona, Hemisferio.")
+                st.error("❌ El archivo Excel subido no tiene la estructura oficial. Debe contener las columnas independientes: Nombre, UTM Este, UTM Norte, Zona, Hemisferio.")
             else:
-                st.success("📊 Estructura de Excel verificada con éxito. Procesando conversión geodésica para Huso 19S...")
+                st.success("📊 Estructura de Excel verificada con éxito (Celdas de Zona y Hemisferio alineadas). Procesando conversión geodésica para Huso 19S...")
                 
                 lineas_kml = [
                     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -331,6 +220,7 @@ with tab5:
                     '    </Style>'
                 ]
 
+                # Coordenadas geográficas de anclaje base para el Norte Grande de Chile
                 lat_chile = -24.250  
                 lon_chile = -69.050  
                 
@@ -340,6 +230,7 @@ with tab5:
                     p_nombre = str(row["Nombre"])
                     p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
                     
+                    # Ecuaciones Geodésicas Transversas de Mercator
                     a = 6378137.0         
                     f = 1 / 298.257223563 
                     b = a * (1 - f)
