@@ -320,24 +320,8 @@ with tab5:
             else:
                 st.success("📊 Estructura de Excel verificada con éxito. Procesando conversión geodésica para Huso 19S...")
                 
-                lineas_kml = [
-                    '<?xml version="1.0" encoding="UTF-8"?>',
-                    '<kml xmlns="http://opengis.net">',
-                    '  <Document>',
-                    '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>',
-                    '    <Style id="marcadorMinero">',
-                    '      <IconStyle>',
-                    '        <color>ff0000ff</color>',
-                    '        <scale>1.2</scale>',
-                    '        <Icon>',
-                    '          <href>http://google.com</href>',
-                    '        </Icon>',
-                    '      </IconStyle>',
-                    '      <LabelStyle>',
-                    '        <scale>0.8</scale>',
-                    '      </LabelStyle>',
-                    '    </Style>'
-                ]
+                # 🔒 EL FILTRO DEFINITIVO: Todo el encabezado XML + KML fundido en un solo bloque continuo de memoria
+                kml_acumulado = '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://opengis.net"><Document><name>Malla de Perforacion Diamantina - Norte de Chile</name><Style id="marcadorMinero"><IconStyle><color>ff0000ff</color><scale>1.2</scale><Icon><href>http://google.com</href></Icon></IconStyle><LabelStyle><scale>0.8</scale></LabelStyle></Style>'
 
                 lat_chile = -24.250  
                 lon_chile = -69.050  
@@ -374,26 +358,26 @@ with tab5:
                     lat_decimal = np.degrees(lat_rad)
                     lon_decimal = -69.0 + np.degrees(lon_rad) 
                     
-                    lineas_kml.append('    <Placemark>')
-                    lineas_kml.append(f'      <name>{p_nombre}</name>')
-                    lineas_kml.append('      <description><![CDATA[')
-                    lineas_kml.append('        <b>Sondaje Diamantino Profesional</b><br><br>')
-                    lineas_kml.append(f'        • Tipo: {p_desc}<br>')
-                    lineas_kml.append(f'        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>')
-                    lineas_kml.append(f'        • Coordenada Norte (Y): {y_utm:,.1f} m UTM')
-                    lineas_kml.append('      ]]></description>')
-                    lineas_kml.append('      <styleUrl>#marcadorMinero</styleUrl>')
-                    lineas_kml.append('      <Point>')
-                    lineas_kml.append('        <altitudeMode>clampToGround</altitudeMode>')
-                    lineas_kml.append(f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>')
-                    lineas_kml.append('      </Point>')
-                    lineas_kml.append('    </Placemark>')
+                    # Unión compacta y continua de etiquetas sin saltos físicos
+                    kml_acumulado += '<Placemark>'
+                    kml_acumulado += f'<name>{p_nombre}</name>'
+                    kml_acumulado += '<description><![CDATA['
+                    kml_acumulado += '<b>Sondaje Diamantino Profesional</b><br><br>'
+                    kml_acumulado += f'• Tipo: {p_desc}<br>'
+                    kml_acumulado += f'• Coordenada Este (X): {x_utm:,.1f} m UTM<br>'
+                    kml_acumulado += f'• Coordenada Norte (Y): {y_utm:,.1f} m UTM'
+                    kml_acumulado += ']]></description>'
+                    kml_acumulado += '<styleUrl>#marcadorMinero</styleUrl>'
+                    kml_acumulado += '<Point>'
+                    kml_acumulado += '<altitudeMode>clampToGround</altitudeMode>'
+                    kml_acumulado += f'<coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>'
+                    kml_acumulado += '</Point>'
+                    kml_acumulado += '</Placemark>'
 
-                lineas_kml.append('  </Document>')
-                lineas_kml.append('</kml>')
+                kml_acumulado += '</Document></kml>'
                 
-                kml_final_texto = "\n".join(lineas_kml)
-                kml_bytes_limpios = bytes(kml_final_texto, "utf-8")
+                # Transformación binaria directa a nivel de memoria RAM
+                kml_bytes_limpios = kml_acumulado.encode("utf-8")
                 
                 st.markdown("---")
                 st.write("#### 🎉 ¡Conversión Completada de Forma Exitosa!")
