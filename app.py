@@ -280,31 +280,44 @@ with tab5:
     st.write("### 🛰️ Exportador Geográfico KML Profesional - Huso 19S (Chile)")
     st.write("Esta herramienta aplica las ecuaciones geodésicas oficiales para transformar la grilla de metros locales UTM (WGS84 Zona 19S) a los grados decimales nativos que requiere Google Earth.")
     
-    # 🔒 ARQUITECTURA BLINDADA: Cabecera XML separada estrictamente de la raíz KML por un salto de línea estándar Unix
-    kml_acumulado = '<?xml version="1.0" encoding="UTF-8"?>\n'
-    kml_acumulado += '<kml xmlns="http://opengis.net">\n'
-    kml_acumulado += '  <Document>\n'
-    kml_acumulado += '    <name>Malla de Perforacion Diamantina - Norte de Chile</name>\n'
-    kml_acumulado += '    <Style id="marcadorMinero">\n'
-    kml_acumulado += '      <IconStyle>\n'
-    kml_acumulado += '        <color>ff0000ff</color>\n'
-    kml_acumulado += '        <scale>1.2</scale>\n'
-    kml_acumulado += '        <Icon>\n'
-    kml_acumulado += '          <href>http://google.com</href>\n'
-    kml_acumulado += '        </Icon>\n'
-    kml_acumulado += '      </IconStyle>\n'
-    kml_acumulado += '      <LabelStyle>\n'
-    kml_acumulado += '        <scale>0.8</scale>\n'
-    kml_acumulado += '      </LabelStyle>\n'
-    kml_acumulado += '    </Style>\n'
+    # 🔒 SOLUCIÓN MAESTRA: Usar el motor constructor de XML nativo de Python
+    import xml.etree.ElementTree as ET
+    
+    # Crear la raíz estructural <kml> con su espacio de nombres oficial OGC
+    raiz_kml = ET.Element('kml', xmlns="http://opengis.net")
+    documento = ET.SubElement(raiz_kml, 'Document')
+    
+    # Nombre del proyecto dentro de Google Earth
+    nombre_doc = ET.SubElement(documento, 'name')
+    nombre_doc.text = "Malla de Perforacion Diamantina - Norte de Chile"
+    
+    # Definición de Estilos Técnicos para el Marcador Redondo Rojo
+    estilo = ET.SubElement(documento, 'Style', id="marcadorMinero")
+    icon_style = ET.SubElement(estilo, 'IconStyle')
+    
+    color_icon = ET.SubElement(icon_style, 'color')
+    color_icon.text = "ff0000ff" # Rojo opaco
+    
+    escala_icon = ET.SubElement(icon_style, 'scale')
+    escala_icon.text = "1.2"
+    
+    icono = ET.SubElement(icon_style, 'Icon')
+    href_icon = ET.SubElement(icono, 'href')
+    href_icon.text = "http://google.com"
+    
+    label_style = ET.SubElement(estilo, 'LabelStyle')
+    escala_label = ET.SubElement(label_style, 'scale')
+    escala_label.text = "0.8"
 
     lat_chile = -24.250  
     lon_chile = -69.050  
     
+    # Bucle de conversión de coordenadas e inyección de puntos
     for idx, row in df_collar.iterrows():
         x_utm = float(row["X"])
         y_utm = float(row["Y"])
         
+        # Ecuaciones Geodésicas de Transversa de Mercator (Huso 19S)
         a = 6378137.0         
         f = 1 / 298.257223563 
         b = a * (1 - f)
@@ -331,26 +344,37 @@ with tab5:
         lat_decimal = np.degrees(lat_rad)
         lon_decimal = -69.0 + np.degrees(lon_rad) 
         
-        # Concatenación de etiquetas KML limpias sin bloques CDATA complejos que puedan corromper la memoria
-        kml_acumulado += '    <Placemark>\n'
-        kml_acumulado += f'      <name>{row["ID"]}</name>\n'
-        kml_acumulado += f'      <description>Sondaje Diamantino - Este: {x_utm:,.1f}m, Norte: {y_utm:,.1f}m, Cota: {row["Z"]}m, Profundidad: {row["Depth"]}m</description>\n'
-        kml_acumulado += '      <styleUrl>#marcadorMinero</styleUrl>\n'
-        kml_acumulado += '      <Point>\n'
-        kml_acumulado += '        <altitudeMode>clampToGround</altitudeMode>\n'
-        kml_acumulado += f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>\n'
-        kml_acumulado += '      </Point>\n'
-        kml_acumulado += '    </Placemark>\n'
+        # Crear componente <Placemark> de forma estructurada en memoria
+        placemark = ET.SubElement(documento, 'Placemark')
+        
+        p_name = ET.SubElement(placemark, 'name')
+        p_name.text = str(row["ID"])
+        
+        p_desc = ET.SubElement(placemark, 'description')
+        p_desc.text = f"Sondaje Diamantino - Este: {x_utm:,.1f}m, Norte: {y_utm:,.1f}m, Cota: {row['Z']}m, Profundidad: {row['Depth']}m"
+        
+        p_style = ET.SubElement(placemark, 'styleUrl')
+        p_style.text = "#marcadorMinero"
+        
+        punto = ET.SubElement(placemark, 'Point')
+        alt_mode = ET.SubElement(punto, 'altitudeMode')
+        alt_mode.text = "clampToGround"
+        
+        coordenadas = ET.SubElement(punto, 'coordinates')
+        coordenadas.text = f"{lon_decimal:.7f},{lat_decimal:.7f},0"
 
-    kml_acumulado += '  </Document>\n'
-    kml_acumulado += '</kml>\n'
+    # Convertir el objeto de memoria a un árbol binario real sin usar strings manuales
+    instancia_arbol = ET.ElementTree(raiz_kml)
+    bufer_binario = io.BytesIO()
     
-    # Transformación binaria directa a nivel de memoria RAM (Elimina cualquier formato de texto de Windows)
-    kml_bytes_limpios = kml_acumulado.encode("utf-8")
+    # Compilar el archivo inyectando la cabecera XML oficial de forma nativa por sistema
+    instancia_arbol.write(bufer_binario, encoding='utf-8', xml_declaration=True)
+    kml_final_bytes = bufer_binario.getvalue()
 
+    # Despliegue del botón de descarga enviando los bytes estructurados puros
     st.download_button(
         label="🌍 Descargar Campaña_Sondajes_UTM.kml (Google Earth)",
-        data=kml_bytes_limpios,
-        file_name="Campaña_Sondajes_UTM.kml",
+        data=kml_final_bytes,
+        file_name="Campana_Sondajes_UTM.kml",
         mime="application/vnd.google-earth.kml+xml"
     )
