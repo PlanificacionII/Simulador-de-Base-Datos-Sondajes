@@ -256,7 +256,6 @@ config_escena = dict(
 
 fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
 st.plotly_chart(fig, use_container_width=True)
-
 # ====================================================================
 # 📋 TABLAS DE DESCARGA E INTEGRACIÓN DE EXCEL REAL NATIVO (.XLSX)
 # ====================================================================
@@ -282,9 +281,7 @@ def crear_boton_excel(dataframe, nombre_archivo, ocultar_columnas=None):
     )
 
 with tab1:
-    # Mostramos la cuadrícula en Streamlit. Ocultamos las cotas de la visualización para replicar tu imagen limpia
     st.dataframe(df_collar.drop(columns=["Z_Cota", "Profundidad"]), use_container_width=True, height=220)
-    # Genera el archivo Excel idéntico al de tu imagen
     crear_boton_excel(df_collar, "Collar_Sondajes", ocultar_columnas=["Z_Cota", "Profundidad"])
 with tab2:
     st.dataframe(df_assays, use_container_width=True, height=220)
@@ -296,9 +293,8 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor Web Adaptado a los Nombres de tu Imagen de Excel
 with tab5:
-    st.write("### 🛰 convertidor Integrado: Carga tu Excel y Genera tu KML")
+    st.write("### 🛰️ Convertidor Integrado: Carga tu Excel y Genera tu KML")
     st.write("Sube el archivo Excel oficial para transformarlo de manera inmediata al formato georreferenciado compatible con Google Earth Pro.")
     
     archivo_cargado = st.file_uploader(
@@ -310,7 +306,6 @@ with tab5:
         try:
             df_excel_alumno = pd.read_excel(archivo_cargado)
             
-            # Verificación de Seguridad: Asegurar que existan los títulos exactos de tu imagen
             columnas_requeridas = ["Nombre", "UTM Este", "UTM Norte", "Zona", "Hemisferio"]
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
                 st.error("❌ El archivo Excel subido no tiene la estructura oficial. Debe contener las columnas: Nombre, UTM Este, UTM Norte, Zona, Hemisferio.")
@@ -335,3 +330,72 @@ with tab5:
                     '      </LabelStyle>',
                     '    </Style>'
                 ]
+
+                lat_chile = -24.250  
+                lon_chile = -69.050  
+                
+                for idx, row in df_excel_alumno.iterrows():
+                    x_utm = float(row["UTM Este"])
+                    y_utm = float(row["UTM Norte"])
+                    p_nombre = str(row["Nombre"])
+                    p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
+                    
+                    a = 6378137.0         
+                    f = 1 / 298.257223563 
+                    b = a * (1 - f)
+                    e2 = (a**2 - b**2) / a**2
+                    e_prim2 = (a**2 - b**2) / b**2
+                    c = a / (1 - f)
+                    
+                    x_profe = x_utm - 500000.0
+                    y_profe = y_utm - 10000000.0 
+                    
+                    phi = y_profe / (6367449.146)
+                    
+                    n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
+                    m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
+                    t = np.tan(phi)**2
+                    psi = e_prim2 * np.cos(phi)**2
+                    
+                    fact_lat = x_profe / n
+                    lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
+                    
+                    fact_lon = x_profe / (n * np.cos(phi))
+                    lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
+                    
+                    lat_decimal = np.degrees(lat_rad)
+                    lon_decimal = -69.0 + np.degrees(lon_rad) 
+                    
+                    lineas_kml.append('    <Placemark>')
+                    lineas_kml.append(f'      <name>{p_nombre}</name>')
+                    lineas_kml.append('      <description><![CDATA[')
+                    lineas_kml.append('        <b>Sondaje Diamantino Profesional</b><br><br>')
+                    lineas_kml.append(f'        • Tipo: {p_desc}<br>')
+                    lineas_kml.append(f'        • Coordenada Este (X): {x_utm:,.1f} m UTM<br>')
+                    lineas_kml.append(f'        • Coordenada Norte (Y): {y_utm:,.1f} m UTM')
+                    lineas_kml.append('      ]]></description>')
+                    lineas_kml.append('      <styleUrl>#marcadorMinero</styleUrl>')
+                    lineas_kml.append('      <Point>')
+                    lineas_kml.append('        <altitudeMode>clampToGround</altitudeMode>')
+                    lineas_kml.append(f'        <coordinates>{lon_decimal:.7f},{lat_decimal:.7f},0</coordinates>')
+                    lineas_kml.append('      </Point>')
+                    lineas_kml.append('    </Placemark>')
+
+                lineas_kml.append('  </Document>')
+                lineas_kml.append('</kml>')
+                
+                kml_final_texto = "\n".join(lineas_kml)
+                kml_bytes_limpios = bytes(kml_final_texto, "utf-8")
+                
+                st.markdown("---")
+                st.write("#### 🎉 ¡Conversión Completada de Forma Exitosa!")
+                
+                st.download_button(
+                    label="🌍 Descargar Malla_Sondajes_Chile.kml",
+                    data=kml_bytes_limpios,
+                    file_name="Malla_Sondajes_Chile.kml",
+                    mime="application/vnd.google-earth.kml+xml"
+                )
+                
+        except Exception as e:
+            st.error(f"❌ Error al procesar el archivo. Detalle técnico: {e}")
