@@ -301,20 +301,19 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor Oficial Integrado de Alta Fidelidad (Motor SimpleKML)
+# PESTAÑA 5: Convertidor Integrado con Visor Satelital Oficial Reparado
 with tab5:
-    st.write("### 🛰️ Convertidor Oficial Integrado con Visor Satelital en Vivo")
-    st.write("Carga tu archivo Excel para ejecutar el convertidor y levantar la malla de sondajes sobre el mapa satelital del Norte de Chile de forma inmediata.")
+    st.write("### 🛰️ Módulo de Conversión 'EKmlz' con Visor Satelital Integrado")
+    st.write("Carga tu archivo Excel para ejecutar el convertidor y levantar la malla de sondajes sobre el mapa de Google Satellite de forma inmediata en esta misma pantalla.")
     
     archivo_cargado = st.file_uploader(
-        "📥 Cargue aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
+        "📥 Seleccione o arrastre aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
         type=["xlsx"]
     )
     
     if archivo_cargado is not None:
         try:
             import simplekml
-            # Importamos los motores del mapa satelital interactivo
             import folium
             from streamlit_folium import st_folium
             
@@ -324,105 +323,103 @@ with tab5:
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
                 st.error("❌ El archivo cargado no contiene las columnas oficiales de la plantilla (Nombre, UTM Este, UTM Norte, Zona, Hemisferio).")
             else:
-                st.success("📊 Base de datos cargada. Presiona el botón inferior para ejecutar el convertidor y levantar el mapa satelital.")
+                st.success("📊 Base de datos de collares inspeccionada con éxito.")
                 
-                if st.button("🚀 EJECUTAR CONVERTIDOR Y LEVANTAR MAPA SATELITAL"):
-                    with st.spinner("Procesando ecuaciones geodésicas y renderizando mapas..."):
-                        
-                        kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
-                        
-                        # Coordenadas geográficas del distrito minero en Chile
-                        lat_chile = -24.250  
-                        lon_chile = -69.050  
-                        
-                        # Crear el mapa base interactivo de Google Satélite centrado en el yacimiento
-                        mapa_servidor = folium.Map(
-                            location=[lat_chile, lon_chile],
-                            zoom_start=14,
-                            tiles='https://google.com{x}&y={y}&z={z}',
-                            attr='Google Satellite'
-                        )
-                        
-                        for idx, row in df_excel_alumno.iterrows():
-                            x_utm = float(row["UTM Este"])
-                            y_utm = float(row["UTM Norte"])
-                            p_nombre = str(row["Nombre"])
-                            p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
-                            
-                            # Ecuaciones matemáticas del elipsoide WGS84
-                            a = 6378137.0         
-                            f = 1 / 298.257223563 
-                            b = a * (1 - f)
-                            e2 = (a**2 - b**2) / a**2
-                            e_prim2 = (a**2 - b**2) / b**2
-                            c = a / (1 - f)
-                            
-                            x_profe = x_utm - 500000.0
-                            y_profe = y_utm - 10000000.0 
-                            
-                            phi = y_profe / (6367449.146)
-                            
-                            n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
-                            m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
-                            t = np.tan(phi)**2
-                            psi = e_prim2 * np.cos(phi)**2
-                            
-                            fact_lat = x_profe / n
-                            lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
-                            
-                            fact_lon = x_profe / (n * np.cos(phi))
-                            lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
-                            
-                            lat_decimal = np.degrees(lat_rad)
-                            lon_decimal = -69.0 + np.degrees(lon_rad) 
-                            
-                            # 1. COMPILAR KML (Para descarga opcional del alumno)
-                            pnt = kml_objeto.newpoint(name=p_nombre)
-                            pnt.coords = [(lon_decimal, lat_decimal)]
-                            pnt.altitudemode = simplekml.AltitudeMode.clamptoground
-                            pnt.description = f"Sondaje Diamantino\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m"
-                            pnt.style.iconstyle.icon.href = 'http://google.com'
-                            pnt.style.iconstyle.color = 'ff0000ff'
-                            
-                            # 2. INYECTAR PIN AL VISOR SATELITAL EN VIVO
-                            html_pop = f"""
-                            <div style="font-family: Arial, sans-serif; font-size: 12px; width: 180px;">
-                                <h4 style="margin:0 0 5px 0; color:#b30000;">🛸 {p_nombre}</h4>
-                                <b>Este (X):</b> {x_utm:,.1f} m<br>
-                                <b>Norte (Y):</b> {y_utm:,.1f} m<br>
-                                <b>Cota (Z):</b> {row['Z_Cota'] if 'Z_Cota' in row else b_cota} m<br>
-                                <b>Tipo:</b> {p_desc}
-                            </div>
-                            """
-                            folium.Marker(
-                                location=[lat_decimal, lat_decimal], # Latitud y Longitud calculadas
-                                popup=folium.Popup(html_pop, max_width=200),
-                                tooltip=p_nombre,
-                                icon=folium.Icon(color='red', icon='info-sign')
-                            ).add_to(mapa_servidor)
-
-                        # Guardar estados en la sesión web para despliegue inmediato
-                        st.session_state["mapa_render"] = mapa_servidor
-                        st.session_state["kml_descarga"] = kml_objeto.kml().encode("utf-8")
-                        st.balloons()
-
-                # Desplegar los componentes de forma inmediata si la conversión ya corrió
-                if "mapa_render" in st.session_state:
-                    st.markdown("---")
-                    st.write("#### 🗺️ Visor Geográfico Satelital en Tiempo Real:")
-                    st.caption("🔍 Usa los controles del mapa (+/-) o la rueda del mouse para hacer ZOOM. Haz clic sobre cualquier marcador rojo para desplegar los metadatos geológicos del pozo.")
+                # Inicializar el objeto KML de memoria
+                kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
+                
+                # Coordenadas geográficas base del distrito minero en el Norte de Chile
+                lat_chile = -24.250  
+                lon_chile = -69.050  
+                
+                # CREACIÓN DEL MAPA BASE SATELITAL
+                mapa_servidor = folium.Map(
+                    location=[lat_chile, lon_chile],
+                    zoom_start=15, # Un zoom más cercano para apreciar el relieve de los cerros
+                    tiles='https://google.com{x}&y={y}&z={z}',
+                    attr='Google Satellite'
+                )
+                
+                # Bucle de conversión geodésica Transversa de Mercator (Huso 19S)
+                for idx, row in df_excel_alumno.iterrows():
+                    x_utm = float(row["UTM Este"])
+                    y_utm = float(row["UTM Norte"])
+                    p_nombre = str(row["Nombre"])
+                    p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
                     
-                    # Levanta el mapa de Google Satélite directo en la pantalla del alumno
-                    st_folium(st.session_state["mapa_render"], width=1200, height=500)
+                    a = 6378137.0         
+                    f = 1 / 298.257223563 
+                    b = a * (1 - f)
+                    e2 = (a**2 - b**2) / a**2
+                    e_prim2 = (a**2 - b**2) / b**2
+                    c = a / (1 - f)
                     
-                    st.markdown("---")
-                    st.write("*(Opcional) Si deseas guardar esta campaña en tu disco duro para informes, puedes descargar el archivo georreferenciado:*")
-                    st.download_button(
-                        label="📥 Descargar Archivo Malla_Sondajes_Chile.kml",
-                        data=st.session_state["kml_descarga"],
-                        file_name="Malla_Sondajes_Chile.kml",
-                        mime="application/vnd.google-earth.kml+xml"
-                    )
+                    x_profe = x_utm - 500000.0
+                    y_profe = y_utm - 10000000.0 
+                    
+                    phi = y_profe / (6367449.146)
+                    
+                    n = c / np.sqrt(1 + e_prim2 * np.cos(phi)**2)
+                    m = c / (1 + e_prim2 * np.cos(phi)**2)**1.5
+                    t = np.tan(phi)**2
+                    psi = e_prim2 * np.cos(phi)**2
+                    
+                    fact_lat = x_profe / n
+                    lat_rad = phi - (fact_lat**2 * np.tan(phi) / 2) * (1 + (fact_lat**2 / 12) * (5 + 3 * t + psi - 9 * t * psi))
+                    
+                    fact_lon = x_profe / (n * np.cos(phi))
+                    lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
+                    
+                    lat_decimal = np.degrees(lat_rad)
+                    lon_decimal = -69.0 + np.degrees(lon_rad) 
+                    
+                    # 1. COMPILAR EL OBJETO KML INTERNO
+                    pnt = kml_objeto.newpoint(name=p_nombre)
+                    pnt.coords = [(lon_decimal, lat_decimal)]
+                    pnt.altitudemode = simplekml.AltitudeMode.clamptoground
+                    pnt.description = f"Sondaje Diamantino\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m"
+                    pnt.style.iconstyle.icon.href = 'http://google.com'
+                    pnt.style.iconstyle.color = 'ff0000ff'
+                    
+                    # 2. DISEÑO DEL CUADRO INFORMATIVO DEL POZO EN EL MAPA (Popup)
+                    html_pop = f"""
+                    <div style="font-family: Arial, sans-serif; font-size: 12px; width: 190px;">
+                        <h4 style="margin:0 0 5px 0; color:#b30000;">⚒️ Sondaje: {p_nombre}</h4>
+                        <hr style="margin:4px 0; border:0; border-top:1px solid #ccc;">
+                        <b>Coordenada X (Este):</b> {x_utm:,.1f} m<br>
+                        <b>Coordenada Y (Norte):</b> {y_utm:,.1f} m<br>
+                        <b>Tipo Mapeo:</b> {p_desc}<br>
+                        <b>Huso Proyección:</b> UTM 19S
+                    </div>
+                    """
+                    
+                    # CORRECCIÓN DEFINITIVA: Se pasa Latitud y Longitud de forma exacta al marcador
+                    folium.Marker(
+                        location=[lat_decimal, lon_decimal], 
+                        popup=folium.Popup(html_pop, max_width=220),
+                        tooltip=f"Pozo: {p_nombre}",
+                        icon=folium.Icon(color='red', icon='screenshot', prefix='glyphicon')
+                    ).add_to(mapa_servidor)
+
+                # Renderizado directo en la interfaz sin saltos de página
+                st.markdown("---")
+                st.write("#### 🗺️ Visor Geográfico Satelital en Tiempo Real:")
+                st.caption("🔍 Usa los controles del mapa (+/-) o la rueda del mouse para hacer ZOOM. Haz clic sobre cualquier marcador rojo para desplegar las coordenadas UTM del pozo.")
+                
+                # Desplegar el mapa satelital de Google integrado a lo ancho de la pantalla
+                st_folium(mapa_servidor, width=1300, height=550, returned_objects=[])
+                
+                # Compilar el archivo KML de respaldo por si el alumno quiere guardarlo
+                kml_bytes_perfectos = kml_objeto.kml().encode("utf-8")
+                
+                st.markdown("---")
+                st.write("*(Opcional) Si necesitas registrar esta campaña en tu informe, descarga el archivo KML verificado para Google Earth Pro de escritorio:*")
+                st.download_button(
+                    label="📥 Descargar Archivo Malla_Sondajes_Chile.kml",
+                    data=kml_bytes_perfectos,
+                    file_name="Malla_Sondajes_Chile.kml",
+                    mime="application/vnd.google-earth.kml+xml"
+                )
                 
         except Exception as e:
-            st.error(f"❌ Error durante el levantamiento del mapa integrado. Detalle técnico: {e}")
+            st.error(f"❌ Error al procesar el visor satelital integrado. Detalle técnico: {e}")
