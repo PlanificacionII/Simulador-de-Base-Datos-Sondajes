@@ -301,16 +301,28 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor de Alta Fidelidad SimpleKML sin cargas gráficas de mapa (Máxima Estabilidad)
+# PESTAÑA 5: Convertidor de Alta Fidelidad SimpleKML con Reseteo de Memoria Reactivo
 with tab5:
     st.write("### 🛰️ Módulo de Conversión Geodésica 'EKmlz' Integrado")
-    st.write("Carga tu archivo de collares en formato Excel para transformarlo de manera inmediata a un archivo cartográfico KML de alta velocidad compatible con Google Earth.")
+    st.write("Carga tu archivo de collares en formato Excel para transformarlo de manera inmediata a un archivo cartográfico KML compatible con Google Earth.")
     
+    # 📥 Cargador de archivos que detecta cambios de inmediato
     archivo_cargado = st.file_uploader(
         "📂 Arrastra aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
-        type=["xlsx"]
+        type=["xlsx"],
+        key="kml_uploader_key"
     )
     
+    # 🔒 CONTROL DE RESETEO: Si el alumno sube un nuevo archivo o cambia datos, limpiamos la memoria vieja
+    if "ultimo_archivo" not in st.session_state:
+        st.session_state["ultimo_archivo"] = None
+        
+    if archivo_cargado is not None and archivo_cargado != st.session_state["ultimo_archivo"]:
+        st.session_state["ultimo_archivo"] = archivo_cargado
+        if "kml_descarga" in st.session_state:
+            del st.session_state["kml_descarga"] # Borrar el KML antiguo del yacimiento anterior
+            st.rerun() # Forzar el refresco limpio de la pestaña
+            
     if archivo_cargado is not None:
         try:
             import simplekml
@@ -320,7 +332,7 @@ with tab5:
             if not all(col in df_excel_alumno.columns for col in columnas_requeridas):
                 st.error("❌ El archivo cargado no contiene las columnas oficiales de la plantilla (Nombre, UTM Este, UTM Norte, Zona, Hemisferio).")
             else:
-                st.success("📊 Base de datos inspeccionada con éxito. Presiona el botón inferior para ejecutar la conversión geodésica.")
+                st.success("📊 Base de datos nueva detectada con éxito. Presiona el botón inferior para ejecutar la conversión geodésica.")
                 
                 # Inicializar el objeto KML mediante el motor cartográfico estándar
                 kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
@@ -366,7 +378,7 @@ with tab5:
                     lat_decimal = -abs(np.degrees(lat_rad))
                     lon_decimal = -abs(-69.0 + np.degrees(lon_rad))  
                     
-                    # Construir el marcador usando la API nativa de simplekml (Inmune a errores de sintaxis)
+                    # Construir el marcador usando la API nativa de simplekml
                     pnt = kml_objeto.newpoint(name=p_nombre)
                     pnt.coords = [(lon_decimal, lat_decimal)]
                     pnt.altitudemode = simplekml.AltitudeMode.clamptoground
@@ -383,7 +395,7 @@ with tab5:
                 
                 st.markdown("---")
                 st.success("🎉 ¡Conversión Finalizada con Éxito!")
-                st.write("El motor integrado ha compilado la estructura de forma perfecta.")
+                st.write("El motor integrado ha compilado la estructura de forma perfecta para esta nueva simulación.")
                 
                 st.download_button(
                     label="📥 Descargar Archivo Malla_Sondajes_Chile.kml (Google Earth)",
