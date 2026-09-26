@@ -843,11 +843,8 @@ with tab7:
 
 # PESTAÑA 8: Módulo de Modelo de Bloques y Envolvente Geológica (Estimación IDW2)
 with tab8:
- # 🔒 CORRECCIÓN CLAVE: La línea que sigue al 'with' lleva 4 espacios estrictos de sangría
-    ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_render, tamano_bloque if 'tamano_bloque' in locals() else 10, ley_corte if 'ley_corte' in locals() else 0.4, radio_busqueda if 'radio_busqueda' in locals() else 120, espaciamiento, crear_boton_excel)
-
-# 🚀 MOTOR DE BLOQUES INDEPENDIENTE (Estructura de una pieza al ras del margen izquierdo con cero espacios al inicio)
-def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_render, t_bloque, l_corte, r_busqueda, espaciamiento, funcion_excel):
+ # 🚀 MOTOR DE BLOQUES INDEPENDIENTE (Declarado primero al ras para que Python lo guarde en memoria)
+def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_render, espaciamiento, funcion_excel):
     import streamlit as st
     import numpy as np
     import pandas as pd
@@ -862,9 +859,9 @@ def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_
     with c_bl1:
         tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
     with c_bl2:
-        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=l_corte, step=0.1, key="cutoff_bloque_key")
+        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.4 if col_seleccionada=="Cu_pct" else 2.5, step=0.1, key="cutoff_bloque_key")
     with c_bl3:
-        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=int(r_busqueda), step=25, key="radio_search_key")
+        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
         
     st.markdown("---")
     
@@ -931,7 +928,7 @@ def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_
                             })
             df_bloques = pd.DataFrame(bloques_estimados)
             st.session_state["db_bloques_activa"] = df_bloques
-            st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.") 
+            st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
 # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
     if "db_bloques_activa" in st.session_state:
         df_b = st.session_state["db_bloques_activa"]
@@ -948,7 +945,7 @@ def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_
         ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
         ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
         
-        vol_bloque = t_bloque ** 3
+        vol_bloque = tamano_bloque ** 3
         tonelaje_mena = n_mena * vol_bloque * 2.7
         
         c_rep1, c_rep2, c_rep3 = st.columns(3)
@@ -990,7 +987,7 @@ def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_
             z=df_render_b["Centro Z (Cota)"],
             mode='markers',
             marker=dict(
-                size=t_bloque * 1.2,
+                size=tamano_bloque * 1.2,
                 color=colores_mapeo,
                 symbol='square'
             ),
@@ -1017,4 +1014,10 @@ def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_
         st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
         
         st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
-        funcion_excel(df_b, f"Modelo_Bloques_Estimado_{t_bloque}m")
+        funcion_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+
+# ====================================================================
+# 🔒 DISPARADOR FINAL DE LA PESTAÑA: Con 4 espacios exactos de sangría
+# ====================================================================
+with tab8:
+    ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_render, espaciamiento, crear_boton_excel)
