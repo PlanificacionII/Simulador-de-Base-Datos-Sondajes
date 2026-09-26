@@ -617,7 +617,7 @@ with tab6:
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
 # PESTAÑA 7: Módulo de Compositaje Minero Profesional (Soporte Regular de Muestras)
 with tab7:
-    st.write("### 📐 Módulo de Compositaje de Pozos (Regularización de Soporte)")
+    st.write("### 📐 Módulo de Compositaje de Pozos (Regularización de Soporte y Visualización 3D)")
     st.write("El compositaje estandariza la longitud de las muestras para eliminar sesgos geométricos antes de la estimación de recursos.")
     
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
@@ -629,28 +629,35 @@ with tab7:
     with c_comp1:
         tipo_composito = st.selectbox(
             "Selecciona el Método de Compositaje:",
-            ["Longitud Fija (Desde Collar)", "Por Bancos (Altura Fija de Explotación)"]
+            ["Longitud Fija (Desde Collar)", "Por Bancos (Altura Fija de Explotación)"],
+            key="metodo_comp_key"
         )
     with c_comp2:
         largo_composito = st.number_input(
             "Longitud / Altura del Composito (m):", 
-            min_value=5, max_value=30, value=10, step=5
+            min_value=5, max_value=30, value=10, step=5,
+            key="largo_comp_key"
         )
         
     st.markdown("---")
     
+    # Listas globales temporales para armar los vectores espaciales 3D del composito
+    x_c, y_c, z_c, colores_c, textos_c = [], [], [], [], []
+    
     if tipo_composito == "Longitud Fija (Desde Collar)":
         st.write(f"#### 🧪 Tabla de Compositos Regulares de {largo_composito}m (Desde Collarín)")
-        st.caption("Muestras ponderadas por longitud a lo largo del eje del sondaje diamantino.")
         
         compositos_long = []
         
-        # Bucle por cada pozo simulado activo
         for idx, row in df_collar.iterrows():
             p_id = row["Nombre"]
+            x_coll, y_coll, z_coll = float(row["UTM Este"]), float(row["UTM Norte"]), float(row["Z_Cota"])
             ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
-            if ensayos_pozo.empty: continue
+            srv = next((s for s in surveys if s["ID"] == p_id), None)
+            if ensayos_pozo.empty or not srv: continue
             
+            az_rad = np.radians(srv["Azimuth"])
+            dp_rad = np.radians(srv["Dip"])
             prof_max = float(ensayos_pozo["To"].max())
             n_compositos = int(np.ceil(prof_max / largo_composito))
             
@@ -660,106 +667,182 @@ with tab7:
                 c_largo = c_to - c_from
                 if c_largo <= 0: continue
                 
-                # Ponderación matemática de la ley en el tramo del composito
-                suma_ley_long = 0.0
-                suma_interseccion = 0.0
-                
+                suma_ley_long, suma_interseccion = 0.0, 0.0
                 for _, ensayo in ensayos_pozo.iterrows():
-                    e_from = float(ensayo["From"])
-                    e_to = float(ensayo["To"])
-                    
-                    # Calcular la intersección física real entre la muestra original y el composito
-                    overlap_from = max(c_from, e_from)
-                    overlap_to = min(c_to, e_to)
+                    overlap_from = max(c_from, float(ensay["From"]))
+                    overlap_to = min(c_to, float(ensay["To"]))
                     interseccion = overlap_to - overlap_from
-                    
                     if interseccion > 0:
-                        suma_ley_long += float(ensayo[col_seleccionada]) * interseccion
+                        suma_ley_long += float(ensay[col_seleccionada]) * interseccion
                         suma_interseccion += interseccion
                 
                 ley_composito = (suma_ley_long / suma_interseccion) if suma_interseccion > 0 else 0.0
                 
                 compositos_long.append({
-                    "Sondaje ID": p_id,
-                    "Desde (m)": round(c_from, 1),
-                    "Hasta (m)": round(c_to, 1),
-                    "Largo (m)": round(c_largo, 1),
-                    f"Ley Comp. ({unidad})": round(ley_composito, 2)
+                    "Sondaje ID": p_id, "Desde (m)": round(c_from, 1), "Hasta (m)": round(c_to, 1),
+                    "Largo (m)": round(c_largo, 1), f"Ley Comp. ({unidad})": round(ley_composito, 2)
                 })
                 
+                # 🚀 CÁLCULO VECTORIAL 3D PARA EL COMPOSITO
+                pm_medio = c_from + (c_largo / 2)
+                xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
+                yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
+                zi = z_coll + (pm_medio * np.sin(dp_rad))
+                
+                # Clasificación discreta de colores para el visualizador del composito
+                if col_seleccionada == "Cu_pct":
+                    cod = 0.0 if ley_composito < 0.30 else (1.0 if ley_composito < 1.00 else (2.0 if ley_composito < 1.80 else 3.0))
+                else:
+                    cod = 0.0 if ley_composito < 0.90 else (1.0 if ley_composito < 4.00 else (2.0 if ley_composito < 8.00 else 3.0))
+                    
+                x_c.append(xi); y_c.append(yi); z_c.append(zi); colores_c.append(cod)
+                textos_c.append(f"<b>{p_id} (Comp)</b><br>Tramo: {c_from}-{c_to}m<br>Ley: {ley_composito:.2f} {unidad}")
+                
+            x_c.append(np.nan); y_c.append(np.nan); z_c.append(np.nan); colores_c.append(0.0); textos_c.append("")
+                
         df_comp_final = pd.DataFrame(compositos_long)
-        st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=300)
+        st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
         crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
-
-    else:
+ else:
         st.write(f"#### ⛰️ Tabla de Compositos por Bancos de {largo_composito}m de Altura")
-        st.caption("Regularización de soporte proyectada horizontalmente en base a las cotas fijas de los bancos de la mina.")
         
         compositos_bancos = []
         
         for idx, row in df_collar.iterrows():
             p_id = row["Nombre"]
-            z_collar = float(row["Z_Cota"])
+            x_coll, y_coll, z_collar = float(row["UTM Este"]), float(row["UTM Norte"]), float(row["Z_Cota"])
             ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
             srv = next((s for s in surveys if s["ID"] == p_id), None)
             if ensayos_pozo.empty or not srv: continue
             
-            # Determinar los límites altimétricos máximos del sondaje en el subsuelo
-            prof_max = float(ensayos_pozo["To"].max())
+            az_rad = np.radians(srv["Azimuth"])
             rad_dip = np.radians(srv["Dip"])
+            prof_max = float(ensayos_pozo["To"].max())
             
-            # Cota Z de inicio y fin del pozo completo
             z_final_pozo = z_collar + (prof_max * np.sin(rad_dip))
             z_alta = max(z_collar, z_final_pozo)
             z_baja = min(z_collar, z_final_pozo)
             
-            # Establecer los niveles fijos de los bancos mineros del proyecto
             banco_inicio_cota = int(np.floor(z_alta / largo_composito) * largo_composito)
             banco_fin_cota = int(np.floor(z_baja / largo_composito) * largo_composito)
-            
             pasos_bancos = range(banco_inicio_cota, banco_fin_cota - largo_composito, -largo_composito)
             
             for b_cota_techo in pasos_bancos:
                 b_cota_piso = b_cota_techo - largo_composito
                 
-                suma_ley_banco = 0.0
-                suma_long_banco = 0.0
+                suma_ley_banco, suma_long_banco = 0.0, 0.0
                 
                 for _, ensayo in ensayos_pozo.iterrows():
-                    # Calcular la cota Z exacta de inicio y fin de cada tramo de la muestra original
                     e_from_z = z_collar + (float(ensayo["From"]) * np.sin(rad_dip))
                     e_to_z = z_collar + (float(ensayo["To"]) * np.sin(rad_dip))
                     
                     z_muestra_alta = max(e_from_z, e_to_z)
                     z_muestra_baja = min(e_from_z, e_to_z)
                     
-                    # Intersección vertical con el rango altimétrico del banco actual
                     overlap_z_alta = min(b_cota_techo, z_muestra_alta)
                     overlap_z_baja = max(b_cota_piso, z_muestra_baja)
                     interseccion_z = overlap_z_alta - overlap_z_baja
                     
                     if interseccion_z > 0:
-                        # Convertimos el tramo vertical de interceptación a longitud real medida en el pozo
                         largo_pozo_interseccion = interseccion_z / abs(np.sin(rad_dip)) if np.sin(rad_dip) != 0 else interseccion_z
-                        
                         suma_ley_banco += float(ensayo[col_seleccionada]) * largo_pozo_interseccion
                         suma_long_banco += largo_pozo_interseccion
                         
                 if suma_long_banco > 0:
                     ley_composito_banco = suma_ley_banco / suma_long_banco
-                    
-                    # Nombre representativo del banco minero (ej. Banco 2190)
                     banco_nombre = f"Banco_{b_cota_techo}"
                     
                     compositos_bancos.append({
-                        "Sondaje ID": p_id,
-                        "Banco Minero": banco_nombre,
-                        "Cota Techo (m)": b_cota_techo,
-                        "Cota Piso (m)": b_cota_piso,
-                        "Largo Interceptado (m)": round(suma_long_banco, 1),
+                        "Sondaje ID": p_id, "Banco Minero": banco_nombre, "Cota Techo (m)": b_cota_techo,
+                        "Cota Piso (m)": b_cota_piso, "Largo Interceptado (m)": round(suma_long_banco, 1),
                         f"Ley Composito ({unidad})": round(ley_composito_banco, 2)
                     })
                     
+                    # 🚀 CÁLCULO VECTORIAL 3D PARA EL COMPOSITO POR BANCO
+                    cota_media_banco = b_cota_techo - (largo_composito / 2)
+                    prof_medida_pozo = (cota_media_banco - z_collar) / np.sin(rad_dip) if np.sin(rad_dip) != 0 else 0.0
+                    
+                    xi = x_coll + (prof_medida_pozo * np.cos(rad_dip) * np.sin(az_rad))
+                    yi = y_coll + (prof_medida_pozo * np.cos(rad_dip) * np.cos(az_rad))
+                    zi = cota_media_banco
+                    
+                    if col_seleccionada == "Cu_pct":
+                        cod = 0.0 if ley_composito_banco < 0.30 else (1.0 if ley_composito_banco < 1.00 else (2.0 if ley_composito_banco < 1.80 else 3.0))
+                    else:
+                        cod = 0.0 if ley_composito_banco < 0.90 else (1.0 if ley_composito_banco < 4.00 else (2.0 if ley_composito_banco < 8.00 else 3.0))
+                        
+                    x_c.append(xi); y_c.append(yi); z_c.append(zi); colores_c.append(cod)
+                    textos_c.append(f"<b>{p_id} ({banco_nombre})</b><br>Ley: {ley_composito_banco:.2f} {unidad}<br>Z: {cota_media_banco}m")
+                    
+            x_c.append(np.nan); y_c.append(np.nan); z_c.append(np.nan); colores_c.append(0.0); textos_c.append("")
+            
         df_comp_bancos_final = pd.DataFrame(compositos_bancos)
-        st.dataframe(df_comp_bancos_final, use_container_width=True, hide_index=True, height=300)
+        st.dataframe(df_comp_bancos_final, use_container_width=True, hide_index=True, height=200)
         crear_boton_excel(df_comp_bancos_final, f"Compositos_Bancos_{largo_composito}m")
+
+    # ====================================================================
+    # 🛰️ VISUALIZADOR ESPACIAL 3D EXCLUSIVO DEL RESULTADO COMPOSITADO
+    # ====================================================================
+    st.markdown("---")
+    st.write(f"#### 🛰️ Modelo Tridimensional Regularizado del Composito ({tipo_composito})")
+    st.caption("Esta escena representa las muestras suavizadas matemáticamente en su posición espacial real. Rote y desplace el cubo para analizar el cambio de soporte.")
+    
+    fig_comp = go.Figure()
+    
+    # Agregar malla topográfica de alambre base para orientar el espacio minero
+    min_x = float(df_collar["UTM Este"].min() - espaciamiento)
+    max_x = float(df_collar["UTM Este"].max() + espaciamiento)
+    min_y = float(df_collar["UTM Norte"].min() - espaciamiento)
+    max_y = float(df_collar["UTM Norte"].max() + espaciamiento)
+    rango_y = max_y - min_y
+    
+    for c in range(1, 6):
+        x_linea = np.linspace(min_x, max_x, 25)
+        y_base = min_y + espaciamiento + (rango_y * (c / 6))
+        y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
+        z_linea = round(float(df_collar["Z_Cota"].min()) + ((float(df_collar["Z_Cota"].max()) - float(df_collar["Z_Cota"].min())) * (c / 6)), 1)
+        z_array = np.full_like(x_linea, z_linea)
+        
+        fig_comp.add_trace(go.Scatter3d(
+            x=x_linea, y=y_linea, z=z_array, mode='lines',
+            line=dict(color='rgba(180, 180, 180, 0.25)', width=1),
+            showlegend=False, hoverinfo='none'
+        ))
+        
+    # Paleta discreta oficial calibrada para el rango docente
+    paleta_discreta = [
+        [0.0, "green"], [0.25, "green"],
+        [0.25, "yellow"], [0.5, "yellow"],
+        [0.5, "orange"], [0.75, "orange"],
+        [0.75, "red"], [1.0, "red"]
+    ]
+    
+    # Dibujar las trazas regularizadas en base a esferas gruesas espaciadas (soporte regular)
+    fig_comp.add_trace(go.Scatter3d(
+        x=x_c, y=y_c, z=z_c, mode='lines+markers',
+        line=dict(color='rgba(200, 200, 200, 0.4)', width=3),
+        marker=dict(
+            size=5, color=colores_c, colorscale=paleta_discreta, cmin=0.0, cmax=3.0, opacity=0.95,
+            colorbar=dict(
+                title=f"Leyes Comp. ({unidad})", thickness=15, x=1.02,
+                tickvals=[0.375, 1.125, 1.875, 2.625],
+                ticktext=["Estéril / Bajo" if col_seleccionada=="Cu_pct" else "Bajo (<3.0 g/t)", 
+                          "Medio" if col_seleccionada=="Cu_pct" else "Medio (3.0-7.0)", 
+                          "Alto Ley" if col_seleccionada=="Cu_pct" else "Alto (7.0-11.0)", 
+                          "Excelente" if col_seleccionada=="Cu_pct" else "Excelente (>11.0)"]
+            )
+        ),
+        text=textos_c, hoverinfo='text', showlegend=False
+    ))
+    
+    config_escena_comp = dict(
+        xaxis=dict(title="Este (X)", gridcolor="lightgray", showbackground=True, backgroundcolor="#f8f9fa"),
+        yaxis=dict(title="Norte (Y)", gridcolor="lightgray", showbackground=True, backgroundcolor="#f8f9fa"),
+        zaxis=dict(title="Cota (Z)", gridcolor="lightgray", showbackground=True, backgroundcolor="#f8f9fa"),
+        aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5)
+    )
+    
+    fig_comp.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_comp)
+    
+    # Renderizado exclusivo de la pestaña 7 amarrado con una llave digital única
+    st.plotly_chart(fig_comp, use_container_width=True, key="visor_grafico_compositos_3d")
