@@ -736,74 +736,31 @@ with tab7:
 # ====================================================================
 with tab8:
     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
-    st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional de bloques utilizando el algoritmo de Inverso de la Distancia al Cuadrado (IDW²).")
+    st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional utilizando matrices nativas de NumPy sin bucles manuales.")
     
+    col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+    unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+    
+    # PANEL DE CONFIGURACIÓN DE ESTIMACIÓN
+    st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
+    c_bl1, c_bl2, c_bl3 = st.columns(3)
+    with c_bl1:
+        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):",, index=1, key="size_bloque_key")
+    with c_bl2:
+        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
+    with c_bl3:
+        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
+        
+    st.markdown("---")
+    
+    # Extraer los datos de la sesión de soporte regular de forma segura
     df_c_origen = st.session_state.get('df_comp_final', pd.DataFrame())
     
     if df_c_origen.empty:
-        st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para inicializar la base de datos de soporte regularizada.")
+        st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' utilizando el método de Longitud Fija para inicializar la base de datos de soporte regularizada.")
     else:
-        st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
-        c_bl1, c_bl2, c_bl3 = st.columns(3)
-        with c_bl1:
-            tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
-        with c_bl2:
-            ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
-        with c_bl3:
-            radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
-            
-        st.markdown("---")
-comp_estimacion = []
-    for idx, row in df_collar.iterrows():
-        p_id = row["Nombre"]
-        x_coll = float(row["UTM Este"])
-        y_coll = float(row["UTM Norte"])
-        z_coll = float(row["Z_Cota"])
-        srv = next((s for s in surveys if s["ID"] == p_id), None)
-        df_c_pozo = df_c_origen[df_c_origen["Sondaje ID"] == p_id]
-        if df_c_pozo.empty or not srv: continue
-        
-        az_rad = np.radians(srv["Azimuth"])
-        dp_rad = np.radians(srv["Dip"])
-        
-        for _, c_row in df_c_pozo.iterrows():
-            if "Desde (m)" in df_c_origen.columns:
-                from_m = float(c_row["Desde (m)"])
-                to_m = float(c_row["Hasta (m)"])
-                pm_medio = from_m + ((to_m - from_m) / 2)
-                xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
-                yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
-                zi = z_coll + (pm_medio * np.sin(dp_rad))
-                val_l = float(c_row[f"Ley Comp. ({unidad})"])
-            else:
-                rad_dip_b = np.radians(srv["Dip"])
-                xi = x_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.sin(az_rad))
-                yi = y_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.cos(az_rad))
-                zi = float(c_row["Cota Techo (m)"]) - (largo_composito / 2)
-                val_l = float(c_row[f"Ley Composito ({unidad})"])
-                
-            comp_estimacion.append([xi, yi, zi, val_l])
-            
-    xyz_comp = np.array(comp_estimacion)
-    
-    if len(xyz_comp) == 0:
-        st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria.")
-    else:
-        st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
-        
-        if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
-            with st.spinner("Interpolando bloques mediante algoritmo de distancias..."):
-                min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
-                min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
-                min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
-                
-                grid_x = np.arange(min_x, max_x, tamano_bloque)
-                grid_y = np.arange(min_y, max_y, tamano_bloque)
-                grid_z = np.arange(min_z, max_z, tamano_bloque)
-               # 🔒 SOLUCIÓN TOTAL: Procesamos los compositos directamente de la grilla RAM sin bucles desalineados
-    xyz_comp = []
-    if not df_c_origen.empty:
-        # Unimos el collarín con los compositos en una sola matriz plana de alta velocidad
+        # FUSIÓN MATRICIAL PLANA: Reemplaza por completo el bucle 'for idx, row' conflictivo
+        xyz_comp = []
         df_m = df_c_origen.merge(df_collar, left_on="Sondaje ID", right_on="Nombre", how="inner")
         if not df_m.empty and "Desde (m)" in df_m.columns:
             srv_df = pd.DataFrame(surveys)
@@ -817,54 +774,49 @@ comp_estimacion = []
             yc = df_m["UTM Norte"].values + (pm * np.cos(dp_r) * np.cos(az_r))
             zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
             vl = df_m[f"Ley Comp. ({unidad})"].values
-            
             xyz_comp = np.column_stack((xc, yc, zc, vl))
 
-    if len(xyz_comp) == 0:
-        st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
-    else:
-        st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
-        
-        if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
-            with st.spinner("Interpolando bloques mediante matriz de distancias elipsoidales..."):
-                min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
-                min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
-                min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
-                
-                grid_x = np.arange(min_x, max_x, tamano_bloque)
-                grid_y = np.arange(min_y, max_y, tamano_bloque)
-                grid_z = np.arange(min_z, max_z, tamano_bloque)
-                
-                # Encofrado tridimensional matricial de bloques cúbicos
-                mesh_x, mesh_y, mesh_z = np.meshgrid(grid_x, grid_y, grid_z)
-                bx_flat = mesh_x.flatten()
-                by_flat = mesh_y.flatten()
-                bz_flat = mesh_z.flatten()
-                
-                bloques_estimados = []
-                for idx_b in range(len(bx_flat)):
-                    bx, by, bz = bx_flat[idx_b], by_flat[idx_b], bz_flat[idx_b]
-                    distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
+        if len(xyz_comp) == 0:
+            st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
+        else:
+            st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
+            
+            if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
+                with st.spinner("Interpolando bloques mediante matriz de distancias elipsoidales..."):
+                    min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
+                    min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
+                    min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
                     
-                    filtro = distancias <= radio_busqueda
-                    d_f = distancias[filtro]
-                    l_f = xyz_comp[:,3][filtro]
+                    grid_x = np.arange(min_x, max_x, tamano_bloque)
+                    grid_y = np.arange(min_y, max_y, tamano_bloque)
+                    grid_z = np.arange(min_z, max_z, tamano_bloque)
                     
-                    if len(d_f) > 0:
-                        d_f = np.where(d_f == 0, 0.001, d_f)
-                        pesos = 1.0 / (d_f**2)
-                        ley_est = np.sum(l_f * pesos) / np.sum(pesos)
-                        cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
+                    mesh_x, mesh_y, mesh_z = np.meshgrid(grid_x, grid_y, grid_z)
+                    bx_flat, by_flat, bz_flat = mesh_x.flatten(), mesh_y.flatten(), mesh_z.flatten()
+                    
+                    bloques_estimados = []
+                    for idx_b in range(len(bx_flat)):
+                        bx, by, bz = bx_flat[idx_b], by_flat[idx_b], bz_flat[idx_b]
+                        distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
                         
-                        bloques_estimados.append({
-                            "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
-                            f"Ley Estimada ({unidad})": round(float(ley_est), 2), "Categoría": cat
-                        })
+                        filtro = distancias <= radio_busqueda
+                        d_f, l_f = distancias[filtro], xyz_comp[:,3][filtro]
                         
-                df_bloques = pd.DataFrame(bloques_estimados)
-                st.session_state["db_bloques_activa"] = df_bloques
-                st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.") 
- if "db_bloques_activa" in st.session_state:
+                        if len(d_f) > 0:
+                            d_f = np.where(d_f == 0, 0.001, d_f)
+                            pesos = 1.0 / (d_f**2)
+                            ley_est = np.sum(l_f * pesos) / np.sum(pesos)
+                            cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
+                            
+                            bloques_estimados.append({
+                                "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
+                                f"Ley Estimada ({unidad})": round(float(ley_est), 2), "Categoría": cat
+                            })
+                            
+                    df_bloques = pd.DataFrame(bloques_estimados)
+                    st.session_state["db_bloques_activa"] = df_bloques
+                    st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
+if "db_bloques_activa" in st.session_state:
             df_b = st.session_state["db_bloques_activa"]
             st.markdown("---")
             st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
