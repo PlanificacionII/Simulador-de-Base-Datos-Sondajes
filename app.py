@@ -265,13 +265,14 @@ fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scen
 st.plotly_chart(fig, use_container_width=True)
 
 # ====================================================================
-# 📋 TABLAS DE DESCARGA E INTEGRACIÓN DE EXCEL REAL NATIVO (.XLSX)
+# 📋 TABLAS DE DESCARGA, CONVERTIDOR KML Y ESTADÍSTICAS METALÚRGICAS
 # ====================================================================
 st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth"
+# Agregamos la pestaña 6 al final de la barra de navegación que enviaste en tu imagen
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth", "📊 6. Estadísticas de Leyes"
 ])
 
 def crear_boton_excel(dataframe, nombre_archivo, ocultar_columnas=None):
@@ -301,12 +302,10 @@ with tab4:
     st.dataframe(df_surveys, use_container_width=True, height=220)
     crear_boton_excel(df_surveys, "Surveys_Trayectorias")
 
-# PESTAÑA 5: Convertidor Oficial Integrado de Alta Reactividad (Con Botón de Ejecución Forzada)
 with tab5:
     st.write("### 🛰️ Módulo de Conversión Geodésica 'EKmlz' Integrado")
     st.write("Carga tu archivo de collares en formato Excel para transformarlo de manera inmediata a un archivo cartográfico KML compatible con Google Earth.")
     
-    # Cargador de archivos limpio
     archivo_cargado = st.file_uploader(
         "📂 Arrastra aquí el archivo 'Collar_Sondajes.xlsx' descargado de la pestaña 1:",
         type=["xlsx"],
@@ -324,11 +323,8 @@ with tab5:
             else:
                 st.success("📊 Base de datos nueva detectada con éxito. Presiona el botón inferior para forzar la conversión geodésica actual.")
                 
-                # 🔒 EL FILTRO DE REACTIVIDAD: Un botón físico que obliga a Python a recalcular todo desde cero
                 if st.button("🚀 INICIAR CONVERSIÓN GEODÉSICA"):
                     with st.spinner("Procesando tu nueva simulación..."):
-                        
-                        # Inicializar un objeto KML completamente limpio en la RAM
                         kml_objeto = simplekml.Kml(name="Malla de Perforacion Diamantina - Norte de Chile")
                         
                         for idx, row in df_excel_alumno.iterrows():
@@ -337,12 +333,11 @@ with tab5:
                             p_nombre = str(row["Nombre"])
                             p_desc = str(row["Descripcion"]) if "Descripcion" in df_excel_alumno.columns else "sondajes"
                             
-                            # Ecuaciones Geodésicas de Precisión UTM a WGS84 (Huso 19S)
                             a = 6378137.0
                             f = 1 / 298.257223563
                             b = a * (1 - f)
                             e2 = (a**2 - b**2) / (a**2)
-                            e_prim2 = (a**2 - b**2) / (b**2)
+                            e_prim2 = (a**2 - b**2) / b**2
                             
                             x_profe = x_utm - 500000.0
                             y_profe = y_utm - 10000000.0  
@@ -368,36 +363,83 @@ with tab5:
                             fact_lon = x_profe / (n * np.cos(phi))
                             lon_rad = fact_lon - (fact_lon**3 / 6) * (1 + 2 * t + psi) + (fact_lon**5 / 120) * (5 + 28 * t + 24 * t**2)
                             
-                            # Candado geodésico estricto para el Norte Grande chileno
                             lat_decimal = -abs(np.degrees(lat_rad))
                             lon_decimal = -abs(-69.0 + np.degrees(lon_rad))  
                             
-                            # Construir el marcador diamantino de forma nativa
                             pnt = kml_objeto.newpoint(name=p_nombre)
                             pnt.coords = [(lon_decimal, lat_decimal)]
                             pnt.altitudemode = simplekml.AltitudeMode.clamptoground
                             pnt.description = f"Sondaje Diamantino Profesional\n• Este (X): {x_utm:,.1f} m\n• Norte (Y): {y_utm:,.1f} m\n• Tipo Mapeo: {p_desc}"
                             
                             pnt.style.iconstyle.icon.href = 'http://google.com'
-                            pnt.style.iconstyle.color = 'ff0000ff' # Rojo
+                            pnt.style.iconstyle.color = 'ff0000ff'
                             pnt.style.iconstyle.scale = 1.2
                             pnt.style.labelstyle.scale = 0.8
 
-                        # Guardamos los bytes nuevos directamente en el estado de la sesión activa
                         st.session_state["kml_bytes_nuevos"] = kml_objeto.kml().encode("utf-8")
-                        st.balloons() # Globos de éxito académico
+                        st.balloons()
 
-                # Mostrar el botón de descarga solo si ya se presionó el botón de calcular arriba
                 if "kml_bytes_nuevos" in st.session_state:
                     st.markdown("---")
                     st.success("🎉 ¡Conversión de tu Nueva Simulación Finalizada con Éxito!")
-                    st.write("El motor ha procesado los datos actuales. Presiona el botón inferior para descargar el archivo georreferenciado:")
                     st.download_button(
                         label="📥 Descargar Archivo Malla_Sondajes_Chile.kml (Google Earth)",
                         data=st.session_state["kml_bytes_nuevos"],
                         file_name="Malla_Sondajes_Chile.kml",
                         mime="application/vnd.google-earth.kml+xml"
                     )
-                
         except Exception as e:
             st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
+
+# PESTAÑA 6: Nueva Pestaña para Estadísticas y Distribución de Frecuencias de Leyes
+with tab6:
+    st.write(f"### 📊 Reporte Estadístico y Análisis de Frecuencias de Leyes: **{elemento_render}**")
+    st.write("Esta sección calcula automáticamente los parámetros geoestadísticos y la distribución de intervalos metalúrgicos de la actual campaña diamantina.")
+    
+    # Extraer leyes de la simulación activa, ignorando tramos estériles puros de sobrecarga (0.0) para no sesgar la media
+    col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+    leyes_utiles = df_assays[df_assays[col_seleccionada] > 0.0][col_seleccionada].values
+    
+    if len(leyes_utiles) == 0:
+        st.warning("⚠️ No hay tramos mineralizados disponibles en la simulación actual para calcular estadísticas.")
+    else:
+        # 1. Definición estricta de intervalos de corte (Cut-off) según tu modelo docente
+        if col_seleccionada == "Cu_pct":
+            limites = [0.0, 0.30, 1.00, 1.80, 2.50]
+            etiquetas = ["Baja Ley (< 0.30 %)", "Ley Media (0.30 - 1.00 %)", "Alta Ley (1.00 - 1.80 %)", "Excelente Ley (> 1.80 %)"]
+            unidad = "%"
+        else:
+            limites = [0.0, 0.90, 4.00, 8.00, 12.00]
+            etiquetas = ["Baja Ley (< 0.90 g/t)", "Ley Media (0.90 - 4.00 g/t)", "Alta Ley (4.00 - 8.00 g/t)", "Excelente Ley (> 8.00 g/t)"]
+            unidad = "g/t"
+            
+        # 2. PROCESAMIENTO MATEMÁTICO GEOESTADÍSTICO DE LOS INTERVALOS
+        filas_tabla = []
+        total_muestras = len(leyes_utiles)
+        frecuencia_acumulada_pct = 0.0
+        
+        for k in range(len(etiquetas)):
+            min_int = limites[k]
+            max_int = limites[k+1]
+            
+            # Filtrar muestras dentro del intervalo actual
+            muestras_intervalo = leyes_utiles[(leyes_utiles >= min_int) & (leyes_utiles < max_int)] if k < len(etiquetas)-1 else leyes_utiles[leyes_utiles >= min_int]
+            
+            conteo_parcial = len(muestras_intervalo)
+            ley_media_intervalo = np.mean(muestras_intervalo) if conteo_parcial > 0 else 0.0
+            frecuencia_parcial_pct = (conteo_parcial / total_muestras) * 100
+            frecuencia_acumulada_pct += frecuencia_parcial_pct
+            
+            filas_tabla.append({
+                "Intervalos por Categorías": etiquetas[k],
+                f"Ley Media ({unidad})": round(ley_media_intervalo, 2),
+                "Conteo Parcial": int(conteo_parcial),
+                "Frecuencia Parcial (%)": round(frecuencia_parcial_pct, 1),
+                "Frecuencia Acumulada (%)": round(frecuencia_acumulada_pct, 1)
+            })
+            
+        df_estadistica = pd.DataFrame(filas_tabla)
+        
+        # Desplegar Tabla de Frecuencias formal en la pantalla
+        st.write("#### 📋 Tabla de Frecuencias Metalúrgicas Resumida")
+        st.dataframe(df_estadistica, use_container_width=True, index=False)
