@@ -270,7 +270,7 @@ st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
 
 # Inicializar las 6 pestañas reglamentarias unificadas
-tab1, tab2, tab3, tab4, tab5, tab6,tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6,tab7,tab8 = st.tabs([
     "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth", "📊 6. Estadísticas de Leyes","📐 7. Compositaje de Pozos", "🧱 8. Modelo de Bloques"
 ])
 
