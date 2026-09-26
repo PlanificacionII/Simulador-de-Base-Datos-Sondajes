@@ -843,45 +843,29 @@ with tab7:
 
 # PESTAÑA 8: Módulo de Modelo de Bloques y Envolvente Geológica (Estimación IDW2)
 with tab8:
-st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
+    st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional de bloques utilizando el algoritmo de Inverso de la Distancia al Cuadrado (IDW²).")
     
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
     
-    # ⚙️ PANEL DE CONFIGURACIÓN DE ESTIMACIÓN MINERA
     st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
     c_bl1, c_bl2, c_bl3 = st.columns(3)
     with c_bl1:
-        tamano_bloque = st.selectbox(
-            "Tamaño del Bloque Cúbico (m):",
-,
-            index=1,
-            key="size_bloque_key"
-        )
+        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):",, index=1, key="size_bloque_key")
     with c_bl2:
-        ley_corte = st.number_input(
-            f"Ley de Corte / Cut-off ({unidad}):",
-            min_value=0.0, max_value=15.0,
-            value=0.40 if col_seleccionada=="Cu_pct" else 2.50,
-            step=0.1,
-            key="cutoff_bloque_key"
-        )
+        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
     with c_bl3:
-        radio_busqueda = st.number_input(
-            "Radio de Búsqueda de Compositos (m):",
-            min_value=50, max_value=300, value=120, step=25,
-            key="radio_search_key"
-        )
+        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
         
     st.markdown("---")
     
-    # Verificar disponibilidad de compositos en la memoria de la sesión
-    if 'df_comp_final' not in locals() and 'df_comp_final' not in st.session_state:
+    # Extraer los datos de la sesión de soporte regular de forma segura
+    df_c_origen = st.session_state.get('df_comp_final', pd.DataFrame())
+    
+    if df_c_origen.empty:
         st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' utilizando el método de Longitud Fija para inicializar la base de datos de soporte regularizada.")
     else:
-        df_c_origen = df_comp_final if 'df_comp_final' in locals() else st.session_state['df_comp_final']
-        
         comp_estimacion = []
         for idx, row in df_collar.iterrows():
             p_id = row["Nombre"]
@@ -897,12 +881,10 @@ st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
                 from_m = float(c_row["Desde (m)"])
                 to_m = float(c_row["Hasta (m)"])
                 pm_medio = from_m + ((to_m - from_m) / 2)
-                
                 xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
                 yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
                 zi = z_coll + (pm_medio * np.sin(dp_rad))
                 val_l = float(c_row[f"Ley Comp. ({unidad})"])
-                
                 comp_estimacion.append([xi, yi, zi, val_l])
                 
         xyz_comp = np.array(comp_estimacion)
@@ -914,7 +896,6 @@ st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
             
             if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE"):
                 with st.spinner("Interpolando bloques mediante algoritmo de distancias..."):
-                    
                     min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
                     min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
                     min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
@@ -922,14 +903,12 @@ st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
                     grid_x = np.arange(min_x, max_x, tamano_bloque)
                     grid_y = np.arange(min_y, max_y, tamano_bloque)
                     grid_z = np.arange(min_z, max_z, tamano_bloque)
-                    
                     bloques_estimados = []
                     
                     for bx in grid_x:
                         for by in grid_y:
                             for bz in grid_z:
                                 distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
-                                
                                 filtro_radio = distancias <= radio_busqueda
                                 dist_filtradas = distancias[filtro_radio]
                                 leyes_filtradas = xyz_comp[:,3][filtro_radio]
@@ -938,7 +917,6 @@ st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
                                     dist_filtradas = np.where(dist_filtradas == 0, 0.001, dist_filtradas)
                                     pesos = 1.0 / (dist_filtradas**2)
                                     ley_estimada = np.sum(leyes_filtradas * pesos) / np.sum(pesos)
-                                    
                                     categoria = "Envolvente Mineralizada (Mena)" if ley_estimada >= ley_corte else "Roca Caja (Estéril)"
                                     
                                     bloques_estimados.append({
@@ -949,7 +927,7 @@ st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
-  # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
+ # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
             if "db_bloques_activa" in st.session_state:
                 df_b = st.session_state["db_bloques_activa"]
                 
