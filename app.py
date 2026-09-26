@@ -876,16 +876,18 @@ with tab8:
         
     st.markdown("---")
     
-    # Verificar disponibilidad de compositos en memoria activa
-    if 'df_comp_final' not in locals() or df_comp_final.empty:
+    # Verificar disponibilidad de compositos en memoria activa de la sesión
+    if 'df_comp_final' not in locals() and 'df_comp_final' not in st.session_state:
         st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' utilizando el método de Longitud Fija para inicializar la base de datos de soporte regularizada.")
     else:
+        df_c_origen = df_comp_final if 'df_comp_final' in locals() else st.session_state['df_comp_final']
+        
         comp_estimacion = []
         for idx, row in df_collar.iterrows():
             p_id = row["Nombre"]
             x_coll, y_coll, z_coll = float(row["UTM Este"]), float(row["UTM Norte"]), float(row["Z_Cota"])
             srv = next((s for s in surveys if s["ID"] == p_id), None)
-            df_c_pozo = df_comp_final[df_comp_final["Sondaje ID"] == p_id]
+            df_c_pozo = df_c_origen[df_c_origen["Sondaje ID"] == p_id]
             if df_c_pozo.empty or not srv: continue
             
             az_rad = np.radians(srv["Azimuth"])
@@ -946,7 +948,6 @@ with tab8:
                                     
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
-                    st.session_state["limites_modelo"] = [min_x, max_x, min_y, max_y]
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
 # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
             if "db_bloques_activa" in st.session_state:
@@ -967,11 +968,11 @@ with tab8:
                 vol_bloque = tamano_bloque ** 3
                 tonelaje_mena = n_mena * vol_bloque * 2.7
                 
-                c_rep1, c_comp2, c_rep3 = st.columns(3)
+                c_rep1, c_rep2, c_rep3 = st.columns(3)
                 with c_rep1:
                     st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
                     st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
-                with c_comp2:
+                with c_rep2:
                     st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
                     st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
                 with c_rep3:
