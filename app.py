@@ -504,3 +504,98 @@ with tab5:
                 
         except Exception as e:
             st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
+# PESTAÑA 6: Módulo para Estadísticas, Distribución de Frecuencias e Histograma de Leyes
+with tab6:
+    st.write(f"### 📊 Reporte Estadístico y Análisis de Frecuencias de Leyes: **{elemento_render}**")
+    st.write("Esta sección calcula automáticamente los parámetros geoestadísticos y la distribución de intervalos metalúrgicos de la actual campaña diamantina.")
+    
+    # Extraer leyes de la simulación activa, ignorando tramos estériles puros de sobrecarga (0.0) para no sesgar la media
+    col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+    leyes_utiles = df_assays[df_assays[col_seleccionada] > 0.0][col_seleccionada].values
+    
+    if len(leyes_utiles) == 0:
+        st.warning("⚠️ No hay tramos mineralizados disponibles en la simulación actual para calcular estadísticas.")
+    else:
+        # 1. Definición estricta de intervalos de corte (Cut-off) según tu modelo docente
+        if col_seleccionada == "Cu_pct":
+            limites = [0.0, 0.30, 1.00, 1.80, 2.50]
+            etiquetas = ["Baja Ley (< 0.30 %)", "Ley Media (0.30 - 1.00 %)", "Alta Ley (1.00 - 1.80 %)", "Excelente Ley (> 1.80 %)"]
+            unidad = "%"
+        else:
+            limites = [0.0, 0.90, 4.00, 8.00, 12.00]
+            etiquetas = ["Baja Ley (< 0.90 g/t)", "Ley Media (0.90 - 4.00 g/t)", "Alta Ley (4.00 - 8.00 g/t)", "Excelente Ley (> 8.00 g/t)"]
+            unidad = "g/t"
+            
+        # 2. PROCESAMIENTO MATEMÁTICO GEOESTADÍSTICO DE LOS INTERVALOS
+        filas_tabla = []
+        total_muestras = len(leyes_utiles)
+        frecuencia_acumulada_pct = 0.0
+        
+        for k in range(len(etiquetas)):
+            min_int = limites[k]
+            max_int = limites[k+1]
+            
+            # Filtrar muestras dentro del intervalo actual de forma estricta
+            if k < len(etiquetas) - 1:
+                muestras_intervalo = leyes_utiles[(leyes_utiles >= min_int) & (leyes_utiles < max_int)]
+            else:
+                muestras_intervalo = leyes_utiles[leyes_utiles >= min_int]
+            
+            conteo_parcial = len(muestras_intervalo)
+            ley_media_intervalo = np.mean(muestras_intervalo) if conteo_parcial > 0 else 0.0
+            frecuencia_parcial_pct = (conteo_parcial / total_muestras) * 100
+            frecuencia_acumulada_pct += frecuencia_parcial_pct
+            
+            filas_tabla.append({
+                "Intervalos por Categorías": etiquetas[k],
+                f"Ley Media ({unidad})": round(float(ley_media_intervalo), 2),
+                "Conteo Parcial": int(conteo_parcial),
+                "Frecuencia Parcial (%)": round(float(frecuencia_parcial_pct), 1),
+                "Frecuencia Acumulada (%)": round(float(frecuencia_acumulada_pct), 1)
+            })
+            
+        df_estadistica = pd.DataFrame(filas_tabla)
+        
+        # Desplegar Tabla de Frecuencias formal en la pantalla
+        st.write("#### 📋 Tabla de Frecuencias Metalúrgicas Resumida")
+        st.dataframe(df_estadistica, use_container_width=True, index=False)
+        
+        st.markdown("---")
+        st.write("#### 📈 Histograma de Distribución y Conteo de Muestras")
+        
+        # 3. CONSTRUCCIÓN DEL GRÁFICO HISTOGRAMA MEDIANTE MATPLOTLIB (BINARIO EN MEMORIA)
+        import matplotlib.pyplot as plt
+        
+        fig_hist, ax_hist = plt.subplots(figsize=(10, 4.5))
+        
+        # Dibujar histograma de barras con los límites reales
+        conteos, bins, parches = ax_hist.hist(
+            leyes_utiles, bins=limites, edgecolor="black", 
+            color="#3498db", alpha=0.75, rwidth=0.95
+        )
+        
+        # Configuración estética de ejes usando mathtext estándar
+        ax_hist.set_title(f"Distribucion Geoestadistica del Proyecto - {elemento_render}", fontsize=11, fontweight='bold')
+        ax_hist.set_xlabel(f"Grado de Ley Metalurgica ({unidad})", fontsize=10)
+        ax_hist.set_ylabel("Cantidad de Muestras (Conteo)", fontsize=10)
+        ax_hist.set_xticks(limites)
+        ax_hist.grid(axis='y', linestyle='--', alpha=0.5)
+        
+        # Inyectar etiquetas de conteo encima de cada barra para facilitar la lectura
+        for conteo, bin_borde in zip(conteos, bins):
+            if conteo > 0:
+                ax_hist.text(
+                    bin_borde + 0.15 * (bins[1] - bins[0]), conteo + (max(conteos) * 0.02), 
+                    f"{int(conteo)} und", ha='left', fontsize=9, fontweight='bold', color='#2c3e50'
+                )
+
+        # Compilar el gráfico a string binario en memoria RAM para Streamlit Cloud
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight')
+        buf.seek(0)
+        st.image(buf, use_container_width=True)
+        plt.close()
+        
+        # Desplegar un botón para exportar esta tabla de frecuencias a un Excel analítico independiente
+        st.write("*(Opcional) Si deseas adjuntar la tabla de distribución a tus reportes de cátedra, descarga la hoja de frecuencias:*")
+        crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
