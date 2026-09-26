@@ -506,7 +506,7 @@ with tab5:
                 
         except Exception as e:
             st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
-# PESTAÑA 6: Módulo para Estadísticas, Distribución de Frecuencias e Histograma de Leyes
+# PESTAÑA 6: Módulo para Estadísticas, Distribución de Frecuencias e Histograma de Leyes (CORREGIDO)
 with tab6:
     st.write(f"### 📊 Reporte Estadístico y Análisis de Frecuencias de Leyes: **{elemento_render}**")
     st.write("Esta sección calcula automáticamente los parámetros geoestadísticos y la distribución de intervalos metalúrgicos de la actual campaña diamantina.")
@@ -558,14 +558,14 @@ with tab6:
             
         df_estadistica = pd.DataFrame(filas_tabla)
         
-        # Desplegar Tabla de Frecuencias formal en la pantalla
+        # 🛠️ CORRECCIÓN CLAVE: Usamos 'hide_index=True' que es la propiedad nativa oficial de Streamlit
         st.write("#### 📋 Tabla de Frecuencias Metalúrgicas Resumida")
-        st.dataframe(df_estadistica, use_container_width=True, index=False)
+        st.dataframe(df_estadistica, use_container_width=True, hide_index=True)
         
         st.markdown("---")
         st.write("#### 📈 Histograma de Distribución y Conteo de Muestras")
         
-        # 3. CONSTRUCCIÓN DEL GRÁFICO HISTOGRAMA MEDIANTE MATPLOTLIB (BINARIO EN MEMORIA)
+        # 3. CONSTRUCCIÓN DEL GRÁFICO HISTOGRAMA MEDIANTE MATPLOTLIB
         import matplotlib.pyplot as plt
         
         fig_hist, ax_hist = plt.subplots(figsize=(10, 4.5))
@@ -587,8 +587,8 @@ with tab6:
         for conteo, bin_borde in zip(conteos, bins):
             if conteo > 0:
                 ax_hist.text(
-                    bin_borde + 0.15 * (bins[1] - bins[0]), conteo + (max(conteos) * 0.02), 
-                    f"{int(conteo)} und", ha='left', fontsize=9, fontweight='bold', color='#2c3e50'
+                    bin_borde + (limites[1] - limites[0]) * 0.4, conteo + (max(conteos) * 0.02), 
+                    f"{int(conteo)} und", ha='center', fontsize=9, fontweight='bold', color='#2c3e50'
                 )
 
         # Compilar el gráfico a string binario en memoria RAM para Streamlit Cloud
