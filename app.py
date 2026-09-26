@@ -862,3 +862,122 @@ if "db_bloques_activa" in st.session_state:
                 
                 st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
                 crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+# ====================================================================
+                # 📈 LABORATORIO DE CONSOLIDACIÓN: CURVAS LEY-TONELAJE
+                # ====================================================================
+                st.markdown("---")
+                st.write("#### 📊 Tabla de Consolidación de Recursos (Curva Ley-Tonelaje)")
+                st.caption("Esta tabla clasifica y acumula los bloques estimados según leyes de corte variables, simulando escenarios económicos de explotación.")
+                
+                # Definir pasos de intervalos económicos según el elemento químico renderizado
+                paso_intervalo = 0.10 if col_seleccionada == "Cu_pct" else 0.50
+                max_ley_bloques = float(df_b[f"Ley Estimada ({unidad})"].max())
+                
+                # Crear los intervalos inferiores (Leyes de Corte / Cut-offs)
+                cortes_ley = np.arange(0.0, max_ley_bloques + paso_intervalo, paso_intervalo)
+                
+                datos_consolidacion = []
+                ton_acumulado = 0.0
+                suma_ley_ton_acumulada = 0.0
+                
+                # Calcular la matriz al revés (desde la ley más alta a la más baja) para el acumulado correcto
+                for cut in sorted(cortes_ley, reverse=True):
+                    # Filtrar bloques que caen estrictamente en el intervalo inferior actual
+                    bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
+                    bloques_parciales = df_b[(df_b[f"Ley Estimada ({unidad})"] >= cut) & (df_b[f"Ley Estimada ({unidad})"] < cut + paso_intervalo)]
+                    
+                    n_parcial = len(bloques_parciales)
+                    ton_parcial = n_parcial * (tamano_bloque ** 3) * 2.7
+                    
+                    # Calcular ley media parcial ponderada por masa
+                    if n_parcial > 0:
+                        ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean()
+                    else:
+                        ley_med_parcial = 0.0
+                        
+                    # Cálculos acumulados reales hacia leyes superiores
+                    n_acum_bloques = len(bloques_en_corte)
+                    ton_acum_paso = n_acum_bloques * (tamano_bloque ** 3) * 2.7
+                    
+                    if n_acum_bloques > 0:
+                        ley_med_ponderada_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean()
+                    else:
+                        ley_med_ponderada_acum = 0.0
+                        
+                    # Solo registrar si hay datos representativos en el rango geológico
+                    datos_consolidacion.append({
+                        f"Ley Corte / Intervalo Inferior ({unidad})": round(cut, 2),
+                        "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
+                        "Ley Media Parcial": round(ley_med_parcial, 2),
+                        "Tonelaje Acumulado (Ton)": round(ton_acum_paso, 0),
+                        "Ley Media Ponderada Acum.": round(ley_med_ponderada_acum, 2)
+                    })
+                
+                # Volver a ordenar la lista de menor a mayor para la visualización didáctica del alumno
+                df_consolidado = pd.DataFrame(datos_consolidacion).sort_values(by=f"Ley Corte / Intervalo Inferior ({unidad})")
+                
+                # Desplegar la grilla analítica oficial en la interfaz web
+                st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
+                crear_boton_excel(df_consolidado, f"Tabla_Consolidacion_Ley_Tonelaje")
+ # ====================================================================
+                # 📊 GENERACIÓN GRÁFICA: CURVAS AUXILIARES DE PLANIFICACIÓN MINERA
+                # ====================================================================
+                st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
+                st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
+                
+                fig_curvas = go.Figure()
+                
+                # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo)
+                fig_curvas.add_trace(go.Scatter(
+                    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
+                    y=df_consolidado["Tonelaje Acumulado (Ton)"],
+                    name="Tonelaje Acumulado (Ton)",
+                    mode="lines+markers",
+                    line=dict(color="#1f77b4", width=3, shape="spline"),
+                    marker=dict(size=6, symbol="circle"),
+                    yaxis="y1"
+                ))
+                
+                # 🔸 2. Trazar Curva de Ley Media Ponderada Acumulada (Eje Y Derecho)
+                fig_curvas.add_trace(go.Scatter(
+                    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
+                    y=df_consolidado["Ley Media Ponderada Acum."],
+                    name="Ley Media Ponderada",
+                    mode="lines+markers",
+                    line=dict(color="#d62728", width=3, dash="dash", shape="spline"),
+                    marker=dict(size=6, symbol="diamond"),
+                    yaxis="y2"
+                ))
+                
+                # ⚙️ CONFIGURACIÓN DE DOBLE EJE Y BALANCEADO
+                fig_curvas.update_layout(
+                    width=1300,
+                    height=500,
+                    margin=dict(l=60, r=60, t=20, b=40),
+                    hovermode="x unified",
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    xaxis=dict(
+                        title=f"Ley de Corte / Intervalo Inferior ({unidad})",
+                        gridcolor="rgba(200, 200, 200, 0.2)",
+                        tickmode="array",
+                        tickvals=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values
+                    ),
+                    yaxis=dict(
+                        title="<b>Tonelaje Acumulado (Ton)</b>",
+                        titlefont=dict(color="#1f77b4"),
+                        tickfont=dict(color="#1f77b4"),
+                        gridcolor="rgba(200, 200, 200, 0.2)",
+                        side="left"
+                    ),
+                    yaxis2=dict(
+                        title=f"<b>Ley Media Ponderada ({unidad})</b>",
+                        titlefont=dict(color="#d62728"),
+                        tickfont=dict(color="#d62728"),
+                        overlaying="y",
+                        side="right",
+                        anchor="x"
+                    )
+                )
+                
+                # Renderizado final del gráfico en la interfaz web de Streamlit
+                st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")
