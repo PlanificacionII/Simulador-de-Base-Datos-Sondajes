@@ -375,7 +375,9 @@ config_escena = dict(
 )
 
 fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
-st.plotly_chart(fig, use_container_width=True)
+
+# 🔒 CORRECCIÓN CLAVE: Inyectamos una llave única para separar este gráfico del duplicado de arriba
+st.plotly_chart(fig, use_container_width=True, key="visor_plotly_unico")
 
 # ====================================================================
 # 📋 TABLAS DE DESCARGA E INTEGRACIÓN DE EXCEL REAL NATIVO (.XLSX)
