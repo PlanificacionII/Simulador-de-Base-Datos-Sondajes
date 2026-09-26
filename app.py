@@ -924,57 +924,47 @@ if "db_bloques_activa" in st.session_state:
                 # ====================================================================
                 st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
+                 fig_curvas = go.Figure()
                 
-                fig_curvas = go.Figure()
-                
-                # 🔹 1. Trarza Curva de Tonelaje Acumulado (Eje Y Izquierdo)
+                # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo)
                 fig_curvas.add_trace(go.Scatter(
-                    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
-                    y=df_consolidado["Tonelaje Acumulado (Ton)"],
+                    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
+                    y=df_consolidado["Tonelaje Acumulado (Ton)"].values,
                     name="Tonelaje Acumulado (Ton)",
                     mode="lines+markers",
-                    line=dict(color="#1f77b4", width=3, shape="spline"),
-                    marker=dict(size=6, symbol="circle"),
+                    line=dict(color="#1f77b4", width=3),
+                    marker=dict(size=6),
                     yaxis="y1"
                 ))
                 
                 # 🔸 2. Trazar Curva de Ley Media Ponderada Acumulada (Eje Y Derecho)
                 fig_curvas.add_trace(go.Scatter(
-                    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
-                    y=df_consolidado["Ley Media Ponderada Acum."],
+                    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
+                    y=df_consolidado["Ley Media Ponderada Acum."].values,
                     name="Ley Media Ponderada",
                     mode="lines+markers",
-                    line=dict(color="#d62728", width=3, dash="dash", shape="spline"),
-                    marker=dict(size=6, symbol="diamond"),
+                    line=dict(color="#d62728", width=3, dash="dash"),
+                    marker=dict(size=6),
                     yaxis="y2"
-                ))                        
- # ⚙️ CONFIGURACIÓN DE DOBLE EJE Y TOTALMENTE AUTOMÁTICA COHERENTE
+                ))    
+        # ⚙️ CONFIGURACIÓN SIMPLIFICADA DIRECTA MÁXIMA COMPATIBILIDAD
                 fig_curvas.update_layout(
-                    width=1300,
-                    height=500,
-                    margin=dict(l=60, r=60, t=20, b=40),
                     hovermode="x unified",
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    xaxis=dict(
-                        title=f"Ley de Corte / Intervalo Inferior ({unidad})",
-                        gridcolor="rgba(200, 200, 200, 0.2)"
-                    ),
+                    legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
+                    xaxis=dict(title=f"Ley de Corte / Intervalo Inferior ({unidad})"),
                     yaxis=dict(
-                        title="<b>Tonelaje Acumulado (Ton)</b>",
+                        title="Tonelaje Acumulado (Ton)",
                         titlefont=dict(color="#1f77b4"),
-                        tickfont=dict(color="#1f77b4"),
-                        gridcolor="rgba(200, 200, 200, 0.2)",
-                        side="left"
+                        tickfont=dict(color="#1f77b4")
                     ),
                     yaxis2=dict(
-                        title=f"<b>Ley Media Ponderada ({unidad})</b>",
+                        title=f"Ley Media Ponderada ({unidad})",
                         titlefont=dict(color="#d62728"),
                         tickfont=dict(color="#d62728"),
                         overlaying="y",
-                        side="right",
-                        anchor="x"
+                        side="right"
                     )
                 )
                 
-                # Renderizado final del gráfico corregido en la interfaz web de Streamlit
-                st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")                
+                # Renderizado gráfico final en la suite web de Streamlit
+                st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")
