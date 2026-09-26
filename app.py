@@ -690,7 +690,8 @@ with tab7:
         df_comp_final = pd.DataFrame(compositos_long)
         st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=300)
         crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
-else:
+
+    else:
         st.write(f"#### ⛰️ Tabla de Compositos por Bancos de {largo_composito}m de Altura")
         st.caption("Regularización de soporte proyectada horizontalmente en base a las cotas fijas de los bancos de la mina.")
         
