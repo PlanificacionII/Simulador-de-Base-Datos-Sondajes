@@ -925,8 +925,9 @@ if "db_bloques_activa" in st.session_state:
                 st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
                 
-                fig_curvas = go.Figure()
-     # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo)
+    fig_curvas = go.Figure()
+                
+                # 🔹 1. Trarza Curva de Tonelaje Acumulado (Eje Y Izquierdo)
                 fig_curvas.add_trace(go.Scatter(
                     x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
                     y=df_consolidado["Tonelaje Acumulado (Ton)"],
@@ -946,8 +947,8 @@ if "db_bloques_activa" in st.session_state:
                     line=dict(color="#d62728", width=3, dash="dash", shape="spline"),
                     marker=dict(size=6, symbol="diamond"),
                     yaxis="y2"
-                ))  
-   # ⚙️ CONFIGURACIÓN DE DOBLE EJE Y REPARADA CON TO-LIST
+                ))                        
+ # ⚙️ CONFIGURACIÓN DE DOBLE EJE Y TOTALMENTE AUTOMÁTICA COHERENTE
                 fig_curvas.update_layout(
                     width=1300,
                     height=500,
@@ -956,9 +957,7 @@ if "db_bloques_activa" in st.session_state:
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     xaxis=dict(
                         title=f"Ley de Corte / Intervalo Inferior ({unidad})",
-                        gridcolor="rgba(200, 200, 200, 0.2)",
-                        tickmode="array",
-                        tickvals=df_consolidated[f"Ley Corte / Intervalo Inferior ({unidad})"].dt.tolist() if 'df_consolidated' in locals() else df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].tolist()
+                        gridcolor="rgba(200, 200, 200, 0.2)"
                     ),
                     yaxis=dict(
                         title="<b>Tonelaje Acumulado (Ton)</b>",
@@ -978,5 +977,4 @@ if "db_bloques_activa" in st.session_state:
                 )
                 
                 # Renderizado final del gráfico corregido en la interfaz web de Streamlit
-                st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")           
-                
+                st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")                
