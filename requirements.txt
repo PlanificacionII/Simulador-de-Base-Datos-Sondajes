@@ -4,3 +4,4 @@ numpy
 openpyxl
 simplekml
 matplotlib
+scipy
