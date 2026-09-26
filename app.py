@@ -393,7 +393,7 @@ with tab5:
             st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
 with tab6:
     st.write(f"### 📊 Reporte Estadístico y Análisis de Frecuencias de Leyes: **{elemento_render}**")
-    st.write("Esta sección calcula automáticamente los parámetros geoestadísticos y la distribución de intervalos metalúrgicos de la actual campaña diamantina.")
+    st.write("Esta sección calcula automáticamente la distribución geoestadística dividida en 12 intervalos de clase uniformes para un análisis detallado.")
     
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     leyes_utiles = df_assays[df_assays[col_seleccionada] > 0.0][col_seleccionada].values
@@ -401,25 +401,23 @@ with tab6:
     if len(leyes_utiles) == 0:
         st.warning("⚠️ No hay tramos mineralizados disponibles en la simulación actual para calcular estadísticas.")
     else:
-        # 🔒 CALIBRACIÓN DE RANGOS: Ajuste estricto de cortes académicos hasta un máximo de 15
-        if col_seleccionada == "Cu_pct":
-            limites = [0.0, 0.30, 0.70, 1.10, 1.50]
-            etiquetas = ["Baja Ley (< 0.30 %)", "Ley Media (0.30 - 0.70 %)", "Alta Ley (0.70 - 1.10 %)", "Excelente Ley (> 1.10 %)"]
-            unidad = "%"
-        else:
-            limites = [0.0, 3.00, 7.00, 11.00, 15.00]
-            etiquetas = ["Baja Ley (< 3.00 g/t)", "Ley Media (3.00 - 7.00 g/t)", "Alta Ley (7.00 - 11.00 g/t)", "Excelente Ley (11.00 - 15.00 g/t)"]
-            unidad = "g/t"
-            
+        unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+        
+        # 🔒 CONTROL GEOESTADÍSTICO: Generar dinámicamente los límites para 12 barras exactas (13 bordes)
+        min_real = float(np.min(leyes_utiles))
+        max_real = float(np.max(leyes_utiles))
+        limites = np.linspace(min_real, max_real, 13) # Genera 12 intervalos perfectos
+        
         filas_tabla = []
         total_muestras = len(leyes_utiles)
         frecuencia_acumulada_pct = 0.0
         
-        for k in range(len(etiquetas)):
+        for k in range(12):
             min_int = limites[k]
             max_int = limites[k+1]
             
-            if k < len(etiquetas) - 1:
+            # Agrupar muestras en el intervalo correspondiente
+            if k < 11:
                 muestras_intervalo = leyes_utiles[(leyes_utiles >= min_int) & (leyes_utiles < max_int)]
             else:
                 muestras_intervalo = leyes_utiles[leyes_utiles >= min_int]
@@ -429,8 +427,11 @@ with tab6:
             frecuencia_parcial_pct = (conteo_parcial / total_muestras) * 100
             frecuencia_acumulada_pct += frecuencia_parcial_pct
             
+            # Formato de rango descriptivo para la tabla de tus alumnos
+            rango_texto = f"[{min_int:.2f} - {max_int:.2f})" if k < 11 else f"[{min_int:.2f} - {max_int:.2f}]"
+            
             filas_tabla.append({
-                "Intervalos por Categorías": etiquetas[k],
+                "Intervalos por Categorías": rango_texto,
                 f"Ley Media ({unidad})": round(float(ley_media_intervalo), 2),
                 "Conteo Parcial": int(conteo_parcial),
                 "Frecuencia Parcial (%)": round(float(frecuencia_parcial_pct), 1),
@@ -439,7 +440,7 @@ with tab6:
             
         df_estadistica = pd.DataFrame(filas_tabla)
         
-        st.write("#### 📋 Tabla de Frecuencias Metalúrgicas Resumida")
+        st.write("#### 📋 Tabla de Frecuencias Metalúrgicas Resumida (12 Intervalos)")
         st.dataframe(df_estadistica, use_container_width=True, hide_index=True)
         
         st.markdown("---")
@@ -447,30 +448,32 @@ with tab6:
         
         import matplotlib.pyplot as plt
         
-        fig_hist, ax_hist = plt.subplots(figsize=(10, 4.5))
+        fig_hist, ax_hist = plt.subplots(figsize=(11, 5))
         
-        # El motor recorta y agrupa los datos en base al techo estricto definido
+        # 🚀 INYECCIÓN DE RESOLUCIÓN: Forzamos la creación de las 12 barritas exactas con los límites calculados
         conteos, bins, parches = ax_hist.hist(
             leyes_utiles, bins=limites, edgecolor="black", 
-            color="#3498db", alpha=0.75, rwidth=0.95
+            color="#3498db", alpha=0.75, rwidth=0.92
         )
         
-        ax_hist.set_title(f"Distribucion Geoestadistica del Proyecto - {elemento_render}", fontsize=11, fontweight='bold')
+        ax_hist.set_title(f"Distribucion Geoestadistica del Proyecto (12 Clases) - {elemento_render}", fontsize=11, fontweight='bold')
         ax_hist.set_xlabel(f"Grado de Ley Metalurgica ({unidad})", fontsize=10)
         ax_hist.set_ylabel("Cantidad de Muestras (Conteo)", fontsize=10)
+        
+        # Ajustamos los números del eje X para que muestren los cortes reales de las 12 clases
         ax_hist.set_xticks(limites)
-        # Forzamos el límite del eje X en base al arreglo configurado
-        ax_hist.set_xlim(0, limites[-1])
+        plt.xticks(rotation=45, fontsize=8) # Rotación de texto para que los decimales no se encimen
+        ax_hist.set_xlim(min_real, max_real)
         ax_hist.grid(axis='y', linestyle='--', alpha=0.5)
         
-        # Calcular el ancho de la barra para centrar el texto de forma óptima
-        ancho_barra = limites[1] - limites[0]
-        
-        for conteo, bin_borde in zip(conteos, bins):
+        # Inyectar etiquetas de conteo legibles sobre el centro de cada una de las 12 barritas
+        for k in range(12):
+            conteo = conteos[k]
             if conteo > 0:
+                bin_centro = (bins[k] + bins[k+1]) / 2
                 ax_hist.text(
-                    bin_borde + (ancho_barra * 0.5), conteo + (max(conteos) * 0.02), 
-                    f"{int(conteo)} und", ha='center', fontsize=9, fontweight='bold', color='#2c3e50'
+                    bin_centro, conteo + (max(conteos) * 0.02), 
+                    f"{int(conteo)}", ha='center', fontsize=8, fontweight='bold', color='#2c3e50'
                 )
 
         buf = io.BytesIO()
@@ -481,4 +484,3 @@ with tab6:
         
         st.write("*(Opcional) Descarga la hoja de frecuencias:*")
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
-
