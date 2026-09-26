@@ -925,7 +925,7 @@ if "db_bloques_activa" in st.session_state:
                 st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
                 
-    fig_curvas = go.Figure()
+                fig_curvas = go.Figure()
                 
                 # 🔹 1. Trarza Curva de Tonelaje Acumulado (Eje Y Izquierdo)
                 fig_curvas.add_trace(go.Scatter(
