@@ -843,7 +843,7 @@ with tab7:
 
 # PESTAÑA 8: Módulo de Modelo de Bloques y Envolvente Geológica (Estimación IDW2)
 with tab8:
-   st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
+    st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional de bloques utilizando el algoritmo de Inverso de la Distancia al Cuadrado (IDW²).")
     
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
@@ -913,7 +913,7 @@ with tab8:
             st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
             
             if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE"):
-                with st.spinner("Interpolando bloques mediante algoritmo de distancias elipsoidales..."):
+                with st.spinner("Interpolando bloques mediante algoritmo de distancias..."):
                     
                     min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
                     min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
