@@ -822,7 +822,6 @@ with tab8:
     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional de bloques utilizando el algoritmo de Inverso de la Distancia al Cuadrado (IDW²).")
     
-    # 🕵️ REVISIÓN PERSISTENTE: Leemos directo del estado global del servidor
     df_c_origen = st.session_state.get('df_comp_final', pd.DataFrame())
     
     if df_c_origen.empty:
@@ -831,7 +830,7 @@ with tab8:
         st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
         c_bl1, c_bl2, c_bl3 = st.columns(3)
         with c_bl1:
-            tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
+            tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [10, 15, 20, 25], index=1, key="size_bloque_key")
         with c_bl2:
             ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
         with c_bl3:
