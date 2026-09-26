@@ -852,7 +852,8 @@ with tab8:
     st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
     c_bl1, c_bl2, c_bl3 = st.columns(3)
     with c_bl1:
-        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):",, index=1, key="size_bloque_key")
+        # 🔒 SOLUCIÓN: Inyectamos la lista limpia de tamaños de bloque para corregir la doble coma
+        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
     with c_bl2:
         ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
     with c_bl3:
@@ -927,7 +928,7 @@ with tab8:
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
- # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
+# Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
             if "db_bloques_activa" in st.session_state:
                 df_b = st.session_state["db_bloques_activa"]
                 
