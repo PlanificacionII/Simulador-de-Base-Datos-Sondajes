@@ -669,11 +669,11 @@ with tab7:
                 
                 suma_ley_long, suma_interseccion = 0.0, 0.0
                 for _, ensayo in ensayos_pozo.iterrows():
-                    overlap_from = max(c_from, float(ensay["From"]))
-                    overlap_to = min(c_to, float(ensay["To"]))
+                    overlap_from = max(c_from, float(ensayo["From"]))
+                    overlap_to = min(c_to, float(ensayo["To"]))
                     interseccion = overlap_to - overlap_from
                     if interseccion > 0:
-                        suma_ley_long += float(ensay[col_seleccionada]) * interseccion
+                        suma_ley_long += float(ensayo[col_seleccionada]) * interseccion
                         suma_interseccion += interseccion
                 
                 ley_composito = (suma_ley_long / suma_interseccion) if suma_interseccion > 0 else 0.0
@@ -683,13 +683,12 @@ with tab7:
                     "Largo (m)": round(c_largo, 1), f"Ley Comp. ({unidad})": round(ley_composito, 2)
                 })
                 
-                # 🚀 CÁLCULO VECTORIAL 3D PARA EL COMPOSITO
+                # Cálculo vectorial 3D para el composito por longitud
                 pm_medio = c_from + (c_largo / 2)
                 xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
                 yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
                 zi = z_coll + (pm_medio * np.sin(dp_rad))
                 
-                # Clasificación discreta de colores para el visualizador del composito
                 if col_seleccionada == "Cu_pct":
                     cod = 0.0 if ley_composito < 0.30 else (1.0 if ley_composito < 1.00 else (2.0 if ley_composito < 1.80 else 3.0))
                 else:
@@ -703,7 +702,8 @@ with tab7:
         df_comp_final = pd.DataFrame(compositos_long)
         st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
         crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
- else:
+
+   else:
         st.write(f"#### ⛰️ Tabla de Compositos por Bancos de {largo_composito}m de Altura")
         
         compositos_bancos = []
@@ -758,7 +758,7 @@ with tab7:
                         f"Ley Composito ({unidad})": round(ley_composito_banco, 2)
                     })
                     
-                    # 🚀 CÁLCULO VECTORIAL 3D PARA EL COMPOSITO POR BANCO
+                    # Cálculo espacial 3D para la visualización del composito por banco
                     cota_media_banco = b_cota_techo - (largo_composito / 2)
                     prof_medida_pozo = (cota_media_banco - z_collar) / np.sin(rad_dip) if np.sin(rad_dip) != 0 else 0.0
                     
@@ -789,7 +789,6 @@ with tab7:
     
     fig_comp = go.Figure()
     
-    # Agregar malla topográfica de alambre base para orientar el espacio minero
     min_x = float(df_collar["UTM Este"].min() - espaciamiento)
     max_x = float(df_collar["UTM Este"].max() + espaciamiento)
     min_y = float(df_collar["UTM Norte"].min() - espaciamiento)
@@ -809,7 +808,6 @@ with tab7:
             showlegend=False, hoverinfo='none'
         ))
         
-    # Paleta discreta oficial calibrada para el rango docente
     paleta_discreta = [
         [0.0, "green"], [0.25, "green"],
         [0.25, "yellow"], [0.5, "yellow"],
@@ -817,7 +815,6 @@ with tab7:
         [0.75, "red"], [1.0, "red"]
     ]
     
-    # Dibujar las trazas regularizadas en base a esferas gruesas espaciadas (soporte regular)
     fig_comp.add_trace(go.Scatter3d(
         x=x_c, y=y_c, z=z_c, mode='lines+markers',
         line=dict(color='rgba(200, 200, 200, 0.4)', width=3),
@@ -844,5 +841,4 @@ with tab7:
     
     fig_comp.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_comp)
     
-    # Renderizado exclusivo de la pestaña 7 amarrado con una llave digital única
     st.plotly_chart(fig_comp, use_container_width=True, key="visor_grafico_compositos_3d")
