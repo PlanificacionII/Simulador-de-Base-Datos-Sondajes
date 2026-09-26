@@ -910,7 +910,7 @@ with tab8:
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
- # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
+  # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
             if "db_bloques_activa" in st.session_state:
                 df_b = st.session_state["db_bloques_activa"]
                 
@@ -920,7 +920,9 @@ with tab8:
                 df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
                 df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
                 
-                n_mena, n_esteril = len(df_mena), len(df_esteril)
+                n_mena = len(df_mena)
+                n_esteril = len(df_esteril)
+                
                 ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
                 ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
                 
@@ -940,19 +942,56 @@ with tab8:
 
                 st.markdown("---")
                 st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
-                filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
+                
+                filtro_visual = st.radio(
+                    "Selección de Despliegue en la Escena 3D:",
+                    ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"],
+                    key="filtro_visor_bloques_key"
+                )
+                
                 df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
                 
                 fig_bloques = go.Figure()
-                colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
-                textos_bloques = [f"<b>Bloque Minero</b><br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
+                
+                colores_mapeo = df_render_b["Categoría"].map(
+                    {"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}
+                ).values
+                
+                textos_bloques = [
+                    f"<b>Bloque Minero</b><br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}"
+                    for _, row in df_render_b.iterrows()
+                ]
                 
                 fig_bloques.add_trace(go.Scatter3d(
-                    x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
-                    mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
+                    x=df_render_b["Centro X (Este)"],
+                    y=df_render_b["Centro Y (Norte)"],
+                    z=df_render_b["Centro Z (Cota)"],
+                    mode='markers',
+                    marker=dict(
+                        size=tamano_bloque * 1.1,
+                        color=colores_mapeo,
+                        symbol='square'
+                    ),
+                    text=textos_bloques,
+                    hoverinfo='text',
+                    showlegend=False
                 ))
-                config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
-                fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
+                
+                config_escena_bloques = dict(
+                    xaxis=dict(title="Este (X)", gridcolor="lightgray"),
+                    yaxis=dict(title="Norte (Y)", gridcolor="lightgray"),
+                    zaxis=dict(title="Cota (Z)", gridcolor="lightgray"),
+                    aspectmode="manual",
+                    aspectratio=dict(x=1, y=1, z=0.5)
+                )
+                
+                fig_bloques.update_layout(
+                    width=1300,
+                    height=650,
+                    margin=dict(l=0, r=0, t=10, b=0),
+                    scene=config_escena_bloques
+                )
+                
                 st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
                 
                 st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
