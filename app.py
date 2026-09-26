@@ -640,143 +640,65 @@ with tab7:
         
     st.markdown("---")
     x_c, y_c, z_c, colores_c, textos_c = [], [], [], [], []
+    compositos_long = []
     
-    # 🔒 ALINEACIÓN CLAVE: Este 'if' define el nivel base de 4 espacios exactos
-    if tipo_composito == "Longitud Fija (Desde Collar)":
-        st.write(f"#### 🧪 Tabla de Compositos Regulares de {largo_composito}m (Desde Collarín)")
-        compositos_long = []
+    # Procesamiento directo de Longitud Fija
+    for idx, row in df_collar.iterrows():
+        p_id = row["Nombre"]
+        x_coll = float(row["UTM Este"])
+        y_coll = float(row["UTM Norte"])
+        z_coll = float(row["Z_Cota"])
+        ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
+        srv = next((s for s in surveys if s["ID"] == p_id), None)
+        if ensayos_pozo.empty or not srv: continue
         
-        for idx, row in df_collar.iterrows():
-            p_id = row["Nombre"]
-            x_coll = float(row["UTM Este"])
-            y_coll = float(row["UTM Norte"])
-            z_coll = float(row["Z_Cota"])
-            ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
-            srv = next((s for s in surveys if s["ID"] == p_id), None)
-            if ensayos_pozo.empty or not srv: continue
-            
-            az_rad = np.radians(srv["Azimuth"])
-            dp_rad = np.radians(srv["Dip"])
-            prof_max = float(ensayos_pozo["To"].max())
-            n_compositos = int(np.ceil(prof_max / largo_composito))
-            
-            for k in range(n_compositos):
-                c_from = k * largo_composito
-                c_to = min(c_from + largo_composito, prof_max)
-                c_largo = c_to - c_from
-                if c_largo <= 0: continue
-                
-                suma_ley_long, suma_interseccion = 0.0, 0.0
-                for _, ensay in ensayos_pozo.iterrows():
-                    overlap_from = max(c_from, float(ensay["From"]))
-                    overlap_to = min(c_to, float(ensay["To"]))
-                    interseccion = overlap_to - overlap_from
-                    if interseccion > 0:
-                        suma_ley_long += float(ensay[col_seleccionada]) * interseccion
-                        suma_interseccion += interseccion
-                
-                ley_composito = (suma_ley_long / suma_interseccion) if suma_interseccion > 0 else 0.0
-                
-                compositos_long.append({
-                    "Sondaje ID": p_id, "Desde (m)": round(c_from, 1), "Hasta (m)": round(c_to, 1),
-                    "Largo (m)": round(c_largo, 1), f"Ley Comp. ({unidad})": round(ley_composito, 2)
-                })
-                
-                pm_medio = c_from + (c_largo / 2)
-                xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
-                yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
-                zi = z_coll + (pm_medio * np.sin(dp_rad))
-                
-                if col_seleccionada == "Cu_pct":
-                    cod = 0.0 if ley_composito < 0.30 else (1.0 if ley_composito < 1.00 else (2.0 if ley_composito < 1.80 else 3.0))
-                else:
-                    cod = 0.0 if ley_composito < 0.90 else (1.0 if ley_composito < 4.00 else (2.0 if ley_composito < 8.00 else 3.0))
-                    
-                x_c.append(xi); y_c.append(yi); z_c.append(zi); colores_c.append(cod)
-                textos_c.append(f"<b>{p_id} (Comp)</b><br>Tramo: {c_from}-{c_to}m<br>Ley: {ley_composito:.2f} {unidad}")
-                
-            x_c.append(np.nan); y_c.append(np.nan); z_c.append(np.nan); colores_c.append(0.0); textos_c.append("")
-                
-        df_comp_final = pd.DataFrame(compositos_long)
-        st.session_state["df_comp_final"] = df_comp_final
-        st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
-        crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m") 
-   else:
-        st.write(f"#### ⛰️ Tabla de Compositos por Bancos de {largo_composito}m de Altura")
-        compositos_bancos = []
+        az_rad = np.radians(srv["Azimuth"])
+        dp_rad = np.radians(srv["Dip"])
+        prof_max = float(ensayos_pozo["To"].max())
+        n_compositos = int(np.ceil(prof_max / largo_composito))
         
-        for idx, row in df_collar.iterrows():
-            p_id = row["Nombre"]
-            x_coll = float(row["UTM Este"])
-            y_coll = float(row["UTM Norte"])
-            z_collar = float(row["Z_Cota"])
-            ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
-            srv = next((s for s in surveys if s["ID"] == p_id), None)
-            if ensayos_pozo.empty or not srv: continue
+        for k in range(n_compositos):
+            c_from = k * largo_composito
+            c_to = min(c_from + largo_composito, prof_max)
+            c_largo = c_to - c_from
+            if c_largo <= 0: continue
             
-            az_rad = np.radians(srv["Azimuth"])
-            rad_dip = np.radians(srv["Dip"])
-            prof_max = float(ensayos_pozo["To"].max())
+            suma_ley_long, suma_interseccion = 0.0, 0.0
+            for _, ensay in ensayos_pozo.iterrows():
+                overlap_from = max(c_from, float(ensay["From"]))
+                overlap_to = min(c_to, float(ensay["To"]))
+                interseccion = overlap_to - overlap_from
+                if interseccion > 0:
+                    suma_ley_long += float(ensay[col_seleccionada]) * interseccion
+                    suma_interseccion += interseccion
             
-            z_final_pozo = z_collar + (prof_max * np.sin(rad_dip))
-            z_alta = max(z_collar, z_final_pozo)
-            z_baja = min(z_collar, z_final_pozo)
+            ley_composito = (suma_ley_long / suma_interseccion) if suma_interseccion > 0 else 0.0
             
-            banco_inicio_cota = int(np.floor(z_alta / largo_composito) * largo_composito)
-            banco_fin_cota = int(np.floor(z_baja / largo_composito) * largo_composito)
-            pasos_bancos = range(banco_inicio_cota, banco_fin_cota - largo_composito, -largo_composito)
+            compositos_long.append({
+                "Sondaje ID": p_id, "Desde (m)": round(c_from, 1), "Hasta (m)": round(c_to, 1),
+                "Largo (m)": round(c_largo, 1), f"Ley Comp. ({unidad})": round(ley_composito, 2)
+            })
             
-            for b_cota_techo in pasos_bancos:
-                b_cota_piso = b_cota_techo - largo_composito
-                suma_ley_banco, suma_long_banco = 0.0, 0.0
+            pm_medio = c_from + (c_largo / 2)
+            xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
+            yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
+            zi = z_coll + (pm_medio * np.sin(dp_rad))
+            
+            if col_seleccionada == "Cu_pct":
+                cod = 0.0 if ley_composito < 0.30 else (1.0 if ley_composito < 1.00 else (2.0 if ley_composito < 1.80 else 3.0))
+            else:
+                cod = 0.0 if ley_composito < 0.90 else (1.0 if ley_composito < 4.00 else (2.0 if ley_composito < 8.00 else 3.0))
                 
-                for _, ensayo in ensayos_pozo.iterrows():
-                    e_from_z = z_collar + (float(ensayo["From"]) * np.sin(rad_dip))
-                    e_to_z = z_collar + (float(ensayo["To"]) * np.sin(rad_dip))
-                    z_muestra_alta = max(e_from_z, e_to_z)
-                    z_muestra_baja = min(e_from_z, e_to_z)
-                    
-                    overlap_z_alta = min(b_cota_techo, z_muestra_alta)
-                    overlap_z_baja = max(b_cota_piso, z_muestra_baja)
-                    interseccion_z = overlap_z_alta - overlap_z_baja
-                    
-                    if interseccion_z > 0:
-                        largo_pozo_interseccion = interseccion_z / abs(np.sin(rad_dip)) if np.sin(rad_dip) != 0 else interseccion_z
-                        suma_ley_banco += float(ensayo[col_seleccionada]) * largo_pozo_interseccion
-                        suma_long_banco += largo_pozo_interseccion
-                        
-                if suma_long_banco > 0:
-                    ley_composito_banco = suma_ley_banco / suma_long_banco
-                    banco_nombre = f"Banco_{b_cota_techo}"
-                    
-                    compositos_bancos.append({
-                        "Sondaje ID": p_id, "Banco Minero": banco_nombre, "Cota Techo (m)": b_cota_techo,
-                        "Cota Piso (m)": b_cota_piso, "Largo Interceptado (m)": round(suma_long_banco, 1),
-                        f"Ley Composito ({unidad})": round(ley_composito_banco, 2)
-                    })
-                    
-                    cota_media_banco = b_cota_techo - (largo_composito / 2)
-                    prof_medida_pozo = (cota_media_banco - z_collar) / np.sin(rad_dip) if np.sin(rad_dip) != 0 else 0.0
-                    
-                    xi = x_coll + (prof_medida_pozo * np.cos(rad_dip) * np.sin(az_rad))
-                    yi = y_coll + (prof_medida_pozo * np.cos(rad_dip) * np.cos(az_rad))
-                    zi = cota_media_banco
-                    
-                    if col_seleccionada == "Cu_pct":
-                        cod = 0.0 if ley_composito_banco < 0.30 else (1.0 if ley_composito_banco < 1.00 else (2.0 if ley_composito_banco < 1.80 else 3.0))
-                    else:
-                        cod = 0.0 if ley_composito_banco < 0.90 else (1.0 if ley_composito_banco < 4.00 else (2.0 if ley_composito_banco < 8.00 else 3.0))
-                        
-                    x_c.append(xi); y_c.append(yi); z_c.append(zi); colores_c.append(cod)
-                    textos_c.append(f"<b>{p_id} ({banco_nombre})</b><br>Ley: {ley_composito_banco:.2f} {unidad}<br>Z: {cota_media_banco}m")
-                    
-            x_c.append(np.nan); y_c.append(np.nan); z_c.append(np.nan); colores_c.append(0.0); textos_c.append("")
+            x_c.append(xi); y_c.append(yi); z_c.append(zi); colores_c.append(cod)
+            textos_c.append(f"<b>{p_id} (Comp)</b><br>Tramo: {c_from}-{c_to}m<br>Ley: {ley_composito:.2f} {unidad}")
             
-        df_comp_bancos_final = pd.DataFrame(compositos_bancos)
-        st.session_state["df_comp_final"] = df_comp_bancos_final
-        st.dataframe(df_comp_bancos_final, use_container_width=True, hide_index=True, height=200)
-        crear_boton_excel(df_comp_bancos_final, f"Compositos_Bancos_{largo_composito}m")
-# Visualizador 3D de compositos de la pestaña 7
+        x_c.append(np.nan); y_c.append(np.nan); z_c.append(np.nan); colores_c.append(0.0); textos_c.append("")
+            
+    df_comp_final = pd.DataFrame(compositos_long)
+    st.session_state["df_comp_final"] = df_comp_final
+    st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
+    crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
+ # Visualizador 3D de compositos de la pestaña 7
     st.markdown("---")
     st.write(f"#### 🛰️ Modelo Tridimensional Regularizado del Composito ({tipo_composito})")
     fig_comp = go.Figure()
@@ -808,18 +730,18 @@ with tab7:
     config_escena_comp = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
     fig_comp.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_comp)
     st.plotly_chart(fig_comp, use_container_width=True, key="visor_grafico_compositos_3d")
+
 # ====================================================================
-# 🧱 PESTAÑA 8: MODELO DE BLOQUES ASOCIADO AL PUENTE DE RAM
+# 🧱 PESTAÑA 8: MODELO DE BLOQUES DIRECTO Y SIN ESTIMACIONES CRUZADAS
 # ====================================================================
 with tab8:
     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional de bloques utilizando el algoritmo de Inverso de la Distancia al Cuadrado (IDW²).")
     
-    # 🕵️ REVISIÓN PERSISTENTE: Leemos directo del estado global del servidor
     df_c_origen = st.session_state.get('df_comp_final', pd.DataFrame())
     
     if df_c_origen.empty:
-        st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para cargar la base de datos regularizada en la memoria activa del servidor web.")
+        st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para inicializar la base de datos de soporte regularizada.")
     else:
         st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
         c_bl1, c_bl2, c_bl3 = st.columns(3)
@@ -831,121 +753,120 @@ with tab8:
             radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
             
         st.markdown("---")
+comp_estimacion = []
+    for idx, row in df_collar.iterrows():
+        p_id = row["Nombre"]
+        x_coll = float(row["UTM Este"])
+        y_coll = float(row["UTM Norte"])
+        z_coll = float(row["Z_Cota"])
+        srv = next((s for s in surveys if s["ID"] == p_id), None)
+        df_c_pozo = df_c_origen[df_c_origen["Sondaje ID"] == p_id]
+        if df_c_pozo.empty or not srv: continue
         
-        comp_estimacion = []
-        for idx, row in df_collar.iterrows():
-            p_id = row["Nombre"]
-            x_coll = float(row["UTM Este"])
-            y_coll = float(row["UTM Norte"])
-            z_coll = float(row["Z_Cota"])
-            srv = next((s for s in surveys if s["ID"] == p_id), None)
-            df_c_pozo = df_c_origen[df_c_origen["Sondaje ID"] == p_id]
-            if df_c_pozo.empty or not srv: continue
-            
-            az_rad = np.radians(srv["Azimuth"])
-            dp_rad = np.radians(srv["Dip"])
-            
-            for _, c_row in df_c_pozo.iterrows():
-                if "Desde (m)" in df_c_origen.columns:
-                    from_m = float(c_row["Desde (m)"])
-                    to_m = float(c_row["Hasta (m)"])
-                    pm_medio = from_m + ((to_m - from_m) / 2)
-                    xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
-                    yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
-                    zi = z_coll + (pm_medio * np.sin(dp_rad))
-                    val_l = float(c_row[f"Ley Comp. ({unidad})"])
-                else:
-                    rad_dip_b = np.radians(srv["Dip"])
-                    xi = x_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.sin(az_rad))
-                    yi = y_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.cos(az_rad))
-                    zi = float(c_row["Cota Techo (m)"]) - (largo_composito / 2)
-                    val_l = float(c_row[f"Ley Composito ({unidad})"])
-                    
-                comp_estimacion.append([xi, yi, zi, val_l])
+        az_rad = np.radians(srv["Azimuth"])
+        dp_rad = np.radians(srv["Dip"])
+        
+        for _, c_row in df_c_pozo.iterrows():
+            if "Desde (m)" in df_c_origen.columns:
+                from_m = float(c_row["Desde (m)"])
+                to_m = float(c_row["Hasta (m)"])
+                pm_medio = from_m + ((to_m - from_m) / 2)
+                xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
+                yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
+                zi = z_coll + (pm_medio * np.sin(dp_rad))
+                val_l = float(c_row[f"Ley Comp. ({unidad})"])
+            else:
+                rad_dip_b = np.radians(srv["Dip"])
+                xi = x_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.sin(az_rad))
+                yi = y_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.cos(az_rad))
+                zi = float(c_row["Cota Techo (m)"]) - (largo_composito / 2)
+                val_l = float(c_row[f"Ley Composito ({unidad})"])
                 
-        xyz_comp = np.array(comp_estimacion)
-        
-        if len(xyz_comp) == 0:
-            st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria.")
-        else:
-            st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
+            comp_estimacion.append([xi, yi, zi, val_l])
             
-            if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE"):
-                with st.spinner("Interpolando bloques mediante algoritmo de distancias..."):
-                    min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
-                    min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
-                    min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
-                    
-                    grid_x = np.arange(min_x, max_x, tamano_bloque)
-                    grid_y = np.arange(min_y, max_y, tamano_bloque)
-                    grid_z = np.arange(min_z, max_z, tamano_bloque)
-                    bloques_estimados = []
-                    
-                    for bx in grid_x:
-                        for by in grid_y:
-                            for bz in grid_z:
-                                distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
-                                filtro_radio = distancias <= radio_busqueda
-                                dist_filtradas = distancias[filtro_radio]
-                                leyes_filtradas = xyz_comp[:,3][filtro_radio]
+    xyz_comp = np.array(comp_estimacion)
+    
+    if len(xyz_comp) == 0:
+        st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria.")
+    else:
+        st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
+        
+        if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
+            with st.spinner("Interpolando bloques mediante algoritmo de distancias..."):
+                min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
+                min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
+                min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
+                
+                grid_x = np.arange(min_x, max_x, tamano_bloque)
+                grid_y = np.arange(min_y, max_y, tamano_bloque)
+                grid_z = np.arange(min_z, max_z, tamano_bloque)
+                bloques_estimados = []
+                
+                for bx in grid_x:
+                    for by in grid_y:
+                        for bz in grid_z:
+                            distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
+                            filtro_radio = distancias <= radio_busqueda
+                            dist_filtradas = distancias[filtro_radio]
+                            leyes_filtradas = xyz_comp[:,3][filtro_radio]
+                            
+                            if len(dist_filtradas) > 0:
+                                dist_filtradas = np.where(dist_filtradas == 0, 0.001, dist_filtradas)
+                                pesos = 1.0 / (dist_filtradas**2)
+                                ley_estimada = np.sum(leyes_filtradas * pesos) / np.sum(pesos)
+                                categoria = "Envolvente Mineralizada (Mena)" if ley_estimada >= ley_corte else "Roca Caja (Estéril)"
                                 
-                                if len(dist_filtradas) > 0:
-                                    dist_filtradas = np.where(dist_filtradas == 0, 0.001, dist_filtradas)
-                                    pesos = 1.0 / (dist_filtradas**2)
-                                    ley_estimada = np.sum(leyes_filtradas * pesos) / np.sum(pesos)
-                                    categoria = "Envolvente Mineralizada (Mena)" if ley_estimada >= ley_corte else "Roca Caja (Estéril)"
-                                    
-                                    bloques_estimados.append({
-                                        "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
-                                        f"Ley Estimada ({unidad})": round(float(ley_estimada), 2), "Categoría": categoria
-                                    })
-                                    
-                    df_bloques = pd.DataFrame(bloques_estimados)
-                    st.session_state["db_bloques_activa"] = df_bloques
-                    st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
+                                bloques_estimados.append({
+                                    "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
+                                    f"Ley Estimada ({unidad})": round(float(ley_estimada), 2), "Categoría": categoria
+                                })
+                                
+                df_bloques = pd.DataFrame(bloques_estimados)
+                st.session_state["db_bloques_activa"] = df_bloques
+                st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
 
-            if "db_bloques_activa" in st.session_state:
-                df_b = st.session_state["db_bloques_activa"]
-                st.markdown("---")
-                st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
-                
-                df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
-                df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
-                
-                n_mena, n_esteril = len(df_mena), len(df_esteril)
-                ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
-                ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
-                
-                vol_bloque = tamano_bloque ** 3
-                tonelaje_mena = n_mena * vol_bloque * 2.7
-                
-                c_rep1, c_rep2, c_rep3 = st.columns(3)
-                with c_rep1:
-                    st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
-                    st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
-                with c_rep2:
-                    st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
-                    st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
-                with c_rep3:
-                    st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
-                    st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
+        if "db_bloques_activa" in st.session_state:
+            df_b = st.session_state["db_bloques_activa"]
+            st.markdown("---")
+            st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
+            
+            df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
+            df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
+            
+            n_mena, n_esteril = len(df_mena), len(df_esteril)
+            ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
+            ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
+            
+            vol_bloque = tamano_bloque ** 3
+            tonelaje_mena = n_mena * vol_bloque * 2.7
+            
+            c_rep1, c_rep2, c_rep3 = st.columns(3)
+            with c_rep1:
+                st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
+                st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
+            with c_rep2:
+                st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
+                st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
+            with c_rep3:
+                st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
+                st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
 
-                st.markdown("---")
-                st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
-                filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
-                df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
-                
-                fig_bloques = go.Figure()
-                colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
-                textos_bloques = [f"<b>Bloque Minero</b><br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
-                
-                fig_bloques.add_trace(go.Scatter3d(
-                    x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
-                    mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
-                ))
-                config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
-                fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
-                st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
-                
-                st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
-                crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+            st.markdown("---")
+            st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
+            filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
+            df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
+            
+            fig_bloques = go.Figure()
+            colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
+            textos_bloques = [f"<b>Bloque Minero</b><br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
+            
+            fig_bloques.add_trace(go.Scatter3d(
+                x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
+                mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
+            ))
+            config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
+            fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
+            st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
+            
+            st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
+            crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
