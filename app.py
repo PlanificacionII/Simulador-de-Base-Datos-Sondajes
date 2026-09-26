@@ -800,6 +800,55 @@ comp_estimacion = []
                 grid_x = np.arange(min_x, max_x, tamano_bloque)
                 grid_y = np.arange(min_y, max_y, tamano_bloque)
                 grid_z = np.arange(min_z, max_z, tamano_bloque)
+                  comp_estimacion = []
+    
+    # 🔒 SOLUCIÓN: Líneas alineadas perfectamente al ras con 4 espacios base de pestaña
+    for idx, row in df_collar.iterrows():
+        p_id = row["Nombre"]
+        x_coll = float(row["UTM Este"])
+        y_coll = float(row["UTM Norte"])
+        z_coll = float(row["Z_Cota"])
+        srv = next((s for s in surveys if s["ID"] == p_id), None)
+        df_c_pozo = df_c_origen[df_c_origen["Sondaje ID"] == p_id]
+        if df_c_pozo.empty or not srv: continue
+        
+        az_rad = np.radians(srv["Azimuth"])
+        dp_rad = np.radians(srv["Dip"])
+        
+        for _, c_row in df_c_pozo.iterrows():
+            if "Desde (m)" in df_c_origen.columns:
+                from_m = float(c_row["Desde (m)"])
+                to_m = float(c_row["Hasta (m)"])
+                pm_medio = from_m + ((to_m - from_m) / 2)
+                xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
+                yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
+                zi = z_coll + (pm_medio * np.sin(dp_rad))
+                val_l = float(c_row[f"Ley Comp. ({unidad})"])
+            else:
+                rad_dip_b = np.radians(srv["Dip"])
+                xi = x_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.sin(az_rad))
+                yi = y_coll + (float(c_row["Largo Interceptado (m)"])/2 * np.cos(rad_dip_b) * np.cos(az_rad))
+                zi = float(c_row["Cota Techo (m)"]) - (largo_composito / 2)
+                val_l = float(c_row[f"Ley Composito ({unidad})"])
+                
+            comp_estimacion.append([xi, yi, zi, val_l])
+            
+    xyz_comp = np.array(comp_estimacion)
+    
+    if len(xyz_comp) == 0:
+        st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria.")
+    else:
+        st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
+        
+        if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
+            with st.spinner("Interpolando bloques mediante algoritmo de distancias..."):
+                min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
+                min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
+                min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
+                
+                grid_x = np.arange(min_x, max_x, tamano_bloque)
+                grid_y = np.arange(min_y, max_y, tamano_bloque)
+                grid_z = np.arange(min_z, max_z, tamano_bloque)
                 bloques_estimados = []
                 
                 for bx in grid_x:
@@ -823,7 +872,7 @@ comp_estimacion = []
                                 
                 df_bloques = pd.DataFrame(bloques_estimados)
                 st.session_state["db_bloques_activa"] = df_bloques
-                st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
+                st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
 
         if "db_bloques_activa" in st.session_state:
             df_b = st.session_state["db_bloques_activa"]
