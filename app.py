@@ -924,7 +924,7 @@ if "db_bloques_activa" in st.session_state:
                 # ====================================================================
                 st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
-                fig_curvas = go.Figure()
+                 fig_curvas = go.Figure()
                 
                 # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo)
                 fig_curvas.add_trace(go.Scatter(
@@ -946,25 +946,36 @@ if "db_bloques_activa" in st.session_state:
                     line=dict(color="#d62728", width=3, dash="dash"),
                     marker=dict(size=6),
                     yaxis="y2"
-                ))    
-        # ⚙️ CONFIGURACIÓN SIMPLIFICADA DIRECTA MÁXIMA COMPATIBILIDAD
+                ))
+# ⚙️ CONFIGURACIÓN BLINDADA: Ejes independientes nativos compatibles con Python 3.14
                 fig_curvas.update_layout(
                     hovermode="x unified",
-                    legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
-                    xaxis=dict(title=f"Ley de Corte / Intervalo Inferior ({unidad})"),
-                    yaxis=dict(
-                        title="Tonelaje Acumulado (Ton)",
-                        titlefont=dict(color="#1f77b4"),
-                        tickfont=dict(color="#1f77b4")
-                    ),
-                    yaxis2=dict(
-                        title=f"Ley Media Ponderada ({unidad})",
-                        titlefont=dict(color="#d62728"),
-                        tickfont=dict(color="#d62728"),
-                        overlaying="y",
-                        side="right"
-                    )
+                    legend=dict(orientation="h", y=1.1, x=1, xanchor="right")
                 )
                 
-                # Renderizado gráfico final en la suite web de Streamlit
+                # Configurar Eje X de Leyes de Corte
+                fig_curvas.update_xaxes(
+                    title_text=f"Ley de Corte / Intervalo Inferior ({unidad})",
+                    gridcolor="rgba(200, 200, 200, 0.2)"
+                )
+                
+                # Configurar Eje Y Izquierdo (Tonelaje)
+                fig_curvas.update_yaxes(
+                    title_text="Tonelaje Acumulado (Ton)",
+                    titlefont=dict(color="#1f77b4"),
+                    tickfont=dict(color="#1f77b4"),
+                    gridcolor="rgba(200, 200, 200, 0.2)",
+                    side="left"
+                )
+                
+                # Configurar Eje Y Derecho (Ley Media Ponderada)
+                fig_curvas.update_yaxes(
+                    title_text=f"Ley Media Ponderada ({unidad})",
+                    titlefont=dict(color="#d62728"),
+                    tickfont=dict(color="#d62728"),
+                    overlaying="y",
+                    side="right"
+                )
+                
+                # Renderizado final del gráfico en la interfaz web de Streamlit
                 st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")
