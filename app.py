@@ -404,12 +404,11 @@ with tab6:
         unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
         # ====================================================================
-        # 🔬 1. MÓDULO INTERACTIVO: AMPLIACIÓN A 4 PRUEBAS DE HIPÓTESIS
+        # 🔬 1. MÓDULO INTERACTIVO: PRUEBAS DE HIPÓTESIS BLINDADAS
         # ====================================================================
         st.write("#### 📝 Laboratorio de Inferencia: Prueba de Bondad de Ajuste")
         st.info("🎯 **Instrucciones para el estudiante:** Selecciona el modelo teórico que consideres adecuado para la población de leyes e inicia el test. La plataforma aplicará la prueba de Kolmogorov-Smirnov (K-S) para validar tu hipótesis.")
         
-        # Menú expandido a las 4 curvas solicitadas por el profesor
         hipotesis_alumno = st.radio(
             "Selecciona tu Hipótesis Nula (H₀): 'Los datos de las leyes se ajustan a una función...'",
             [
@@ -420,7 +419,6 @@ with tab6:
             ]
         )
         
-        # Variable de control en el estado de la sesión para congelar la selección del gráfico
         if "tipo_curva_graficar" not in st.session_state:
             st.session_state["tipo_curva_graficar"] = "Distribución Normal (Gaussiana)"
             
@@ -431,28 +429,25 @@ with tab6:
             with st.spinner("Calculando estadísticos de contraste probabilísticos..."):
                 leyes_limpias = leyes_utiles[np.isfinite(leyes_utiles)]
                 
-                # Ejecución de Pruebas de Bondad de Ajuste robustas de Kolmogorov-Smirnov
+                # 🔒 INYECCIÓN DE ALTA FIDELIDAD: Pasamos la CDF nativa directa del objeto para evitar el TypeError
                 if hipotesis_alumno == "Distribución Normal (Gaussiana)":
                     loc, scale = stats.norm.fit(leyes_limpias)
-                    stat, p_valor = stats.kstest(leyes_limpias, 'norm', args=(loc, scale))
+                    stat, p_valor = stats.ks_1samp(leyes_limpias, lambda x: stats.norm.cdf(x, loc, scale))
                     nombre_dist = "Normal"
                     
                 elif hipotesis_alumno == "Distribución Log-Normal (2 Parámetros)":
-                    # Forzamos que el umbral (loc) sea estrictamente cero para evaluar la distribución de 2 parámetros pura
                     shape, loc, scale = stats.lognorm.fit(leyes_limpias, floc=0)
-                    stat, p_valor = stats.kstest(leyes_limpias, 'lognorm', args=(shape, loc, scale))
+                    stat, p_valor = stats.ks_1samp(leyes_limpias, lambda x: stats.lognorm.cdf(x, shape, loc, scale))
                     nombre_dist = "Log-Normal de 2 Parámetros"
                     
                 elif hipotesis_alumno == "Distribución Log-Normal (3 Parámetros - Con Umbral)":
-                    # Liberamos el parámetro de localización (loc) que actúa como el tercer parámetro (umbral/desplazamiento)
                     shape, loc, scale = stats.lognorm.fit(leyes_limpias)
-                    stat, p_valor = stats.kstest(leyes_limpias, 'lognorm', args=(shape, loc, scale))
+                    stat, p_valor = stats.ks_1samp(leyes_limpias, lambda x: stats.lognorm.cdf(x, shape, loc, scale))
                     nombre_dist = "Log-Normal de 3 Parámetros"
                     
                 else:
-                    # Distribución Exponencial pura
                     loc, scale = stats.expon.fit(leyes_limpias)
-                    stat, p_valor = stats.kstest(leyes_limpias, 'expon', args=(loc, scale))
+                    stat, p_valor = stats.ks_1samp(leyes_limpias, lambda x: stats.expon.cdf(x, loc, scale))
                     nombre_dist = "Exponencial"
 
                 st.markdown("---")
