@@ -822,28 +822,29 @@ with tab8:
     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional de bloques utilizando el algoritmo de Inverso de la Distancia al Cuadrado (IDW²).")
     
+    col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+    unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+    
+    st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
+    c_bl1, c_bl2, c_bl3 = st.columns(3)
+    with c_bl1:
+        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
+    with c_bl2:
+        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
+    with c_bl3:
+        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
+        
+    st.markdown("---")
+    
     df_c_origen = st.session_state.get('df_comp_final', pd.DataFrame())
     
     if df_c_origen.empty:
         st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para cargar la base de datos regularizada en la memoria activa del servidor web.")
     else:
-        st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
-        c_bl1, c_bl2, c_bl3 = st.columns(3)
-        with c_bl1:
-            tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [10, 15, 20, 25], index=1, key="size_bloque_key")
-        with c_bl2:
-            ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
-        with c_bl3:
-            radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
-            
-        st.markdown("---")
-        
         comp_estimacion = []
         for idx, row in df_collar.iterrows():
             p_id = row["Nombre"]
-            x_coll = float(row["UTM Este"])
-            y_coll = float(row["UTM Norte"])
-            z_coll = float(row["Z_Cota"])
+            x_coll, y_coll, z_coll = float(row["UTM Este"]), float(row["UTM Norte"]), float(row["Z_Cota"])
             srv = next((s for s in surveys if s["ID"] == p_id), None)
             df_c_pozo = df_c_origen[df_c_origen["Sondaje ID"] == p_id]
             if df_c_pozo.empty or not srv: continue
@@ -908,10 +909,11 @@ with tab8:
                                     
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
-                    st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
-
+                    st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
+ # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
             if "db_bloques_activa" in st.session_state:
                 df_b = st.session_state["db_bloques_activa"]
+                
                 st.markdown("---")
                 st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
                 
