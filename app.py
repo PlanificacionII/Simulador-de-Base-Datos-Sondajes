@@ -152,120 +152,7 @@ df_lithology = pd.DataFrame(lithologies)
 df_surveys = pd.DataFrame(surveys)
 
 # ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Gran Pantalla Completa)
-# ====================================================================
-st.subheader("🛰️ Visualizador Espacial 3D Ampliado: Trazas de Pozos y Rangos de Ley")
-st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para ROTAR. Usa la rueda del mouse para hacer ZOOM. Haz clic derecho y arrastra para DESPLAZAR (Pan).")
-
-fig = go.Figure()
-
-# 1. GENERAR ALAMBRE TOPOGRÁFICO 3D (Líneas finas de relieve)
-min_x = float(df_collar["UTM Este"].min() - espaciamiento)
-max_x = float(df_collar["UTM Este"].max() + espaciamiento)
-min_y = float(df_collar["UTM Norte"].min() - espaciamiento)
-max_y = float(df_collar["UTM Norte"].max() + espaciamiento)
-rango_y = max_y - min_y
-
-num_curvas = 10
-for c in range(1, num_curvas + 1):
-    x_linea = np.linspace(min_x, max_x, 30)
-    y_base = min_y + espaciamiento + (rango_y * (c / (num_curvas + 1)))
-    y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
-    z_linea = round(float(df_collar["Z_Cota"].min()) + ((float(df_collar["Z_Cota"].max()) - float(df_collar["Z_Cota"].min())) * (c / (num_curvas + 1))), 1)
-    z_array = np.full_like(x_linea, z_linea)
-    
-    fig.add_trace(go.Scatter3d(
-        x=x_linea, y=y_linea, z=z_array, mode='lines',
-        line=dict(color='rgba(150, 150, 150, 0.3)', width=1.5),
-        showlegend=False, hoverinfo='none'
-    ))
-
-# 2. CONSTRUCCIÓN DE MATRIZ CON MAPEO DE COLORES POR INTERVALOS RECALIBRADOS
-columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
-
-x_total, y_total, z_total, codigos_color_total, textos_total = [], [], [], [], []
-
-for idx, row in df_collar.iterrows():
-    p_id = row["Nombre"]
-    ensayos_pozo = [a for a in assays if a["ID"] == p_id]
-    srv = next((s for s in surveys if s["ID"] == p_id), None)
-    if not srv or not ensayos_pozo: continue
-    
-    az = np.radians(srv["Azimuth"])
-    dp = np.radians(srv["Dip"])
-    
-    x_total.append(float(row["UTM Este"]))
-    y_total.append(float(row["UTM Norte"]))
-    z_total.append(float(row["Z_Cota"]))
-    codigos_color_total.append(0.0)
-    textos_total.append(f"<b>{p_id} (Collar)</b><br>Z: {row['Z_Cota']}m")
-    
-    for ens in ensayos_pozo:
-        p_m = ens["From"] + 5
-        int_x = float(row["UTM Este"]) + (p_m * np.cos(dp) * np.sin(az))
-        int_y = float(row["UTM Norte"]) + (p_m * np.cos(dp) * np.cos(az))
-        int_z = float(row["Z_Cota"]) + (p_m * np.sin(dp))
-        
-        val_ley = float(ens[columna_ley])
-        
-        if columna_ley == "Cu_pct":
-            if val_ley < 0.30: codigo = 0.0
-            elif 0.30 <= val_ley < 1.00: codigo = 1.0
-            elif 1.00 <= val_ley < 1.80: codigo = 2.0
-            else: codigo = 3.0
-        else:
-            if val_ley < 0.90: codigo = 0.0
-            elif 0.90 <= val_ley < 4.00: codigo = 1.0
-            elif 4.00 <= val_ley < 8.00: codigo = 2.0
-            else: codigo = 3.0
-
-        x_total.append(int_x); y_total.append(int_y); z_total.append(int_z)
-        codigos_color_total.append(codigo)
-        
-        lit = next((l["Lithology"] for l in lithologies if l["ID"] == p_id and l["From"] == ens["From"]), "Unknown")
-        textos_total.append(f"<b>{p_id}</b><br>Tramo: {ens['From']}-{ens['To']}m<br>Lit: {lit}<br>Ley: {val_ley:,.2f} {unidad_ley}")
-        
-    x_total.append(np.nan); y_total.append(np.nan); z_total.append(np.nan)
-    codigos_color_total.append(0.0)
-    textos_total.append("")
-
-paleta_discreta = [
-    [0.0, "green"], [0.25, "green"],
-    [0.25, "yellow"], [0.5, "yellow"],
-    [0.5, "orange"], [0.75, "orange"],
-    [0.75, "red"], [1.0, "red"]
-]
-
-fig.add_trace(go.Scatter3d(
-    x=x_total, y=y_total, z=z_total, mode='lines+markers',
-    line=dict(
-        color=codigos_color_total, colorscale=paleta_discreta, width=6, cmin=0.0, cmax=3.0,
-        colorbar=dict(
-            title=f"Rangos ({unidad_ley})", thickness=20, x=0.98,
-            tickvals=[0.375, 1.125, 1.875, 2.625],
-            ticktext=["Estéril (<0.30%)" if columna_ley=="Cu_pct" else "Estéril (<0.9 g/t)", 
-                      "Baja-Media (0.30-1.0%)" if columna_ley=="Cu_pct" else "Baja (0.9-4.0 g/t)", 
-                      "Alta Ley (1.0-1.8%)" if columna_ley=="Cu_pct" else "Alta Ley (4.0-8.0 g/t)", 
-                      "Excelente (>1.80%)" if columna_ley=="Cu_pct" else "Excelente (>8.0 g/t)"]
-        )
-    ),
-    marker=dict(size=2.5, color=codigos_color_total, colorscale=paleta_discreta, cmin=0.0, cmax=3.0, opacity=0.9),
-    text=textos_total, hoverinfo='text', showlegend=False
-))
-
-config_escena = dict(
-    xaxis=dict(title="Este (X)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-    yaxis=dict(title="Norte (Y)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-    zaxis=dict(title="Cota (Z)", gridcolor="lightgrey", showbackground=True, backgroundcolor="whitesmoke"),
-    aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5)
-)
-
-fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
-st.plotly_chart(fig, use_container_width=True)
-
-# ====================================================================
-# 🗂️ DISTRIBUCIÓN VISUAL EN LA PÁGINA WEB (Gran Pantalla Completa)
+# 🗂️ DISTRIBUCIÓN VISUAL: VISUALIZADOR 3D ÚNICO Y SECCIÓN DE PESTAÑAS
 # ====================================================================
 st.subheader("🛰️ Visualizador Espacial 3D Ampliado: Trazas de Pozos y Rangos de Ley")
 st.caption("🖱️ CONTROL DE MOVIMIENTO: Haz clic izquierdo y arrastra para ROTAR. Usa la rueda del mouse para hacer ZOOM. Haz clic derecho y arrastra para DESPLAZAR (Pan).")
@@ -376,15 +263,13 @@ config_escena = dict(
 
 fig.update_layout(width=1300, height=700, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena)
 
-# 🔒 CORRECCIÓN CLAVE: Inyectamos una llave única para separar este gráfico del duplicado de arriba
-st.plotly_chart(fig, use_container_width=True, key="visor_plotly_unico")
+# 🔒 CONTROL ÚNICO: Se dibuja el cubo 3D una sola vez acoplándole un ID exclusivo
+st.plotly_chart(fig, use_container_width=True, key="visor_grafico_3d_unico")
 
-# ====================================================================
-# 📋 TABLAS DE DESCARGA E INTEGRACIÓN DE EXCEL REAL NATIVO (.XLSX)
-# ====================================================================
 st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
 
+# Inicializar las 6 pestañas reglamentarias unificadas
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth", "📊 6. Estadísticas de Leyes"
 ])
@@ -452,7 +337,7 @@ with tab5:
                             f = 1 / 298.257223563
                             b = a * (1 - f)
                             e2 = (a**2 - b**2) / (a**2)
-                            e_prim2 = (a**2 - b**2) / e_prim2 if 'e_prim2' in locals() else (a**2 - b**2) / (b**2)
+                            e_prim2 = (a**2 - b**2) / (b**2)
                             
                             x_profe = x_utm - 500000.0
                             y_profe = y_utm - 10000000.0  
@@ -506,19 +391,16 @@ with tab5:
                 
         except Exception as e:
             st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
-# PESTAÑA 6: Módulo para Estadísticas, Distribución de Frecuencias e Histograma de Leyes (CORREGIDO)
 with tab6:
     st.write(f"### 📊 Reporte Estadístico y Análisis de Frecuencias de Leyes: **{elemento_render}**")
     st.write("Esta sección calcula automáticamente los parámetros geoestadísticos y la distribución de intervalos metalúrgicos de la actual campaña diamantina.")
     
-    # Extraer leyes de la simulación activa, ignorando tramos estériles puros de sobrecarga (0.0) para no sesgar la media
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     leyes_utiles = df_assays[df_assays[col_seleccionada] > 0.0][col_seleccionada].values
     
     if len(leyes_utiles) == 0:
         st.warning("⚠️ No hay tramos mineralizados disponibles en la simulación actual para calcular estadísticas.")
     else:
-        # 1. Definición estricta de intervalos de corte (Cut-off) según tu modelo docente
         if col_seleccionada == "Cu_pct":
             limites = [0.0, 0.30, 1.00, 1.80, 2.50]
             etiquetas = ["Baja Ley (< 0.30 %)", "Ley Media (0.30 - 1.00 %)", "Alta Ley (1.00 - 1.80 %)", "Excelente Ley (> 1.80 %)"]
@@ -528,7 +410,6 @@ with tab6:
             etiquetas = ["Baja Ley (< 0.90 g/t)", "Ley Media (0.90 - 4.00 g/t)", "Alta Ley (4.00 - 8.00 g/t)", "Excelente Ley (> 8.00 g/t)"]
             unidad = "g/t"
             
-        # 2. PROCESAMIENTO MATEMÁTICO GEOESTADÍSTICO DE LOS INTERVALOS
         filas_tabla = []
         total_muestras = len(leyes_utiles)
         frecuencia_acumulada_pct = 0.0
@@ -537,7 +418,6 @@ with tab6:
             min_int = limites[k]
             max_int = limites[k+1]
             
-            # Filtrar muestras dentro del intervalo actual de forma estricta
             if k < len(etiquetas) - 1:
                 muestras_intervalo = leyes_utiles[(leyes_utiles >= min_int) & (leyes_utiles < max_int)]
             else:
@@ -558,46 +438,39 @@ with tab6:
             
         df_estadistica = pd.DataFrame(filas_tabla)
         
-        # 🛠️ CORRECCIÓN CLAVE: Usamos 'hide_index=True' que es la propiedad nativa oficial de Streamlit
         st.write("#### 📋 Tabla de Frecuencias Metalúrgicas Resumida")
         st.dataframe(df_estadistica, use_container_width=True, hide_index=True)
         
         st.markdown("---")
         st.write("#### 📈 Histograma de Distribución y Conteo de Muestras")
         
-        # 3. CONSTRUCCIÓN DEL GRÁFICO HISTOGRAMA MEDIANTE MATPLOTLIB
         import matplotlib.pyplot as plt
         
         fig_hist, ax_hist = plt.subplots(figsize=(10, 4.5))
-        
-        # Dibujar histograma de barras con los límites reales
         conteos, bins, parches = ax_hist.hist(
             leyes_utiles, bins=limites, edgecolor="black", 
             color="#3498db", alpha=0.75, rwidth=0.95
         )
         
-        # Configuración estética de ejes usando mathtext estándar
         ax_hist.set_title(f"Distribucion Geoestadistica del Proyecto - {elemento_render}", fontsize=11, fontweight='bold')
         ax_hist.set_xlabel(f"Grado de Ley Metalurgica ({unidad})", fontsize=10)
         ax_hist.set_ylabel("Cantidad de Muestras (Conteo)", fontsize=10)
         ax_hist.set_xticks(limites)
         ax_hist.grid(axis='y', linestyle='--', alpha=0.5)
         
-        # Inyectar etiquetas de conteo encima de cada barra para facilitar la lectura
         for conteo, bin_borde in zip(conteos, bins):
             if conteo > 0:
                 ax_hist.text(
-                    bin_borde + (limites[1] - limites[0]) * 0.4, conteo + (max(conteos) * 0.02), 
-                    f"{int(conteo)} und", ha='center', fontsize=9, fontweight='bold', color='#2c3e50'
+                    bin_borde + 0.15, conteo + (max(conteos) * 0.02), 
+                    f"{int(conteo)} und", ha='left', fontsize=9, fontweight='bold', color='#2c3e50'
                 )
 
-        # Compilar el gráfico a string binario en memoria RAM para Streamlit Cloud
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight')
         buf.seek(0)
         st.image(buf, use_container_width=True)
         plt.close()
         
-        # Desplegar un botón para exportar esta tabla de frecuencias a un Excel analítico independiente
-        st.write("*(Opcional) Si deseas adjuntar la tabla de distribución a tus reportes de cátedra, descarga la hoja de frecuencias:*")
+        st.write("*(Opcional) Descarga la hoja de frecuencias:*")
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
+
