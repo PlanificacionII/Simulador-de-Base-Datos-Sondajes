@@ -926,7 +926,7 @@ if "db_bloques_activa" in st.session_state:
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
                 fig_curvas = go.Figure()
                 
-                # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo)
+                # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo Oficial "y")
                 fig_curvas.add_trace(go.Scatter(
                     x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
                     y=df_consolidado["Tonelaje Acumulado (Ton)"].values,
@@ -934,10 +934,10 @@ if "db_bloques_activa" in st.session_state:
                     mode="lines+markers",
                     line=dict(color="#1f77b4", width=3),
                     marker=dict(size=6),
-                    yaxis="y1"
+                    yaxis="y"
                 ))
                 
-                # 🔸 2. Trazar Curva de Ley Media Ponderada Acumulada (Eje Y Derecho)
+                # 🔸 2. Trazar Curva de Ley Media Ponderada Acumulada (Eje Y Derecho Oficial "y2")
                 fig_curvas.add_trace(go.Scatter(
                     x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
                     y=df_consolidado["Ley Media Ponderada Acum."].values,
@@ -947,35 +947,28 @@ if "db_bloques_activa" in st.session_state:
                     marker=dict(size=6),
                     yaxis="y2"
                 ))
-# ⚙️ CONFIGURACIÓN BLINDADA: Ejes independientes nativos compatibles con Python 3.14
+ # ⚙️ CONFIGURACIÓN UNIFICADA DE EJES INDEPENDIENTES NATIVOS EN LAYOUT
                 fig_curvas.update_layout(
                     hovermode="x unified",
-                    legend=dict(orientation="h", y=1.1, x=1, xanchor="right")
+                    legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
+                    xaxis=dict(
+                        title=f"Ley de Corte / Intervalo Inferior ({unidad})",
+                        gridcolor="rgba(200, 200, 200, 0.2)"
+                    ),
+                    yaxis=dict(
+                        title="Tonelaje Acumulado (Ton)",
+                        titlefont=dict(color="#1f77b4"),
+                        tickfont=dict(color="#1f77b4"),
+                        gridcolor="rgba(200, 200, 200, 0.2)"
+                    ),
+                    yaxis2=dict(
+                        title=f"Ley Media Ponderada ({unidad})",
+                        titlefont=dict(color="#d62728"),
+                        tickfont=dict(color="#d62728"),
+                        overlaying="y",
+                        side="right"
+                    )
                 )
                 
-                # Configurar Eje X de Leyes de Corte
-                fig_curvas.update_xaxes(
-                    title_text=f"Ley de Corte / Intervalo Inferior ({unidad})",
-                    gridcolor="rgba(200, 200, 200, 0.2)"
-                )
-                
-                # Configurar Eje Y Izquierdo (Tonelaje)
-                fig_curvas.update_yaxes(
-                    title_text="Tonelaje Acumulado (Ton)",
-                    titlefont=dict(color="#1f77b4"),
-                    tickfont=dict(color="#1f77b4"),
-                    gridcolor="rgba(200, 200, 200, 0.2)",
-                    side="left"
-                )
-                
-                # Configurar Eje Y Derecho (Ley Media Ponderada)
-                fig_curvas.update_yaxes(
-                    title_text=f"Ley Media Ponderada ({unidad})",
-                    titlefont=dict(color="#d62728"),
-                    tickfont=dict(color="#d62728"),
-                    overlaying="y",
-                    side="right"
-                )
-                
-                # Renderizado final del gráfico en la interfaz web de Streamlit
+                # Renderizado final del gráfico en la suite web de Streamlit
                 st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")
