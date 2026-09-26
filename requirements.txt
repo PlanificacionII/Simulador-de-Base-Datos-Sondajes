@@ -3,5 +3,4 @@ pandas
 numpy
 openpyxl
 simplekml
-folium
-streamlit-folium
+matplotlib
