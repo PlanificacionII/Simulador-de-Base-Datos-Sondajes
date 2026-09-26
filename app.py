@@ -392,8 +392,8 @@ with tab5:
         except Exception as e:
             st.error(f"❌ Error al procesar la conversión del KML. Detalle técnico: {e}")
 with tab6:
-    st.write(f"### 📊 Reporte Estadístico y Análisis de Frecuencias de Leyes: **{elemento_render}**")
-    st.write("Esta sección calcula automáticamente la distribución geoestadística dividida en 12 intervalos de clase uniformes para un análisis detallado.")
+    st.write(f"### 📊 Reporte Estadístico y Test de Ajuste de Leyes: **{elemento_render}**")
+    st.write("Esta sección permite evaluar la bondad de ajuste de las leyes simuladas mediante una prueba formal de hipótesis estadísticas.")
     
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     leyes_utiles = df_assays[df_assays[col_seleccionada] > 0.0][col_seleccionada].values
@@ -403,10 +403,102 @@ with tab6:
     else:
         unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
-        # 🔒 CONTROL GEOESTADÍSTICO: Generar dinámicamente los límites para 12 barras exactas (13 bordes)
-        min_real = float(np.min(leyes_utiles))
-        max_real = float(np.max(leyes_utiles))
-        limites = np.linspace(min_real, max_real, 13) # Genera 12 intervalos perfectos
+        # ====================================================================
+        # 🔬 1. MÓDULO INTERACTIVO: TEST DE AJUSTE Y PRUEBA DE HIPÓTESIS
+        # ====================================================================
+        st.write("#### 📝 Laboratorio de Inferencia: Prueba de Bondad de Ajuste")
+        st.info("🎯 **Instrucciones para el estudiante:** Evalúa el comportamiento de la ley en el visualizador 3D. Luego, selecciona qué función matemática crees que describe mejor la distribución de este yacimiento y presiona el botón para validar tu hipótesis.")
+        
+        # Componente de selección activa para el alumno
+        hipotesis_alumno = st.radio(
+            "Selecciona tu Hipótesis Nula (H₀): 'Los datos de las leyes se ajustan a una función...'",
+            ["Distribución Normal (Gaussiana)", "Distribución Log-Normal (2 Parámetros)"]
+        )
+        
+        if st.button("🧪 EVALUAR TEST DE AJUSTE"):
+            from scipy import stats
+            
+            with st.spinner("Calculando estadísticos de contraste probabilísticos..."):
+                # Filtro de seguridad: remover infinitos o nan por si acaso
+                leyes_limpias = leyes_utiles[np.isfinite(leyes_utiles)]
+                
+                if hipotesis_alumno == "Distribución Normal (Gaussiana)":
+                    # Prueba de Shapiro-Wilk o Kolmogorov-Smirnov dependiendo del tamaño muestral
+                    if len(leyes_limpias) <= 5000:
+                        stat, p_valor = stats.shapiro(leyes_limpias)
+                    else:
+                        stat, p_valor = stats.kstest(leyes_limpias, 'norm', args=(np.mean(leyes_limpias), np.std(leyes_limpias)))
+                    
+                    nombre_dist = "Normal"
+                    
+                else:
+                    # Distribución Log-Normal de 2 parámetros (datos deben ser > 0)
+                    leyes_log = leyes_limpias[leyes_limpias > 0]
+                    if len(leyes_log) > 0:
+                        # Transformamos a escala logarítmica para evaluar su normalidad
+                        datos_transformados = np.log(leyes_log)
+                        if len(datos_transformados) <= 5000:
+                            stat, p_valor = stats.shapiro(datos_transformados)
+                        else:
+                            stat, p_valor = stats.kstest(datos_transformados, 'norm', args=(np.mean(datos_transformados), np.std(datos_transformados)))
+                    else:
+                        p_valor = 0.0
+                    
+                    nombre_dist = "Log-Normal"
+
+                # Mostrar resultados analíticos en pantalla
+                st.markdown("---")
+                st.write("##### 📑 Veredicto Científico del Test:")
+                
+                # Nivel de significancia minera estándar (alfa = 5%)
+                alfa = 0.05
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.metric(label="Estadístico de Contraste", value=f"{stat:.4f}")
+                with c2:
+                    st.metric(label="P-Valor Calculado (P-value)", value=f"{p_valor:.5f}")
+                
+                if p_valor >= alfa:
+                    st.success(f"🎉 **¡HIPÓTESIS COMPROBADA!** El P-valor ({p_valor:.5f}) es mayor o igual a {alfa}. Por lo tanto, **NO se rechaza H₀**. Los datos acumulados **SÍ se ajustan satisfactoriamente** a una distribución **{nombre_dist}**.")
+                else:
+                    st.error(f"❌ **¡HIPÓTESIS RECHAZADA!** El P-valor ({p_valor:.5f}) es menor a {alfa}. Por lo tanto, **se rechaza H₀**. Los datos metalúrgicos **NO se ajustan** a una distribución {nombre_dist}. Evalúa el otro modelo teórico.")
+                    
+        st.markdown("---")
+# ====================================================================
+        # 📈 2. CÁLCULO DE PARÁMETROS ESTADÍSTICOS DESCRIPTIVOS MINEROS
+        # ====================================================================
+        n_muestras = len(leyes_utiles)
+        ley_min = float(np.min(leyes_utiles))
+        ley_max = float(np.max(leyes_utiles))
+        ley_media = float(np.mean(leyes_utiles))
+        ley_mediana = float(np.median(leyes_utiles))
+        ley_varianza = float(np.var(leyes_utiles, ddof=1)) if n_muestras > 1 else 0.0
+        ley_desviacion = float(np.std(leyes_utiles, ddof=1)) if n_muestras > 1 else 0.0
+        coef_variacion = (ley_desviacion / ley_media) if ley_media > 0 else 0.0
+        
+        st.write("#### 📐 Resumen Geoestadístico Descriptivo del Yacimiento")
+        
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric(label="Total Muestras (n)", value=f"{n_muestras} tramos")
+            st.metric(label="Media Aritmética (X)", value=f"{ley_media:.2f} {unidad}")
+        with m2:
+            st.metric(label="Ley Mínima Detectada", value=f"{ley_min:.2f} {unidad}")
+            st.metric(label="Mediana (P50)", value=f"{ley_mediana:.2f} {unidad}")
+        with m3:
+            st.metric(label="Ley Máxima Detectada", value=f"{ley_max:.2f} {unidad}")
+            st.metric(label="Desviación Estándar (s)", value=f"{ley_desviacion:.2f} {unidad}")
+        with m4:
+            st.metric(label="Varianza Poblacional (s²)", value=f"{ley_varianza:.3f}")
+            st.metric(label="Coef. Variación (CV)", value=f"{coef_variacion:.2f}")
+            
+        st.markdown("---")
+        
+        # ====================================================================
+        # 📋 3. PROCESAMIENTO MATEMÁTICO DE LOS 12 INTERVALOS DE CLASE
+        # ====================================================================
+        limites = np.linspace(ley_min, ley_max, 13) # Genera 12 intervalos perfectos
         
         filas_tabla = []
         total_muestras = len(leyes_utiles)
@@ -416,7 +508,6 @@ with tab6:
             min_int = limites[k]
             max_int = limites[k+1]
             
-            # Agrupar muestras en el intervalo correspondiente
             if k < 11:
                 muestras_intervalo = leyes_utiles[(leyes_utiles >= min_int) & (leyes_utiles < max_int)]
             else:
@@ -427,7 +518,6 @@ with tab6:
             frecuencia_parcial_pct = (conteo_parcial / total_muestras) * 100
             frecuencia_acumulada_pct += frecuencia_parcial_pct
             
-            # Formato de rango descriptivo para la tabla de tus alumnos
             rango_texto = f"[{min_int:.2f} - {max_int:.2f})" if k < 11 else f"[{min_int:.2f} - {max_int:.2f}]"
             
             filas_tabla.append({
@@ -444,29 +534,32 @@ with tab6:
         st.dataframe(df_estadistica, use_container_width=True, hide_index=True)
         
         st.markdown("---")
-        st.write("#### 📈 Histograma de Distribución y Conteo de Muestras")
+        st.write("#### 📈 Histograma de Distribución y Curva de Densidad Teórica")
         
+        # ====================================================================
+        # 📈 4. VISUALIZACIÓN GRÁFICA DE LAS 12 BARRAS CON CURVA DE AJUSTE
+        # ====================================================================
         import matplotlib.pyplot as plt
+        from scipy import stats
         
         fig_hist, ax_hist = plt.subplots(figsize=(11, 5))
         
-        # 🚀 INYECCIÓN DE RESOLUCIÓN: Forzamos la creación de las 12 barritas exactas con los límites calculados
+        # Graficar el histograma normalizado en densidad para poder superponer la curva matemática
         conteos, bins, parches = ax_hist.hist(
             leyes_utiles, bins=limites, edgecolor="black", 
-            color="#3498db", alpha=0.75, rwidth=0.92
+            color="#3498db", alpha=0.6, rwidth=0.92, density=False
         )
         
-        ax_hist.set_title(f"Distribucion Geoestadistica del Proyecto (12 Clases) - {elemento_render}", fontsize=11, fontweight='bold')
-        ax_hist.set_xlabel(f"Grado de Ley Metalurgica ({unidad})", fontsize=10)
+        ax_hist.set_title(f"Distribución Geoestadística del Proyecto (12 Clases) - {elemento_render}", fontsize=11, fontweight='bold')
+        ax_hist.set_xlabel(f"Grado de Ley Metalúrgica ({unidad})", fontsize=10)
         ax_hist.set_ylabel("Cantidad de Muestras (Conteo)", fontsize=10)
         
-        # Ajustamos los números del eje X para que muestren los cortes reales de las 12 clases
         ax_hist.set_xticks(limites)
-        plt.xticks(rotation=45, fontsize=8) # Rotación de texto para que los decimales no se encimen
-        ax_hist.set_xlim(min_real, max_real)
+        plt.xticks(rotation=45, fontsize=8)
+        ax_hist.set_xlim(ley_min, ley_max)
         ax_hist.grid(axis='y', linestyle='--', alpha=0.5)
         
-        # Inyectar etiquetas de conteo legibles sobre el centro de cada una de las 12 barritas
+        # Inyectar las etiquetas numéricas de conteo exacto sobre cada una de las 12 barritas
         for k in range(12):
             conteo = conteos[k]
             if conteo > 0:
@@ -476,11 +569,33 @@ with tab6:
                     f"{int(conteo)}", ha='center', fontsize=8, fontweight='bold', color='#2c3e50'
                 )
 
+        # 🚀 CURVA TÉCNICA: Dibujar un segundo eje para graficar la campana ideal según el tipo de yacimiento
+        ax_curva = ax_hist.twinx()
+        x_eje = np.linspace(ley_min, ley_max, 200)
+        
+        # Si el yacimiento simula oro o cobre masivo, proyectamos la curva teórica Log-Normal
+        if col_seleccionada == "Au_gpt" or "Pórfido" in tipo_yacimiento:
+            shape, loc, scale = stats.lognorm.fit(leyes_utiles, floc=0)
+            y_eje = stats.lognorm.pdf(x_eje, shape, loc, scale)
+            label_curva = "Ajuste Teórico Log-Normal"
+        else:
+            loc, scale = stats.norm.fit(leyes_utiles)
+            y_eje = stats.norm.pdf(x_eje, loc, scale)
+            label_curva = "Ajuste Teórico Normal"
+            
+        ax_curva.plot(x_eje, y_eje, color="#e74c3c", linewidth=2.5, label=label_curva)
+        ax_curva.set_ylabel("Densidad de Probabilidad", color="#e74c3c", fontsize=9)
+        ax_curva.tick_params(axis='y', labelcolor="#e74c3c")
+        
+        # Unificar leyendas gráficas
+        ax_hist.plot([], [], color="#e74c3c", linewidth=2.5, label=label_curva)
+        ax_hist.legend(loc="upper right")
+
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight')
         buf.seek(0)
         st.image(buf, use_container_width=True)
         plt.close()
         
-        st.write("*(Opcional) Descarga la hoja de frecuencias:*")
+        st.write("*(Opcional) Descarga la hoja de frecuencias y estadísticas descriptivas:*")
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
