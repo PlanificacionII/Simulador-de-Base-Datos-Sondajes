@@ -270,8 +270,8 @@ st.markdown("---")
 st.subheader("📋 Base de Datos del Proyecto (Hojas de Exploración)")
 
 # Inicializar las 6 pestañas reglamentarias unificadas
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth", "📊 6. Estadísticas de Leyes"
+tab1, tab2, tab3, tab4, tab5, tab6,tab7 = st.tabs([
+    "📌 1. Collar", "🧪 2. Assays (Leyes)", "🪨 3. Litología", "📐 4. Surveys", "🌍 5. Convertidor Google Earth", "📊 6. Estadísticas de Leyes","📐 7. Compositaje de Pozos"
 ])
 
 def crear_boton_excel(dataframe, nombre_archivo, ocultar_columnas=None):
@@ -615,3 +615,150 @@ with tab6:
         
         st.write("*(Opcional) Descarga la hoja de frecuencias y estadísticas:*")
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
+# PESTAÑA 7: Módulo de Compositaje Minero Profesional (Soporte Regular de Muestras)
+with tab7:
+    st.write("### 📐 Módulo de Compositaje de Pozos (Regularización de Soporte)")
+    st.write("El compositaje estandariza la longitud de las muestras para eliminar sesgos geométricos antes de la estimación de recursos.")
+    
+    col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+    unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+    
+    # ⚙️ PANEL DE CONFIGURACIÓN ACADÉMICA
+    st.write("#### 🛠️ Configuración del Soporte Minero")
+    c_comp1, c_comp2 = st.columns(2)
+    with c_comp1:
+        tipo_composito = st.selectbox(
+            "Selecciona el Método de Compositaje:",
+            ["Longitud Fija (Desde Collar)", "Por Bancos (Altura Fija de Explotación)"]
+        )
+    with c_comp2:
+        largo_composito = st.number_input(
+            "Longitud / Altura del Composito (m):", 
+            min_value=5, max_value=30, value=10, step=5
+        )
+        
+    st.markdown("---")
+    
+    if tipo_composito == "Longitud Fija (Desde Collar)":
+        st.write(f"#### 🧪 Tabla de Compositos Regulares de {largo_composito}m (Desde Collarín)")
+        st.caption("Muestras ponderadas por longitud a lo largo del eje del sondaje diamantino.")
+        
+        compositos_long = []
+        
+        # Bucle por cada pozo simulado activo
+        for idx, row in df_collar.iterrows():
+            p_id = row["Nombre"]
+            ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
+            if ensayos_pozo.empty: continue
+            
+            prof_max = float(ensayos_pozo["To"].max())
+            n_compositos = int(np.ceil(prof_max / largo_composito))
+            
+            for k in range(n_compositos):
+                c_from = k * largo_composito
+                c_to = min(c_from + largo_composito, prof_max)
+                c_largo = c_to - c_from
+                if c_largo <= 0: continue
+                
+                # Ponderación matemática de la ley en el tramo del composito
+                suma_ley_long = 0.0
+                suma_interseccion = 0.0
+                
+                for _, ensayo in ensayos_pozo.iterrows():
+                    e_from = float(ensayo["From"])
+                    e_to = float(ensayo["To"])
+                    
+                    # Calcular la intersección física real entre la muestra original y el composito
+                    overlap_from = max(c_from, e_from)
+                    overlap_to = min(c_to, e_to)
+                    interseccion = overlap_to - overlap_from
+                    
+                    if interseccion > 0:
+                        suma_ley_long += float(ensayo[col_seleccionada]) * interseccion
+                        suma_interseccion += interseccion
+                
+                ley_composito = (suma_ley_long / suma_interseccion) if suma_interseccion > 0 else 0.0
+                
+                compositos_long.append({
+                    "Sondaje ID": p_id,
+                    "Desde (m)": round(c_from, 1),
+                    "Hasta (m)": round(c_to, 1),
+                    "Largo (m)": round(c_largo, 1),
+                    f"Ley Comp. ({unidad})": round(ley_composito, 2)
+                })
+                
+        df_comp_final = pd.DataFrame(compositos_long)
+        st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=300)
+        crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
+else:
+        st.write(f"#### ⛰️ Tabla de Compositos por Bancos de {largo_composito}m de Altura")
+        st.caption("Regularización de soporte proyectada horizontalmente en base a las cotas fijas de los bancos de la mina.")
+        
+        compositos_bancos = []
+        
+        for idx, row in df_collar.iterrows():
+            p_id = row["Nombre"]
+            z_collar = float(row["Z_Cota"])
+            ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
+            srv = next((s for s in surveys if s["ID"] == p_id), None)
+            if ensayos_pozo.empty or not srv: continue
+            
+            # Determinar los límites altimétricos máximos del sondaje en el subsuelo
+            prof_max = float(ensayos_pozo["To"].max())
+            rad_dip = np.radians(srv["Dip"])
+            
+            # Cota Z de inicio y fin del pozo completo
+            z_final_pozo = z_collar + (prof_max * np.sin(rad_dip))
+            z_alta = max(z_collar, z_final_pozo)
+            z_baja = min(z_collar, z_final_pozo)
+            
+            # Establecer los niveles fijos de los bancos mineros del proyecto
+            banco_inicio_cota = int(np.floor(z_alta / largo_composito) * largo_composito)
+            banco_fin_cota = int(np.floor(z_baja / largo_composito) * largo_composito)
+            
+            pasos_bancos = range(banco_inicio_cota, banco_fin_cota - largo_composito, -largo_composito)
+            
+            for b_cota_techo in pasos_bancos:
+                b_cota_piso = b_cota_techo - largo_composito
+                
+                suma_ley_banco = 0.0
+                suma_long_banco = 0.0
+                
+                for _, ensayo in ensayos_pozo.iterrows():
+                    # Calcular la cota Z exacta de inicio y fin de cada tramo de la muestra original
+                    e_from_z = z_collar + (float(ensayo["From"]) * np.sin(rad_dip))
+                    e_to_z = z_collar + (float(ensayo["To"]) * np.sin(rad_dip))
+                    
+                    z_muestra_alta = max(e_from_z, e_to_z)
+                    z_muestra_baja = min(e_from_z, e_to_z)
+                    
+                    # Intersección vertical con el rango altimétrico del banco actual
+                    overlap_z_alta = min(b_cota_techo, z_muestra_alta)
+                    overlap_z_baja = max(b_cota_piso, z_muestra_baja)
+                    interseccion_z = overlap_z_alta - overlap_z_baja
+                    
+                    if interseccion_z > 0:
+                        # Convertimos el tramo vertical de interceptación a longitud real medida en el pozo
+                        largo_pozo_interseccion = interseccion_z / abs(np.sin(rad_dip)) if np.sin(rad_dip) != 0 else interseccion_z
+                        
+                        suma_ley_banco += float(ensayo[col_seleccionada]) * largo_pozo_interseccion
+                        suma_long_banco += largo_pozo_interseccion
+                        
+                if suma_long_banco > 0:
+                    ley_composito_banco = suma_ley_banco / suma_long_banco
+                    
+                    # Nombre representativo del banco minero (ej. Banco 2190)
+                    banco_nombre = f"Banco_{b_cota_techo}"
+                    
+                    compositos_bancos.append({
+                        "Sondaje ID": p_id,
+                        "Banco Minero": banco_nombre,
+                        "Cota Techo (m)": b_cota_techo,
+                        "Cota Piso (m)": b_cota_piso,
+                        "Largo Interceptado (m)": round(suma_long_banco, 1),
+                        f"Ley Composito ({unidad})": round(ley_composito_banco, 2)
+                    })
+                    
+        df_comp_bancos_final = pd.DataFrame(compositos_bancos)
+        st.dataframe(df_comp_bancos_final, use_container_width=True, hide_index=True, height=300)
+        crear_boton_excel(df_comp_bancos_final, f"Compositos_Bancos_{largo_composito}m")
