@@ -401,13 +401,14 @@ with tab6:
     if len(leyes_utiles) == 0:
         st.warning("⚠️ No hay tramos mineralizados disponibles en la simulación actual para calcular estadísticas.")
     else:
+        # 🔒 CALIBRACIÓN DE RANGOS: Ajuste estricto de cortes académicos hasta un máximo de 15
         if col_seleccionada == "Cu_pct":
-            limites = [0.0, 0.30, 1.00, 1.80, 2.50]
-            etiquetas = ["Baja Ley (< 0.30 %)", "Ley Media (0.30 - 1.00 %)", "Alta Ley (1.00 - 1.80 %)", "Excelente Ley (> 1.80 %)"]
+            limites = [0.0, 0.30, 0.70, 1.10, 1.50]
+            etiquetas = ["Baja Ley (< 0.30 %)", "Ley Media (0.30 - 0.70 %)", "Alta Ley (0.70 - 1.10 %)", "Excelente Ley (> 1.10 %)"]
             unidad = "%"
         else:
-            limites = [0.0, 0.90, 4.00, 8.00, 12.00]
-            etiquetas = ["Baja Ley (< 0.90 g/t)", "Ley Media (0.90 - 4.00 g/t)", "Alta Ley (4.00 - 8.00 g/t)", "Excelente Ley (> 8.00 g/t)"]
+            limites = [0.0, 3.00, 7.00, 11.00, 15.00]
+            etiquetas = ["Baja Ley (< 3.00 g/t)", "Ley Media (3.00 - 7.00 g/t)", "Alta Ley (7.00 - 11.00 g/t)", "Excelente Ley (11.00 - 15.00 g/t)"]
             unidad = "g/t"
             
         filas_tabla = []
@@ -447,6 +448,8 @@ with tab6:
         import matplotlib.pyplot as plt
         
         fig_hist, ax_hist = plt.subplots(figsize=(10, 4.5))
+        
+        # El motor recorta y agrupa los datos en base al techo estricto definido
         conteos, bins, parches = ax_hist.hist(
             leyes_utiles, bins=limites, edgecolor="black", 
             color="#3498db", alpha=0.75, rwidth=0.95
@@ -456,13 +459,18 @@ with tab6:
         ax_hist.set_xlabel(f"Grado de Ley Metalurgica ({unidad})", fontsize=10)
         ax_hist.set_ylabel("Cantidad de Muestras (Conteo)", fontsize=10)
         ax_hist.set_xticks(limites)
+        # Forzamos el límite del eje X en base al arreglo configurado
+        ax_hist.set_xlim(0, limites[-1])
         ax_hist.grid(axis='y', linestyle='--', alpha=0.5)
+        
+        # Calcular el ancho de la barra para centrar el texto de forma óptima
+        ancho_barra = limites[1] - limites[0]
         
         for conteo, bin_borde in zip(conteos, bins):
             if conteo > 0:
                 ax_hist.text(
-                    bin_borde + 0.15, conteo + (max(conteos) * 0.02), 
-                    f"{int(conteo)} und", ha='left', fontsize=9, fontweight='bold', color='#2c3e50'
+                    bin_borde + (ancho_barra * 0.5), conteo + (max(conteos) * 0.02), 
+                    f"{int(conteo)} und", ha='center', fontsize=9, fontweight='bold', color='#2c3e50'
                 )
 
         buf = io.BytesIO()
