@@ -843,6 +843,10 @@ with tab7:
 
 # PESTAÑA 8: Módulo de Modelo de Bloques y Envolvente Geológica (Estimación IDW2)
 with tab8:
+ # 🔒 CORRECCIÓN CLAVE: La línea que sigue al 'with' lleva 4 espacios estrictos de sangría
+    ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_render, tamano_bloque if 'tamano_bloque' in locals() else 10, ley_corte if 'ley_corte' in locals() else 0.4, radio_busqueda if 'radio_busqueda' in locals() else 120, espaciamiento, crear_boton_excel)
+
+# 🚀 MOTOR DE BLOQUES INDEPENDIENTE (Estructura de una pieza al ras del margen izquierdo con cero espacios al inicio)
 def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_render, t_bloque, l_corte, r_busqueda, espaciamiento, funcion_excel):
     import streamlit as st
     import numpy as np
@@ -927,8 +931,8 @@ def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_
                             })
             df_bloques = pd.DataFrame(bloques_estimados)
             st.session_state["db_bloques_activa"] = df_bloques
-            st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
- # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
+            st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.") 
+# Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
     if "db_bloques_activa" in st.session_state:
         df_b = st.session_state["db_bloques_activa"]
         
@@ -1013,4 +1017,4 @@ def ejecutar_modelo_bloques_profesional(df_collar, df_assays, surveys, elemento_
         st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
         
         st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
-        funcion_excel(df_b, f"Modelo_Bloques_Estimado_{t_bloque}m")     
+        funcion_excel(df_b, f"Modelo_Bloques_Estimado_{t_bloque}m")
