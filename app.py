@@ -703,7 +703,7 @@ with tab7:
         st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
         crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
 
-      else:
+     else:
         st.write(f"#### ⛰️ Tabla de Compositos por Bancos de {largo_composito}m de Altura")
         
         compositos_bancos = []
