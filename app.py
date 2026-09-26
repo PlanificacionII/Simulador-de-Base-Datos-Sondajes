@@ -703,7 +703,7 @@ with tab7:
         st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
         crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
 
-   else:
+      else:
         st.write(f"#### ⛰️ Tabla de Compositos por Bancos de {largo_composito}m de Altura")
         
         compositos_bancos = []
@@ -758,7 +758,6 @@ with tab7:
                         f"Ley Composito ({unidad})": round(ley_composito_banco, 2)
                     })
                     
-                    # Cálculo espacial 3D para la visualización del composito por banco
                     cota_media_banco = b_cota_techo - (largo_composito / 2)
                     prof_medida_pozo = (cota_media_banco - z_collar) / np.sin(rad_dip) if np.sin(rad_dip) != 0 else 0.0
                     
@@ -840,5 +839,4 @@ with tab7:
     )
     
     fig_comp.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_comp)
-    
     st.plotly_chart(fig_comp, use_container_width=True, key="visor_grafico_compositos_3d")
