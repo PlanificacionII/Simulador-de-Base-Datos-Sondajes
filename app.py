@@ -745,7 +745,8 @@ with tab8:
     st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
     c_bl1, c_bl2, c_bl3 = st.columns(3)
     with c_bl1:
-        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):",, index=1, key="size_bloque_key")
+        # 🔒 SOLUCIÓN: Inyectamos la lista limpia de tamaños de bloque para reparar la doble coma
+        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
     with c_bl2:
         ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
     with c_bl3:
@@ -759,7 +760,7 @@ with tab8:
     if df_c_origen.empty:
         st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' utilizando el método de Longitud Fija para inicializar la base de datos de soporte regularizada.")
     else:
-        # FUSIÓN MATRICIAL PLANA: Reemplaza por completo el bucle 'for idx, row' conflictivo
+        # FUSIÓN MATRICIAL PLANA: Reemplaza por completo el bucle 'for' conflictivo
         xyz_comp = []
         df_m = df_c_origen.merge(df_collar, left_on="Sondaje ID", right_on="Nombre", how="inner")
         if not df_m.empty and "Desde (m)" in df_m.columns:
@@ -817,47 +818,47 @@ with tab8:
                     st.session_state["db_bloques_activa"] = df_bloques
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
 if "db_bloques_activa" in st.session_state:
-            df_b = st.session_state["db_bloques_activa"]
-            st.markdown("---")
-            st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
-            
-            df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
-            df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
-            
-            n_mena, n_esteril = len(df_mena), len(df_esteril)
-            ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
-            ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
-            
-            vol_bloque = tamano_bloque ** 3
-            tonelaje_mena = n_mena * vol_bloque * 2.7
-            
-            c_rep1, c_rep2, c_rep3 = st.columns(3)
-            with c_rep1:
-                st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
-                st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
-            with c_rep2:
-                st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
-                st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
-            with c_rep3:
-                st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
-                st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
+                df_b = st.session_state["db_bloques_activa"]
+                st.markdown("---")
+                st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
+                
+                df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
+                df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
+                
+                n_mena, n_esteril = len(df_mena), len(df_esteril)
+                ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
+                ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
+                
+                vol_bloque = tamano_bloque ** 3
+                tonelaje_mena = n_mena * vol_bloque * 2.7
+                
+                c_rep1, c_rep2, c_rep3 = st.columns(3)
+                with c_rep1:
+                    st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
+                    st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
+                with c_rep2:
+                    st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
+                    st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
+                with c_rep3:
+                    st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
+                    st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
 
-            st.markdown("---")
-            st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
-            filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
-            df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
-            
-            fig_bloques = go.Figure()
-            colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
-            textos_bloques = [f"<b>Bloque Minero</b><br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
-            
-            fig_bloques.add_trace(go.Scatter3d(
-                x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
-                mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
-            ))
-            config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
-            fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
-            st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
-            
-            st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
-            crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+                st.markdown("---")
+                st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
+                filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
+                df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
+                
+                fig_bloques = go.Figure()
+                colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
+                textos_bloques = [f"<b>Bloque Minero</b><br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
+                
+                fig_bloques.add_trace(go.Scatter3d(
+                    x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
+                    mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
+                ))
+                config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
+                fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
+                st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
+                
+                st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
+                crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
