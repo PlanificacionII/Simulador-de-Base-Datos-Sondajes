@@ -843,7 +843,7 @@ with tab7:
 
 # PESTAÑA 8: Módulo de Modelo de Bloques y Envolvente Geológica (Estimación IDW2)
 with tab8:
-    st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
+     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional de bloques utilizando el algoritmo de Inverso de la Distancia al Cuadrado (IDW²).")
     
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
@@ -853,6 +853,7 @@ with tab8:
     st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
     c_bl1, c_bl2, c_bl3 = st.columns(3)
     with c_bl1:
+        # 🔒 SOLUCIÓN: Inyectamos la lista de tamaños de bloque regulares [5, 10, 15, 20]
         tamano_bloque = st.selectbox(
             "Tamaño del Bloque Cúbico (m):",
 ,
@@ -949,7 +950,7 @@ with tab8:
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques tridimensionales.")
-# Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
+ # Desplegar reportes gráficos si el modelo ya fue calculado en la sesión
             if "db_bloques_activa" in st.session_state:
                 df_b = st.session_state["db_bloques_activa"]
                 
