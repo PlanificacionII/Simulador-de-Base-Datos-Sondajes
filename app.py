@@ -931,86 +931,97 @@ if "db_bloques_activa" in st.session_state:
     col_seleccionada = "Cu_pct" if "Cu_pct" in df_b.columns or ('elemento_render' in locals() and elemento_render == "Cobre (Cu %)") else "Au_gpt"
     unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
     tamano_bloque = st.session_state.get("size_bloque_key", 10)
+    vol_bloque = tamano_bloque ** 3
     
-    # Recalcular la tabla analítica de 12 intervalos regulares fijos
+    # 1. PARTICIÓN LINEAL DE 12 SCENARIOS DE CORTE (CUT-OFFS)
     max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
     min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
     cortes_ley = np.linspace(min_ley, max_ley, 12)
-    vol_bloque = tamano_bloque ** 3
+    paso_int = (max_ley - min_ley) / 11 if len(cortes_ley) > 1 else 0.1
     
     datos_c = []
+    
+    # 📐 MATEMÁTICA CORREGIDA: Clasificación por intervalos didácticos de planificación minera
     for cut in cortes_ley:
+        # Parciales: Bloques estrictamente dentro del escalón de ley actual
+        bloques_parciales = df_b[(df_b[f"Ley Estimada ({unidad})"] >= cut) & (df_b[f"Ley Estimada ({unidad})"] < cut + paso_int)]
+        n_parcial = len(bloques_parciales)
+        ton_parcial = n_parcial * vol_bloque * 2.7
+        ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean() if n_parcial > 0 else 0.0
+        
+        # Acumulados Reales: Muestras que superan o igualan el Cut-off actual (Lógica de Reservas)
         bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
         n_acum = len(bloques_en_corte)
         ton_acum = n_acum * vol_bloque * 2.7
         ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
         
         datos_c.append({
-            "Ley Corte": round(cut, 2),
-            "Tonelaje Acumulado": round(ton_acum, 0),
-            "Ley Media Ponderada": round(ley_med_acum, 2)
+            f"Ley Corte / Intervalo Inferior ({unidad})": round(cut, 2),
+            "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
+            "Ley Media Parcial": round(ley_med_parcial, 2),
+            "Tonelaje Acumulado (Ton)": round(ton_acum, 0),
+            "Ley Media Ponderada Acum.": round(ley_med_acum, 2)
         })
-    df_c_grafico = pd.DataFrame(datos_c)
-
-    from plotly.subplots import make_subplots
-    fig_curvas = make_subplots(specs=[[{"secondary_y": True}]])
+        
+    df_consolidado = pd.DataFrame(datos_c)
     
-    # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo Nivel Base)
-    fig_curvas.add_trace(
-        go.Scatter(
-            x=df_c_grafico["Ley Corte"].values,
-            y=df_c_grafico["Tonelaje Acumulado"].values,
-            name="Tonelaje Acumulado (Ton)",
-            mode="lines+markers",
-            line=dict(color="#1f77b4", width=3),
-            marker=dict(size=6, symbol="circle")
-        ),
-        secondary_y=False
+    # Reemplazar la grilla analítica anterior por la versión corregida por densidad
+    st.write("#### 📊 Tabla de Consolidación de Reservas (Matemática Corregida Minera)")
+    st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
+    crear_boton_excel(df_consolidado, f"Tabla_Consolidacion_Ley_Tonelaje_Corregida")
+    
+    # ====================================================================
+    # 📈 MOTOR GRÁFICO DICTADO POR ESTRUCTURA BASE (INMUNE A PYTHON 3.14)
+    # ====================================================================
+    st.write("#### Curva Ley-Tonelaje Oficial (Doble Eje de Planificación)")
+    
+    # Eje 1 (Izquierdo): Tonelaje Acumulado
+    traza_tonelaje = go.Scatter(
+        x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
+        y=df_consolidado["Tonelaje Acumulado (Ton)"].values,
+        name="Tonelaje Acumulado (Ton)",
+        mode="lines+markers",
+        line=dict(color="#1f77b4", width=3),
+        marker=dict(size=6, symbol="circle")
     )
     
-    # 🔸 2. Trazar Curva de Ley Media Ponderada (Eje Y Derecho Secundario)
-    fig_curvas.add_trace(
-        go.Scatter(
-            x=df_c_grafico["Ley Corte"].values,
-            y=df_c_grafico["Ley Media Ponderada"].values,
-            name=f"Ley Media Ponderada ({unidad})",
-            mode="lines+markers",
-            line=dict(color="#d62728", width=3, dash="dash"),
-            marker=dict(size=6, symbol="diamond")
-        ),
-        secondary_y=True
+    # Eje 2 (Derecho): Ley Media Ponderada
+    traza_ley_media = go.Scatter(
+        x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
+        y=df_consolidado["Ley Media Ponderada Acum."].values,
+        name="Ley Media Ponderada Acum.",
+        mode="lines+markers",
+        line=dict(color="#d62728", width=3, dash="dash"),
+        marker=dict(size=6, symbol="diamond"),
+        yaxis="y2"  # Mapeo directo y nativo de canal de datos
     )
     
-    # ⚙️ CONFIGURACIÓN DE LIENZO GLOBAL BÁSICO COMPATIBLE
-    fig_curvas.update_layout(
+    # Encofrado directo de propiedades sobre el objeto Layout (Cero comandos cruzados .update)
+    diseno_plano_inmune = go.Layout(
         width=1300,
         height=550,
         margin=dict(l=80, r=80, t=30, b=50),
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
+        xaxis=dict(
+            title=f"Ley de Corte / Intervalo Inferior ({unidad})",
+            gridcolor="rgba(200, 200, 200, 0.2)"
+        ),
+        yaxis=dict(
+            title="Tonelaje Acumulado (Ton)",
+            titlefont=dict(color="#1f77b4"),
+            tickfont=dict(color="#1f77b4"),
+            gridcolor="rgba(200, 200, 200, 0.2)"
+        ),
+        yaxis2=dict(
+            title=f"Ley Media Ponderada ({unidad})",
+            titlefont=dict(color="#d62728"),
+            tickfont=dict(color="#d62728"),
+            overlaying="y",
+            side="right"
+        )
     )
     
-    # Formatear el Eje Horizontal X
-    fig_curvas.update_xaxes(
-        title_text=f"Ley de Corte / Intervalo Inferior ({unidad})",
-        gridcolor="rgba(200, 200, 200, 0.2)"
-    )
-    
-    # 🔒 SOLUCIÓN MAESTRA: Usamos selectores numéricos directos de canales para evitar el ValueError
-    fig_curvas.update_yaxes(
-        title_text="<b>Tonelaje Acumulado (Ton)</b>",
-        titlefont=dict(color="#1f77b4"),
-        tickfont=dict(color="#1f77b4"),
-        gridcolor="rgba(200, 200, 200, 0.2)",
-        selector=1
-    )
-    
-    fig_curvas.update_yaxes(
-        title_text=f"<b>Ley Media Ponderada ({unidad})</b>",
-        titlefont=dict(color="#d62728"),
-        tickfont=dict(color="#d62728"),
-        selector=2
-    )
-    
-    # Renderizado gráfico definitivo en la suite web de Streamlit
-    st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_final_2026")
+    # Inicialización e inyección directa sobre la interfaz web de Streamlit
+    fig_curvas_definitiva = go.Figure(data=[traza_tonelaje, traza_ley_media], layout=diseno_plano_inmune)
+    st.plotly_chart(fig_curvas_definitiva, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_definitivo")
