@@ -655,47 +655,47 @@ with tab7:
         prof_max = float(ensayos_pozo["To"].max())
         n_compositos = int(np.ceil(prof_max / largo_composito))
         
-        for k in range(n_compositos):
-            c_from = k * largo_composito
-            c_to = min(c_from + largo_composito, prof_max)
-            c_largo = c_to - c_from
-            if c_largo <= 0: continue
+    for k in range(n_compositos):
+        c_from = k * largo_composito
+        c_to = min(c_from + largo_composito, prof_max)
+        c_largo = c_to - c_from
+        if c_largo <= 0: continue
             
-            suma_ley_long, suma_interseccion = 0.0, 0.0
-            for _, ensay in ensayos_pozo.iterrows():
-                overlap_from = max(c_from, float(ensay["From"]))
-                overlap_to = min(c_to, float(ensay["To"]))
+        suma_ley_long, suma_interseccion = 0.0, 0.0
+        for _, ensay in ensayos_pozo.iterrows():
+        overlap_from = max(c_from, float(ensay["From"]))
+        overlap_to = min(c_to, float(ensay["To"]))
                 interseccion = overlap_to - overlap_from
-                if interseccion > 0:
-                    suma_ley_long += float(ensay[col_seleccionada]) * interseccion
-                    suma_interseccion += interseccion
+        if interseccion > 0:
+        suma_ley_long += float(ensay[col_seleccionada]) * interseccion
+        suma_interseccion += interseccion
             
-            ley_composito = (suma_ley_long / suma_interseccion) if suma_interseccion > 0 else 0.0
+        ley_composito = (suma_ley_long / suma_interseccion) if suma_interseccion > 0 else 0.0
             
-            compositos_long.append({
-                "Sondaje ID": p_id, "Desde (m)": round(c_from, 1), "Hasta (m)": round(c_to, 1),
-                "Largo (m)": round(c_largo, 1), f"Ley Comp. ({unidad})": round(ley_composito, 2)
+        compositos_long.append({
+        "Sondaje ID": p_id, "Desde (m)": round(c_from, 1), "Hasta (m)": round(c_to, 1),
+        "Largo (m)": round(c_largo, 1), f"Ley Comp. ({unidad})": round(ley_composito, 2)
             })
             
-            pm_medio = c_from + (c_largo / 2)
-            xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
-            yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
-            zi = z_coll + (pm_medio * np.sin(dp_rad))
+        pm_medio = c_from + (c_largo / 2)
+        xi = x_coll + (pm_medio * np.cos(dp_rad) * np.sin(az_rad))
+        yi = y_coll + (pm_medio * np.cos(dp_rad) * np.cos(az_rad))
+        zi = z_coll + (pm_medio * np.sin(dp_rad))
             
-            if col_seleccionada == "Cu_pct":
-                cod = 0.0 if ley_composito < 0.30 else (1.0 if ley_composito < 1.00 else (2.0 if ley_composito < 1.80 else 3.0))
-            else:
-                cod = 0.0 if ley_composito < 0.90 else (1.0 if ley_composito < 4.00 else (2.0 if ley_composito < 8.00 else 3.0))
+        if col_seleccionada == "Cu_pct":
+        cod = 0.0 if ley_composito < 0.30 else (1.0 if ley_composito < 1.00 else (2.0 if ley_composito < 1.80 else 3.0))
+        else:
+        cod = 0.0 if ley_composito < 0.90 else (1.0 if ley_composito < 4.00 else (2.0 if ley_composito < 8.00 else 3.0))
                 
-            x_c.append(xi); y_c.append(yi); z_c.append(zi); colores_c.append(cod)
-            textos_c.append(f"<b>{p_id} (Comp)</b><br>Tramo: {c_from}-{c_to}m<br>Ley: {ley_composito:.2f} {unidad}")
+        x_c.append(xi); y_c.append(yi); z_c.append(zi); colores_c.append(cod)
+        textos_c.append(f"<b>{p_id} (Comp)</b><br>Tramo: {c_from}-{c_to}m<br>Ley: {ley_composito:.2f} {unidad}")
             
         x_c.append(np.nan); y_c.append(np.nan); z_c.append(np.nan); colores_c.append(0.0); textos_c.append("")
             
-    df_comp_final = pd.DataFrame(compositos_long)
-    st.session_state["df_comp_final"] = df_comp_final
-    st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
-    crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
+        df_comp_final = pd.DataFrame(compositos_long)
+        st.session_state["df_comp_final"] = df_comp_final
+        st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
+        crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
 # ====================================================================
 # 🧱 PESTAÑA 8: MÓDULO DE MODELAMIENTO DE BLOQUES Y RESERVAS MINERAS
 # ====================================================================
@@ -718,7 +718,7 @@ with tab8:
     
     if df_c_origen.empty:
         st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para inicializar la base de datos de soporte regularizada.")
-    else:
+    ##else:
         xyz_comp = []
         df_m = df_c_origen.merge(df_collar, left_on="Sondaje ID", right_on="Nombre", how="inner")
         if not df_m.empty and "Desde (m)" in df_m.columns:
