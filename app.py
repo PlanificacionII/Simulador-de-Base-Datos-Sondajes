@@ -971,7 +971,7 @@ if "db_bloques_activa" in st.session_state:
     crear_boton_excel(df_consolidado, f"Tabla_Consolidacion_Ley_Tonelaje_Corregida")
     
     # ====================================================================
-    # 📈 MOTOR GRÁFICO DICTADO POR ESTRUCTURA BASE (INMUNE A PYTHON 3.14)
+    # 📈 MOTOR GRÁFICO REPARADO SIN ETIQUETAS HTML EN NEGRITA
     # ====================================================================
     st.write("#### Curva Ley-Tonelaje Oficial (Doble Eje de Planificación)")
     
@@ -993,10 +993,10 @@ if "db_bloques_activa" in st.session_state:
         mode="lines+markers",
         line=dict(color="#d62728", width=3, dash="dash"),
         marker=dict(size=6, symbol="diamond"),
-        yaxis="y2"  # Mapeo directo y nativo de canal de datos
+        yaxis="y2"
     )
     
-    # Encofrado directo de propiedades sobre el objeto Layout (Cero comandos cruzados .update)
+    # 🔒 SOLUCIÓN TOTAL: Se eliminan los tags <b> del parámetro text en los ejes
     diseno_plano_inmune = go.Layout(
         width=1300,
         height=550,
@@ -1022,6 +1022,6 @@ if "db_bloques_activa" in st.session_state:
         )
     )
     
-    # Inicialización e inyección directa sobre la interfaz web de Streamlit
+    # Inicialización e inyección directa en Streamlit
     fig_curvas_definitiva = go.Figure(data=[traza_tonelaje, traza_ley_media], layout=diseno_plano_inmune)
     st.plotly_chart(fig_curvas_definitiva, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_definitivo")
