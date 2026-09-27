@@ -891,45 +891,46 @@ if "db_bloques_activa" in st.session_state:
     st.write("*(Opcional) Exporta la base de datos tridimensional completa del modelo de bloques:*")
     crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
 
-# ====================================================================
-# 📈 LABORATORIO DE CONSOLIDACIÓN: CURVAS LEY-TONELAJE
-# ====================================================================
-st.markdown("---")
-st.write("#### 📊 Tabla de Consolidación de Recursos (Curva Ley-Tonelaje)")
-st.caption("Esta tabla clasifica y acumula los bloques estimados según leyes de corte variables, simulando escenarios económicos de explotación.")
+    # ====================================================================
+    # 📈 LABORATORIO DE CONSOLIDACIÓN: CURVAS LEY-TONELAJE
+    # ====================================================================
+    st.markdown("---")
+    st.write("#### 📊 Tabla de Consolidación de Recursos (Curva Ley-Tonelaje)")
+    st.caption("Esta tabla clasifica y acumula los bloques estimados según leyes de corte variables, simulando escenarios económicos de explotación.")
 
-paso_intervalo = 0.10 if col_seleccionada == "Cu_pct" else 0.50
-max_ley_bloques = float(df_b[f"Ley Estimada ({unidad})"].max())
+    paso_intervalo = 0.10 if col_seleccionada == "Cu_pct" else 0.50
+    max_ley_bloques = float(df_b[f"Ley Estimada ({unidad})"].max())
 
-cortes_ley = np.arange(0.0, max_ley_bloques + paso_intervalo, paso_intervalo)
+    cortes_ley = np.arange(0.0, max_ley_bloques + paso_intervalo, paso_intervalo)
 
-datos_consolidacion = []
+    datos_consolidacion = []
 
-for cut in sorted(cortes_ley, reverse=True):
-    bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
-    bloques_parciales = df_b[(df_b[f"Ley Estimada ({unidad})"] >= cut) & (df_b[f"Ley Estimada ({unidad})"] < cut + paso_intervalo)]
-    
-    n_parcial = len(bloques_parciales)
-    ton_parcial = n_parcial * (tamano_bloque ** 3) * 2.7
-    
-    ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean() if n_parcial > 0 else 0.0
-    
-    n_acum_bloques = len(bloques_en_corte)
-    ton_acum_paso = n_acum_bloques * (tamano_bloque ** 3) * 2.7
-    
-    ley_med_ponderada_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum_bloques > 0 else 0.0
-    
-    datos_consolidacion.append({
-        f"Ley Corte / Intervalo Inferior ({unidad})": round(cut, 2),
-        "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
-        "Ley Media Parcial": round(ley_med_parcial, 2),
-        "Tonelaje Acumulado (Ton)": round(ton_acum_paso, 0),
-        "Ley Media Ponderada Acum.": round(ley_med_ponderada_acum, 2)
-    })
+    for cut in sorted(cortes_ley, reverse=True):
+        bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
+        bloques_parciales = df_b[(df_b[f"Ley Estimada ({unidad})"] >= cut) & (df_b[f"Ley Estimada ({unidad})"] < cut + paso_intervalo)]
+        
+        n_parcial = len(bloques_parciales)
+        ton_parcial = n_parcial * (tamano_bloque ** 3) * 2.7
+        
+        ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean() if n_parcial > 0 else 0.0
+        
+        n_acum_bloques = len(bloques_en_corte)
+        ton_acum_paso = n_acum_bloques * (tamano_bloque ** 3) * 2.7
+        
+        ley_med_ponderada_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum_bloques > 0 else 0.0
+        
+        datos_consolidacion.append({
+            f"Ley Corte / Intervalo Inferior ({unidad})": round(cut, 2),
+            "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
+            "Ley Media Parcial": round(ley_med_parcial, 2),
+            "Tonelaje Acumulado (Ton)": round(ton_acum_paso, 0),
+            "Ley Media Ponderada Acum.": round(ley_med_ponderada_acum, 2)
+        })
 
-df_consolidado = pd.DataFrame(datos_consolidacion).sort_values(by=f"Ley Corte / Intervalo Inferior ({unidad})")
+    df_consolidado = pd.DataFrame(datos_consolidacion).sort_values(by=f"Ley Corte / Intervalo Inferior ({unidad})")
 
-st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
+    st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
+
 
 # ============================================================
 # 🧱 CONSTRUCCIÓN DEL DATAFRAME CONSOLIDADO PARA CURVAS MINERAS
