@@ -989,7 +989,7 @@ df_consolidado = df_curvas[
                 ))
  # ⚙️ CONFIGURACIÓN UNIFICADA DE EJES INDEPENDIENTES NATIVOS EN LAYOUT
                 fig_curvas.update_layout(
-                    hovermode="x unified",
+                    hovermode="x",
                     legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
                     xaxis=dict(
                         title=f"Ley de Corte / Intervalo Inferior ({unidad})",
