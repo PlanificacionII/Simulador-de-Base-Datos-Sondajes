@@ -927,6 +927,13 @@ if "db_bloques_activa" in st.session_state:
                # 🔒 ACROPLE MATEMÁTICO INMUNE: Gráfico calibrado con 12 espacios exactos de sangría
 if "db_bloques_activa" in st.session_state:
     df_b = st.session_state["db_bloques_activa"]
+    
+    # 🔒 FLUJO COHERENTE: Mantenemos las unidades y variables activas de la sesión
+    col_seleccionada = "Cu_pct" if "Cu_pct" in df_b.columns or ( 'elemento_render' in locals() and elemento_render == "Cobre (Cu %)" ) else "Au_gpt"
+    unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+    tamano_bloque = st.session_state.get("size_bloque_key", 10)
+    
+    # Recalcular la tabla de 12 intervalos para alimentar las trazas gráficas
     max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
     min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
     cortes_ley = np.linspace(min_ley, max_ley, 12)
@@ -949,6 +956,7 @@ if "db_bloques_activa" in st.session_state:
     from plotly.subplots import make_subplots
     fig_curvas = make_subplots(specs=[[{"secondary_y": True}]])
     
+    # 🔹 1. Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo Nivel Base)
     fig_curvas.add_trace(
         go.Scatter(
             x=df_c_grafico["Ley Corte"].values,
@@ -961,6 +969,7 @@ if "db_bloques_activa" in st.session_state:
         secondary_y=False
     )
     
+    # 🔸 2. Trazar Curva de Ley Media Ponderada (Eje Y Derecho Secundario)
     fig_curvas.add_trace(
         go.Scatter(
             x=df_c_grafico["Ley Corte"].values,
@@ -973,15 +982,37 @@ if "db_bloques_activa" in st.session_state:
         secondary_y=True
     )
     
+    # ⚙️ CONFIGURACIÓN ESTÁNDAR COMPATIBLE CON PYTHON 3.14 (Sin diccionarios estructurales redundantes)
     fig_curvas.update_layout(
         width=1300,
         height=550,
         margin=dict(l=80, r=80, t=30, b=50),
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis=dict(title=f"Ley de Corte / Intervalo Inferior ({unidad})", gridcolor="rgba(200, 200, 200, 0.2)"),
-        yaxis=dict(title="<b>Tonelaje Acumulado (Ton)</b>", titlefont=dict(color="#1f77b4"), tickfont=dict(color="#1f77b4"), gridcolor="rgba(200, 200, 200, 0.2)"),
-        yaxis2=dict(title=f"<b>Ley Media Ponderada ({unidad})</b>", titlefont=dict(color="#d62728"), tickfont=dict(color="#d62728"), overlaying="y", side="right")
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
-    st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_final_flush")    
+    # Formatear Eje Horizontal común
+    fig_curvas.update_xaxes(
+        title_text=f"Ley de Corte / Intervalo Inferior ({unidad})",
+        gridcolor="rgba(200, 200, 200, 0.2)"
+    )
+    
+    # Formatear Eje Y Primario (Izquierdo: Tonelaje en Azul)
+    fig_curvas.update_yaxes(
+        title_text="<b>Tonelaje Acumulado (Ton)</b>",
+        titlefont=dict(color="#1f77b4"),
+        tickfont=dict(color="#1f77b4"),
+        gridcolor="rgba(200, 200, 200, 0.2)",
+        secondary_y=False
+    )
+    
+    # Formatear Eje Y Secundario (Derecho: Ley Media Ponderada en Rojo)
+    fig_curvas.update_yaxes(
+        title_text=f"<b>Ley Media Ponderada ({unidad})</b>",
+        titlefont=dict(color="#d62728"),
+        tickfont=dict(color="#d62728"),
+        secondary_y=True
+    )
+    
+    # Renderizado gráfico final libre de conflictos de validación
+    st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_final_2026")
