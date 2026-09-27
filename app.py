@@ -7,7 +7,7 @@ import io
 # Configuración de la página web de Streamlit
 st.set_page_config(page_title="Simulador de Base de Datos y Sondajes", layout="wide")
 
-# Inicialización del estado de la sesión para mantener los datos en memoria
+# 🔒 INICIALIZACIÓN GLOBAL SEBURA PARA EVITAR NAMEERROR
 if "df_collar" not in st.session_state:
     st.session_state["df_collar"] = pd.DataFrame()
 if "df_assays" not in st.session_state:
@@ -15,18 +15,10 @@ if "df_assays" not in st.session_state:
 if "surveys" not in st.session_state:
     st.session_state["surveys"] = []
 
-# Función global para crear botones de exportación a Excel estables
-def crear_boton_excel(df, nombre_archivo):
-    towrite = io.BytesIO()
-    with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Datos')
-    st.download_button(
-        label="📥 Exportar Tabla a Excel",
-        data=towrite.getvalue(),
-        file_name=f"{nombre_archivo}.xlsx",
-        mime="application/vnd.ms-excel"
-    )
-
+# Forzar valores iniciales por defecto para que las pestañas 7 y 8 siempre tengan soporte
+elemento_render = "Cobre (Cu %)"
+col_seleccionada = "Cu_pct"
+unidad = "%"
 st.title("🎛️ Suite Analítica y Simulador de Base de Datos de Sondajes Geológicos")
 st.write("Plataforma interactiva de cátedra para la gestión de sondajes, regularización de muestras y estimación de recursos.")
 
