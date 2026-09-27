@@ -926,10 +926,8 @@ if "db_bloques_activa" in st.session_state:
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
                  from plotly.subplots import make_subplots
                 
-                # 🔒 ESPECIFICACIÓN DE MÁXIMA COMPATIBILIDAD: Lienzo nativo con doble eje Y balanceado
                 fig_curvas = make_subplots(specs=[[{"secondary_y": True}]])
                 
-                # 🔹 1. Trazar Curva de Tonelaje Acumulado - Eje Y Izquierdo Nivel Base
                 fig_curvas.add_trace(
                     go.Scatter(
                         x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
@@ -942,11 +940,10 @@ if "db_bloques_activa" in st.session_state:
                     secondary_y=False
                 )
                 
-                # 🔸 2. Trazar Curva de Ley Media Ponderada Acumulada - Eje Y Derecho Secundario
                 fig_curvas.add_trace(
                     go.Scatter(
                         x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
-                        y=df_consolidado["Ley Media Ponderada Acum."],
+                        y=df_consolidado["Ley Media Ponderada Acum."].values,
                         name=f"Ley Media Ponderada ({unidad})",
                         mode="lines+markers",
                         line=dict(color="#d62728", width=3, dash="dash"),
@@ -954,7 +951,7 @@ if "db_bloques_activa" in st.session_state:
                     ),
                     secondary_y=True
                 )
-# ⚙️ CONFIGURACIÓN DE PARÁMETROS UNIFICADOS INMUNE A ERRORES EN PYTHON 3.14
+                
                 fig_curvas.update_layout(
                     width=1300,
                     height=550,
@@ -980,5 +977,4 @@ if "db_bloques_activa" in st.session_state:
                     )
                 )
                 
-                # Renderizado gráfico definitivo en la plataforma web de Streamlit
                 st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado")
