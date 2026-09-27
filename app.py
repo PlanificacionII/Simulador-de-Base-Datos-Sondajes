@@ -924,69 +924,69 @@ if "db_bloques_activa" in st.session_state:
                 # ====================================================================
                 st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
-                # 🔒 SOLUCIÓN MAESTRA INMUNE: Gráfico plano al ras de la pestaña con 4 espacios estrictos
-    if "db_bloques_activa" in st.session_state:
-        df_b = st.session_state["db_bloques_activa"]
-        
-        # Recalcular internamente la tabla de intervalos de forma segura para evitar dependencias
-        max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
-        min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
-        cortes_ley = np.linspace(min_ley, max_ley, 12)
-        paso_int = (max_ley - min_ley) / 11 if len(cortes_ley) > 1 else 0.1
-        vol_bloque = tamano_bloque ** 3
-        
-        datos_c = []
-        for cut in cortes_ley:
-            bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
-            n_acum = len(bloques_en_corte)
-            ton_acum = n_acum * vol_bloque * 2.7
-            ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
-            
-            datos_c.append({
-                "Ley Corte": round(cut, 2),
-                "Tonelaje Acumulado": round(ton_acum, 0),
-                "Ley Media Ponderada": round(ley_med_acum, 2)
-            })
-        df_c_grafico = pd.DataFrame(datos_c)
+               # 🔒 ACROPLE MATEMÁTICO INMUNE: Gráfico calibrado con 12 espacios exactos de sangría
+            if "db_bloques_activa" in st.session_state:
+                df_b = st.session_state["db_bloques_activa"]
+                
+                # Recalcular internamente la tabla de intervalos de forma segura para evitar dependencias
+                max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
+                min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
+                cortes_ley = np.linspace(min_ley, max_ley, 12)
+                vol_bloque = tamano_bloque ** 3
+                
+                datos_c = []
+                for cut in cortes_ley:
+                    bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
+                    n_acum = len(bloques_en_corte)
+                    ton_acum = n_acum * vol_bloque * 2.7
+                    ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
+                    
+                    datos_c.append({
+                        "Ley Corte": round(cut, 2),
+                        "Tonelaje Acumulado": round(ton_acum, 0),
+                        "Ley Media Ponderada": round(ley_med_acum, 2)
+                    })
+                df_c_grafico = pd.DataFrame(datos_c)
 
-        from plotly.subplots import make_subplots
-        fig_curvas = make_subplots(specs=[[{"secondary_y": True}]])
-        
-        # 🔹 Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo)
-        fig_curvas.add_trace(
-            go.Scatter(
-                x=df_c_grafico["Ley Corte"].values,
-                y=df_c_grafico["Tonelaje Acumulado"].values,
-                name="Tonelaje Acumulado (Ton)",
-                mode="lines+markers",
-                line=dict(color="#1f77b4", width=3),
-                marker=dict(size=6, symbol="circle")
-            ),
-            secondary_y=False
-        )
-        
-        # 🔸 Trazar Curva de Ley Media Ponderada (Eje Y Derecho)
-        fig_curvas.add_trace(
-            go.Scatter(
-                x=df_c_grafico["Ley Corte"].values,
-                y=df_c_grafico["Ley Media Ponderada"].values,
-                name=f"Ley Media Ponderada ({unidad})",
-                mode="lines+markers",
-                line=dict(color="#d62728", width=3, dash="dash"),
-                marker=dict(size=6, symbol="diamond")
-            ),
-            secondary_y=True
-        )
-        
-        fig_curvas.update_layout(
-            width=1300,
-            height=550,
-            margin=dict(l=80, r=80, t=30, b=50),
-            hovermode="x unified",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            xaxis=dict(title=f"Ley de Corte / Intervalo Inferior ({unidad})", gridcolor="rgba(200, 200, 200, 0.2)"),
-            yaxis=dict(title="<b>Tonelaje Acumulado (Ton)</b>", titlefont=dict(color="#1f77b4"), tickfont=dict(color="#1f77b4"), gridcolor="rgba(200, 200, 200, 0.2)"),
-            yaxis2=dict(title=f"<b>Ley Media Ponderada ({unidad})</b>", titlefont=dict(color="#d62728"), tickfont=dict(color="#d62728"), overlaying="y", side="right")
-        )
-        
-        st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_final") 
+                from plotly.subplots import make_subplots
+                fig_curvas = make_subplots(specs=[[{"secondary_y": True}]])
+                
+                # 🔹 Trazar Curva de Tonelaje Acumulado (Eje Y Izquierdo)
+                fig_curvas.add_trace(
+                    go.Scatter(
+                        x=df_c_grafico["Ley Corte"].values,
+                        y=df_c_grafico["Tonelaje Acumulado"].values,
+                        name="Tonelaje Acumulado (Ton)",
+                        mode="lines+markers",
+                        line=dict(color="#1f77b4", width=3),
+                        marker=dict(size=6, symbol="circle")
+                    ),
+                    secondary_y=False
+                )
+                
+                # 🔸 Trazar Curva de Ley Media Ponderada (Eje Y Derecho)
+                fig_curvas.add_trace(
+                    go.Scatter(
+                        x=df_c_grafico["Ley Corte"].values,
+                        y=df_c_grafico["Ley Media Ponderada"].values,
+                        name=f"Ley Media Ponderada ({unidad})",
+                        mode="lines+markers",
+                        line=dict(color="#d62728", width=3, dash="dash"),
+                        marker=dict(size=6, symbol="diamond")
+                    ),
+                    secondary_y=True
+                )
+                
+                fig_curvas.update_layout(
+                    width=1300,
+                    height=550,
+                    margin=dict(l=80, r=80, t=30, b=50),
+                    hovermode="x unified",
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    xaxis=dict(title=f"Ley de Corte / Intervalo Inferior ({unidad})", gridcolor="rgba(200, 200, 200, 0.2)"),
+                    yaxis=dict(title="<b>Tonelaje Acumulado (Ton)</b>", titlefont=dict(color="#1f77b4"), tickfont=dict(color="#1f77b4"), gridcolor="rgba(200, 200, 200, 0.2)"),
+                    yaxis2=dict(title=f"<b>Ley Media Ponderada ({unidad})</b>", titlefont=dict(color="#d62728"), tickfont=dict(color="#d62728"), overlaying="y", side="right")
+                )
+                
+                st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_final_2026")
+    
