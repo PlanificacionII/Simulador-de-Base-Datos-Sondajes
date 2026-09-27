@@ -615,9 +615,8 @@ with tab6:
         
         st.write("*(Opcional) Descarga la hoja de frecuencias y estadísticas:*")
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
-# PESTAÑA 7: Módulo de Compositaje Minero Profesional (Soporte Regular de Muestras)
 with tab7:
-    st.write("### 📐 Módulo de Compositaje de Pozos (Regularización de Soporte y Visualización 3D)")
+    st.write("### 📐 Módulo de Compositaje de Pozos (Regularización de Soporte)")
     st.write("El compositaje estandariza la longitud de las muestras para eliminar sesgos geométricos antes de la estimación de recursos.")
     
     col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
@@ -628,12 +627,12 @@ with tab7:
     with c_comp1:
         tipo_composito = st.selectbox(
             "Selecciona el Método de Compositaje:",
-            ["Longitud Fija (Desde Collar)", "Por Bancos (Altura Fija de Explotación)"],
+            ["Longitud Fija (Desde Collar)"],
             key="metodo_comp_key"
         )
     with c_comp2:
         largo_composito = st.number_input(
-            "Longitud / Altura del Composito (m):", 
+            "Longitud del Composito (m):", 
             min_value=5, max_value=30, value=10, step=5,
             key="largo_comp_key"
         )
@@ -642,7 +641,6 @@ with tab7:
     x_c, y_c, z_c, colores_c, textos_c = [], [], [], [], []
     compositos_long = []
     
-    # Procesamiento directo de Longitud Fija
     for idx, row in df_collar.iterrows():
         p_id = row["Nombre"]
         x_coll = float(row["UTM Este"])
@@ -698,52 +696,17 @@ with tab7:
     st.session_state["df_comp_final"] = df_comp_final
     st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
     crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
- # Visualizador 3D de compositos de la pestaña 7
-    st.markdown("---")
-    st.write(f"#### 🛰️ Modelo Tridimensional Regularizado del Composito ({tipo_composito})")
-    fig_comp = go.Figure()
-    min_x = float(df_collar["UTM Este"].min() - espaciamiento)
-    max_x = float(df_collar["UTM Este"].max() + espaciamiento)
-    min_y = float(df_collar["UTM Norte"].min() - espaciamiento)
-    max_y = float(df_collar["UTM Norte"].max() + espaciamiento)
-    rango_y = max_y - min_y
-    
-    for c in range(1, 6):
-        x_linea = np.linspace(min_x, max_x, 25)
-        y_base = min_y + espaciamiento + (rango_y * (c / 6))
-        y_linea = y_base + (espaciamiento * 0.35) * np.sin((x_linea - min_x) / (espaciamiento * 1.8))
-        z_linea = round(float(df_collar["Z_Cota"].min()) + ((float(df_collar["Z_Cota"].max()) - float(df_collar["Z_Cota"].min())) * (c / 6)), 1)
-        z_array = np.full_like(x_linea, z_linea)
-        fig_comp.add_trace(go.Scatter3d(x=x_linea, y=y_linea, z=z_array, mode='lines', line=dict(color='rgba(180, 180, 180, 0.25)', width=1), showlegend=False, hoverinfo='none'))
-        
-    paleta_discreta = [[0.0, "green"], [0.25, "green"], [0.25, "yellow"], [0.5, "yellow"], [0.5, "orange"], [0.75, "orange"], [0.75, "red"], [1.0, "red"]]
-    fig_comp.add_trace(go.Scatter3d(
-        x=x_c, y=y_c, z=z_c, mode='lines+markers', line=dict(color='rgba(200, 200, 200, 0.4)', width=3),
-        marker=dict(
-            size=5, color=colores_c, colorscale=paleta_discreta, cmin=0.0, cmax=3.0, opacity=0.95,
-            colorbar=dict(
-                title=f"Leyes Comp. ({unidad})", thickness=15, x=1.02, tickvals=[0.375, 1.125, 1.875, 2.625],
-                ticktext=["Estéril/Bajo" if col_seleccionada=="Cu_pct" else "Bajo (<3.0)", "Medio" if col_seleccionada=="Cu_pct" else "Medio (3-7)", "Alto" if col_seleccionada=="Cu_pct" else "Alto (7-11)", "Excelente" if col_seleccionada=="Cu_pct" else "Excelente (>11)"]
-            )
-        ), text=textos_c, hoverinfo='text', showlegend=False
-    ))
-    config_escena_comp = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
-    fig_comp.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_comp)
-    st.plotly_chart(fig_comp, use_container_width=True, key="visor_grafico_compositos_3d")
-
 # ====================================================================
-# 🧱 PESTAÑA 8: MODELO DE BLOQUES DIRECTO Y SIN ESTIMACIONES CRUZADAS
+# 🧱 PESTAÑA 8: MÓDULO DE MODELAMIENTO DE BLOQUES Y RESERVAS MINERAS
 # ====================================================================
 with tab8:
     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.caption("Este módulo interpola las leyes de los compositos en una grilla tridimensional utilizando matrices nativas de NumPy sin bucles manuales.")
     
-    col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-    unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
-    
     st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
     c_bl1, c_bl2, c_bl3 = st.columns(3)
     with c_bl1:
+        # Lista limpia y robusta con una sola coma reglamentaria
         tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
     with c_bl2:
         ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
@@ -769,8 +732,7 @@ with tab8:
             zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
             vl = df_m[f"Ley Comp. ({unidad})"].values
             xyz_comp = np.column_stack((xc, yc, zc, vl))
-
-        if len(xyz_comp) == 0:
+if len(xyz_comp) == 0:
             st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
         else:
             st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
@@ -803,7 +765,8 @@ with tab8:
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
-if "db_bloques_activa" in st.session_state:
+
+            if "db_bloques_activa" in st.session_state:
                 df_b = st.session_state["db_bloques_activa"]
                 st.markdown("---")
                 st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
@@ -825,15 +788,14 @@ if "db_bloques_activa" in st.session_state:
                 with c_rep3:
                     st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
                     st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
-
-                st.markdown("---")
+st.markdown("---")
                 st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
                 filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
                 df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
                 
                 fig_bloques = go.Figure()
                 colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
-                textos_bloques = [f"<b>Bloque Minero</b><br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
+                textos_bloques = [f"Bloque Minero<br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
                 fig_bloques.add_trace(go.Scatter3d(
                     x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
                     mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
@@ -881,4 +843,3 @@ st.markdown("---")
                 with c_graf2:
                     st.caption(f"Evolución de la Ley Media Ponderada Acumulada ({unidad})")
                     st.line_chart(df_grafico["Ley Media Ponderada Acum."], color="#d62728")
-
