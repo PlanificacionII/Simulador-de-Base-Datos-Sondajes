@@ -707,7 +707,7 @@ with tab8:
     c_bl1, c_bl2, c_bl3 = st.columns(3)
     with c_bl1:
         # Lista limpia calibrada de tamaños de bloque con una sola coma reglamentaria
-        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
+        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):",, index=1, key="size_bloque_key")
     with c_bl2:
         ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
     with c_bl3:
@@ -718,7 +718,7 @@ with tab8:
     
     if df_c_origen.empty:
         st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para inicializar la base de datos de soporte regularizada.")
-    ##else:
+    else:
         xyz_comp = []
         df_m = df_c_origen.merge(df_collar, left_on="Sondaje ID", right_on="Nombre", how="inner")
         if not df_m.empty and "Desde (m)" in df_m.columns:
@@ -732,7 +732,7 @@ with tab8:
             zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
             vl = df_m[f"Ley Comp. ({unidad})"].values
             xyz_comp = np.column_stack((xc, yc, zc, vl))
-if len(xyz_comp) == 0:
+  if len(xyz_comp) == 0:
             st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
         else:
             st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
@@ -804,7 +804,7 @@ st.markdown("---")
                 fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
                 st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
                 crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
- st.markdown("---")
+st.markdown("---")
                 st.write("#### 📊 Tabla de Consolidación de Reservas (12 Intervalos de Planificación)")
                 max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
                 min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
@@ -843,3 +843,5 @@ st.markdown("---")
                 with c_graf2:
                     st.caption(f"Evolución de la Ley Media Ponderada Acumulada ({unidad})")
                     st.line_chart(df_grafico["Ley Media Ponderada Acum."], color="#d62728")
+
+
