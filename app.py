@@ -334,8 +334,7 @@ with tab8:
             zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
             vl = df_m[f"Ley Comp. ({unidad})"].values
             xyz_comp = np.column_stack((xc, yc, zc, vl))
-
-        if len(xyz_comp) == 0:
+ if len(xyz_comp) == 0:
             st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
         else:
             st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
@@ -368,7 +367,8 @@ with tab8:
                     df_bloques = pd.DataFrame(bloques_estimados)
                     st.session_state["db_bloques_activa"] = df_bloques
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
- if "db_bloques_activa" in st.session_state:
+
+            if "db_bloques_activa" in st.session_state:
                 df_b = st.session_state["db_bloques_activa"]
                 st.markdown("---")
                 st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
@@ -390,8 +390,7 @@ with tab8:
                 with c_rep3:
                     st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
                     st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
-
-                st.markdown("---")
+st.markdown("---")
                 st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
                 filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
                 df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
