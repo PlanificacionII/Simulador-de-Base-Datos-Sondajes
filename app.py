@@ -734,7 +734,7 @@ with tab7:
 # ====================================================================
 # 🧱 PESTAÑA 8: MODELO DE BLOQUES DIRECTO Y SIN ESTIMACIONES CRUZADAS
 # ====================================================================
-with tab8:
+   with tab8:
     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional utilizando matrices nativas de NumPy sin bucles manuales.")
     
