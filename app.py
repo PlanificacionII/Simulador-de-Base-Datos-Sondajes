@@ -731,7 +731,7 @@ with tab8:
             zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
             vl = df_m[f"Ley Comp. ({unidad})"].values
             xyz_comp = np.column_stack((xc, yc, zc, vl))
-  if len(xyz_comp) == 0:
+    if len(xyz_comp) == 0:
             st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
         else:
             st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
@@ -787,7 +787,8 @@ with tab8:
                 with c_rep3:
                     st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
                     st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
-st.markdown("---")
+
+                st.markdown("---")
                 st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
                 filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
                 df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
@@ -803,7 +804,8 @@ st.markdown("---")
                 fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
                 st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
                 crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
-st.markdown("---")
+
+                st.markdown("---")
                 st.write("#### 📊 Tabla de Consolidación de Reservas (12 Intervalos de Planificación)")
                 max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
                 min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
@@ -842,5 +844,3 @@ st.markdown("---")
                 with c_graf2:
                     st.caption(f"Evolución de la Ley Media Ponderada Acumulada ({unidad})")
                     st.line_chart(df_grafico["Ley Media Ponderada Acum."], color="#d62728")
-
-
