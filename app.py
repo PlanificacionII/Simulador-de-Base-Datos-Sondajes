@@ -928,12 +928,11 @@ if "db_bloques_activa" in st.session_state:
 if "db_bloques_activa" in st.session_state:
     df_b = st.session_state["db_bloques_activa"]
     
-    # 🔒 FLUJO COHERENTE: Mantenemos las unidades y variables activas de la sesión
-    col_seleccionada = "Cu_pct" if "Cu_pct" in df_b.columns or ( 'elemento_render' in locals() and elemento_render == "Cobre (Cu %)" ) else "Au_gpt"
+    col_seleccionada = "Cu_pct" if "Cu_pct" in df_b.columns or ('elemento_render' in locals() and elemento_render == "Cobre (Cu %)") else "Au_gpt"
     unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
     tamano_bloque = st.session_state.get("size_bloque_key", 10)
     
-    # Recalcular la tabla de 12 intervalos para alimentar las trazas gráficas
+    # Recalcular la tabla analítica de 12 intervalos regulares fijos
     max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
     min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
     cortes_ley = np.linspace(min_ley, max_ley, 12)
@@ -982,7 +981,7 @@ if "db_bloques_activa" in st.session_state:
         secondary_y=True
     )
     
-    # ⚙️ CONFIGURACIÓN ESTÁNDAR COMPATIBLE CON PYTHON 3.14 (Sin diccionarios estructurales redundantes)
+    # ⚙️ CONFIGURACIÓN DE LIENZO GLOBAL BÁSICO COMPATIBLE
     fig_curvas.update_layout(
         width=1300,
         height=550,
@@ -991,28 +990,27 @@ if "db_bloques_activa" in st.session_state:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
-    # Formatear Eje Horizontal común
+    # Formatear el Eje Horizontal X
     fig_curvas.update_xaxes(
         title_text=f"Ley de Corte / Intervalo Inferior ({unidad})",
         gridcolor="rgba(200, 200, 200, 0.2)"
     )
     
-    # Formatear Eje Y Primario (Izquierdo: Tonelaje en Azul)
+    # 🔒 SOLUCIÓN MAESTRA: Usamos selectores numéricos directos de canales para evitar el ValueError
     fig_curvas.update_yaxes(
         title_text="<b>Tonelaje Acumulado (Ton)</b>",
         titlefont=dict(color="#1f77b4"),
         tickfont=dict(color="#1f77b4"),
         gridcolor="rgba(200, 200, 200, 0.2)",
-        secondary_y=False
+        selector=1
     )
     
-    # Formatear Eje Y Secundario (Derecho: Ley Media Ponderada en Rojo)
     fig_curvas.update_yaxes(
         title_text=f"<b>Ley Media Ponderada ({unidad})</b>",
         titlefont=dict(color="#d62728"),
         tickfont=dict(color="#d62728"),
-        secondary_y=True
+        selector=2
     )
     
-    # Renderizado gráfico final libre de conflictos de validación
+    # Renderizado gráfico definitivo en la suite web de Streamlit
     st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado_final_2026")
