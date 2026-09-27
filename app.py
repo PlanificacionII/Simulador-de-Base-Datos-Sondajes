@@ -334,116 +334,115 @@ with tab8:
             zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
             vl = df_m[f"Ley Comp. ({unidad})"].values
             xyz_comp = np.column_stack((xc, yc, zc, vl))
-if len(xyz_comp) == 0:
-            st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
-        else:
-            st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
-            if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
-                with st.spinner("Interpolando bloques mediante matriz de distancias..."):
-                    min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
-                    min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
-                    min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
-                    grid_x = np.arange(min_x, max_x, tamano_bloque)
-                    grid_y = np.arange(min_y, max_y, tamano_bloque)
-                    grid_z = np.arange(min_z, max_z, tamano_bloque)
-                    mesh_x, mesh_y, mesh_z = np.meshgrid(grid_x, grid_y, grid_z)
-                    bx_flat, by_flat, bz_flat = mesh_x.flatten(), mesh_y.flatten(), mesh_z.flatten()
-                    
-                    bloques_estimados = []
-                    for idx_b in range(len(bx_flat)):
-                        bx, by, bz = bx_flat[idx_b], by_flat[idx_b], bz_flat[idx_b]
-                        distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
-                        filtro = distancias <= radio_busqueda
-                        d_f, l_f = distancias[filtro], xyz_comp[:,3][filtro]
-                        if len(d_f) > 0:
-                            d_f = np.where(d_f == 0, 0.001, d_f)
-                            pesos = 1.0 / (d_f**2)
-                            ley_est = np.sum(l_f * pesos) / np.sum(pesos)
-                            cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
-                            bloques_estimados.append({
-                                "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
-                                f"Ley Estimada ({unidad})": round(float(ley_est), 2), "Categoría": cat
-                            })
-                    df_bloques = pd.DataFrame(bloques_estimados)
-                    st.session_state["db_bloques_activa"] = df_bloques
-                    st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
+#if len(xyz_comp) == 0:
+      # 🔒 MOTOR DE ESTIMACIÓN PLANO INMUNE A DESAJUSTES DE SANGRE
+        st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
+        if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
+            with st.spinner("Interpolando bloques mediante matriz de distancias..."):
+                min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
+                min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
+                min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
+                grid_x = np.arange(min_x, max_x, tamano_bloque)
+                grid_y = np.arange(min_y, max_y, tamano_bloque)
+                grid_z = np.arange(min_z, max_z, tamano_bloque)
+                mesh_x, mesh_y, mesh_z = np.meshgrid(grid_x, grid_y, grid_z)
+                bx_flat, by_flat, bz_flat = mesh_x.flatten(), mesh_y.flatten(), mesh_z.flatten()
+                
+                bloques_estimados = []
+                for idx_b in range(len(bx_flat)):
+                    bx, by, bz = bx_flat[idx_b], by_flat[idx_b], bz_flat[idx_b]
+                    distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
+                    filtro = distancias <= radio_busqueda
+                    d_f, l_f = distancias[filtro], xyz_comp[:,3][filtro]
+                    if len(d_f) > 0:
+                        d_f = np.where(d_f == 0, 0.001, d_f)
+                        pesos = 1.0 / (d_f**2)
+                        ley_est = np.sum(l_f * pesos) / np.sum(pesos)
+                        cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
+                        bloques_estimados.append({
+                            "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
+                            f"Ley Estimada ({unidad})": round(float(ley_est), 2), "Categoría": cat
+                        })
+                df_bloques = pd.DataFrame(bloques_estimados)
+                st.session_state["db_bloques_activa"] = df_bloques
+                st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
 
-            if "db_bloques_activa" in st.session_state:
-                df_b = st.session_state["db_bloques_activa"]
-                st.markdown("---")
-                st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
-                df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
-                df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
-                n_mena, n_esteril = len(df_mena), len(df_esteril)
-                ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
-                ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
-                vol_bloque = tamano_bloque ** 3
-                tonelaje_mena = n_mena * vol_bloque * 2.7
-                
-                c_rep1, c_rep2, c_rep3 = st.columns(3)
-                with c_rep1:
-                    st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
-                    st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
-                with c_rep2:
-                    st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
-                    st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
-                with c_rep3:
-                    st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
-                    st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
+        if "db_bloques_activa" in st.session_state:
+            df_b = st.session_state["db_bloques_activa"]
+            st.markdown("---")
+            st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
+            df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
+            df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
+            n_mena, n_esteril = len(df_mena), len(df_esteril)
+            ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
+            ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
+            vol_bloque = tamano_bloque ** 3
+            tonelaje_mena = n_mena * vol_bloque * 2.7
+            
+            c_rep1, c_rep2, c_rep3 = st.columns(3)
+            with c_rep1:
+                st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
+                st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
+            with c_rep2:
+                st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
+                st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
+            with c_rep3:
+                st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
+                st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
 
-                st.markdown("---")
-                st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
-                filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
-                df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
-                
-                fig_bloques = go.Figure()
-                colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
-                textos_bloques = [f"Bloque Minero<br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
-                fig_bloques.add_trace(go.Scatter3d(
-                    x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
-                    mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
-                ))
-                config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
-                fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
-                st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
-                crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+            st.markdown("---")
+            st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
+            filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
+            df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
+            
+            fig_bloques = go.Figure()
+            colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
+            textos_bloques = [f"Bloque Minero<br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
+            fig_bloques.add_trace(go.Scatter3d(
+                x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
+                mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
+            ))
+            config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
+            fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
+            st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
+            crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
 
-                st.markdown("---")
-                st.write("#### 📊 Tabla de Consolidación de Reservas (12 Intervalos de Planificación)")
-                max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
-                min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
-                cortes_ley = np.linspace(min_ley, max_ley, 12)
-                paso_int = (max_ley - min_ley) / 11 if len(cortes_ley) > 1 else 0.1
+            st.markdown("---")
+            st.write("#### 📊 Tabla de Consolidación de Reservas (12 Intervalos de Planificación)")
+            max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
+            min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
+            cortes_ley = np.linspace(min_ley, max_ley, 12)
+            paso_int = (max_ley - min_ley) / 11 if len(cortes_ley) > 1 else 0.1
+            
+            datos_c = []
+            for cut in cortes_ley:
+                bloques_parciales = df_b[(df_b[f"Ley Estimada ({unidad})"] >= cut) & (df_b[f"Ley Estimada ({unidad})"] < cut + paso_int)]
+                n_parcial = len(bloques_parciales)
+                ton_parcial = n_parcial * vol_bloque * 2.7
+                ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean() if n_parcial > 0 else 0.0
                 
-                datos_c = []
-                for cut in cortes_ley:
-                    bloques_parciales = df_b[(df_b[f"Ley Estimada ({unidad})"] >= cut) & (df_b[f"Ley Estimada ({unidad})"] < cut + paso_int)]
-                    n_parcial = len(bloques_parciales)
-                    ton_parcial = n_parcial * vol_bloque * 2.7
-                    ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean() if n_parcial > 0 else 0.0
-                    
-                    bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
-                    n_acum = len(bloques_en_corte)
-                    ton_acum = n_acum * vol_bloque * 2.7
-                    ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
-                    
-                    datos_c.append({
-                        f"Ley Corte ({unidad})": round(cut, 2),
-                        "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
-                        "Ley Media Parcial": round(ley_med_parcial, 2),
-                        "Tonelaje Acumulado (Ton)": round(ton_acum, 0),
-                        "Ley Media Ponderada Acum.": round(ley_med_acum, 2)
-                    })
-                df_consolidado = pd.DataFrame(datos_c)
-                st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
-                crear_boton_excel(df_consolidado, f"Tabla_Consolidacion_Ley_Tonelaje")
+                bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
+                n_acum = len(bloques_en_corte)
+                ton_acum = n_acum * vol_bloque * 2.7
+                ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
                 
-                st.write("#### 📈 Curvas de Planificación Minera (Gráficos Paralelos de Alta Estabilidad)")
-                df_grafico = df_consolidado.set_index(f"Ley Corte ({unidad})")
-                c_graf1, c_graf2 = st.columns(2)
-                with c_graf1:
-                    st.caption("Evolución del Tonelaje Acumulado (Ton)")
-                    st.line_chart(df_grafico["Tonelaje Acumulado (Ton)"], color="#1f77b4")
-                with c_graf2:
-                    st.caption(f"Evolución de la Ley Media Ponderada Acumulada ({unidad})")
-                    st.line_chart(df_grafico["Ley Media Ponderada Acum."], color="#d62728") 
+                datos_c.append({
+                    f"Ley Corte ({unidad})": round(cut, 2),
+                    "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
+                    "Ley Media Parcial": round(ley_med_parcial, 2),
+                    "Tonelaje Acumulado (Ton)": round(ton_acum, 0),
+                    "Ley Media Ponderada Acum.": round(ley_med_acum, 2)
+                })
+            df_consolidado = pd.DataFrame(datos_c)
+            st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
+            crear_boton_excel(df_consolidado, f"Tabla_Consolidacion_Ley_Tonelaje")
+            
+            st.write("#### 📈 Curvas de Planificación Minera (Gráficos Paralelos de Alta Estabilidad)")
+            df_grafico = df_consolidado.set_index(f"Ley Corte ({unidad})")
+            c_graf1, c_graf2 = st.columns(2)
+            with c_graf1:
+                st.caption("Evolución del Tonelaje Acumulado (Ton)")
+                st.line_chart(df_grafico["Tonelaje Acumulado (Ton)"], color="#1f77b4")
+            with c_graf2:
+                st.caption(f"Evolución de la Ley Media Ponderada Acumulada ({unidad})")
+                st.line_chart(df_grafico["Ley Media Ponderada Acum."], color="#d62728")
