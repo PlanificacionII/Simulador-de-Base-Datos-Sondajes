@@ -924,12 +924,12 @@ if "db_bloques_activa" in st.session_state:
                 # ====================================================================
                 st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
                 st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
-                from plotly.subplots import make_subplots
+                 from plotly.subplots import make_subplots
                 
-                # 🔒 ESPECIFICACIÓN ULTRA-ROBUSTA: Creamos un solo lienzo con soporte nativo para un segundo eje Y
+                # 🔒 ESPECIFICACIÓN DE MÁXIMA COMPATIBILIDAD: Lienzo nativo con doble eje Y balanceado
                 fig_curvas = make_subplots(specs=[[{"secondary_y": True}]])
                 
-                # 🔹 1. Trazar Curva de Tonelaje Acumulado - Eje Y Izquierdo (Mapeado a secondary_y=False)
+                # 🔹 1. Trazar Curva de Tonelaje Acumulado - Eje Y Izquierdo Nivel Base
                 fig_curvas.add_trace(
                     go.Scatter(
                         x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
@@ -942,11 +942,11 @@ if "db_bloques_activa" in st.session_state:
                     secondary_y=False
                 )
                 
-                # 🔸 2. Trazar Curva de Ley Media Ponderada Acumulada - Eje Y Derecho (Mapeado a secondary_y=True)
+                # 🔸 2. Trazar Curva de Ley Media Ponderada Acumulada - Eje Y Derecho Secundario
                 fig_curvas.add_trace(
                     go.Scatter(
                         x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
-                        y=df_consolidado["Ley Media Ponderada Acum."].values,
+                        y=df_consolidado["Ley Media Ponderada Acum."],
                         name=f"Ley Media Ponderada ({unidad})",
                         mode="lines+markers",
                         line=dict(color="#d62728", width=3, dash="dash"),
@@ -954,37 +954,31 @@ if "db_bloques_activa" in st.session_state:
                     ),
                     secondary_y=True
                 )
-# ⚙️ CONFIGURACIÓN DE EJES GEMELOS CON SOPORTE NATIVO PARA PYTHON 3.14
+# ⚙️ CONFIGURACIÓN DE PARÁMETROS UNIFICADOS INMUNE A ERRORES EN PYTHON 3.14
                 fig_curvas.update_layout(
                     width=1300,
                     height=550,
                     margin=dict(l=80, r=80, t=30, b=50),
                     hovermode="x unified",
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    xaxis=dict(
+                        title=f"Ley de Corte / Intervalo Inferior ({unidad})",
+                        gridcolor="rgba(200, 200, 200, 0.2)"
+                    ),
+                    yaxis=dict(
+                        title="<b>Tonelaje Acumulado (Ton)</b>",
+                        titlefont=dict(color="#1f77b4"),
+                        tickfont=dict(color="#1f77b4"),
+                        gridcolor="rgba(200, 200, 200, 0.2)"
+                    ),
+                    yaxis2=dict(
+                        title=f"<b>Ley Media Ponderada ({unidad})</b>",
+                        titlefont=dict(color="#d62728"),
+                        tickfont=dict(color="#d62728"),
+                        overlaying="y",
+                        side="right"
+                    )
                 )
                 
-                # Formatear el eje X común de Leyes de Corte (Intervalo Inferior)
-                fig_curvas.update_xaxes(
-                    title_text=f"Ley de Corte / Intervalo Inferior ({unidad})",
-                    gridcolor="rgba(200, 200, 200, 0.2)"
-                )
-                
-                # Formatear el Eje Y Primario (Izquierdo: Tonelaje Acumulado en Azul)
-                fig_curvas.update_yaxes(
-                    title_text="<b>Tonelaje Acumulado (Ton)</b>",
-                    titlefont=dict(color="#1f77b4"),
-                    tickfont=dict(color="#1f77b4"),
-                    gridcolor="rgba(200, 200, 200, 0.2)",
-                    secondary_y=False
-                )
-                
-                # Formatear el Eje Y Secundario (Derecho: Ley Media Ponderada en Rojo)
-                fig_curvas.update_yaxes(
-                    title_text=f"<b>Ley Media Ponderada ({unidad})</b>",
-                    titlefont=dict(color="#d62728"),
-                    tickfont=dict(color="#d62728"),
-                    secondary_y=True
-                )
-                
-                # Renderizado final del gráfico unificado interactivo en la suite web
+                # Renderizado gráfico definitivo en la plataforma web de Streamlit
                 st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_unificado")
