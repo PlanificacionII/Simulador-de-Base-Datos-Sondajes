@@ -744,8 +744,9 @@ with tab7:
                 zaxis_title='Cota (Z)',
                 aspectmode='data' # Mantiene la relación de aspecto del terreno
             ),
-            height=600,
-            use_container_width=True
+	    height=600 
+            #height=600,
+            #use_container_width=True
         )
         
         st.plotly_chart(fig_3d, use_container_width=True)
