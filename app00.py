@@ -615,9 +615,6 @@ with tab6:
         
         st.write("*(Opcional) Descarga la hoja de frecuencias y estadísticas:*")
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
-	#===========================================================================
-	# PESTAÑA 7 COMPOSITACION DE SONDAJES
-	#===========================================================================
 with tab7:
     st.write("### 📐 Módulo de Compositaje de Pozos (Regularización de Soporte)")
     st.write("El compositaje estandariza la longitud de las muestras para eliminar sesgos geométricos antes de la estimación de recursos.")
@@ -699,7 +696,7 @@ with tab7:
     st.session_state["df_comp_final"] = df_comp_final
     st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
     crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
-    #===========================================================================
+ #===========================================================================
     # NUEVO: VISUALIZADOR 3D DE COMPOSITOS
     #===========================================================================
     st.markdown("---")
