@@ -466,7 +466,7 @@ with tab6:
                     st.error(f"❌ **¡HIPÓTESIS RECHAZADA!** El P-valor ({p_valor:.5f}) es menor a {alfa}. Por lo tanto, **se rechaza H₀**. Los datos **NO se ajustan** a una distribución {nombre_dist}. Evalúa otro modelo teórico.")
                     
         st.markdown("---")
-# ====================================================================
+	# ====================================================================
         # 📈 2. CÁLCULO DE PARÁMETROS ESTADÍSTICOS DESCRIPTIVOS MINEROS
         # ====================================================================
         n_muestras = len(leyes_utiles)
@@ -733,7 +733,7 @@ with tab8:
             xyz_comp = np.column_stack((xc, yc, zc, vl))
     if len(xyz_comp) == 0:
             st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
-        else:
+    else:
             st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
             if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
                 with st.spinner("Interpolando bloques mediante matriz de distancias..."):
