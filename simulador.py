@@ -861,73 +861,60 @@ with c_rep3:
 # Botón Excel protegido
 crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
 
-# ====================================================================
-# 📈 CONSOLIDACIÓN LEY–TONELAJE (PROTEGIDO)
-# ====================================================================
-st.markdown("---")
-st.write("#### 📊 Tabla de Consolidación de Recursos (Curva Ley–Tonelaje)")
+# ============================================================
+# 🧱 CONSTRUCCIÓN DEL DATAFRAME CONSOLIDADO PARA CURVAS MINERAS
+# ============================================================
 
-paso_intervalo = 0.10 if col_seleccionada == "Cu_pct" else 0.50
-max_ley_bloques = float(df_b[f"Ley Estimada ({unidad})"].max())
+df_curvas = df_assays.copy()
 
-# Protección: evitar consolidación sin datos
-if max_ley_bloques <= 0:
-    st.warning("⚠️ No hay leyes estimadas válidas para consolidar.")
-    st.stop()
+df_curvas["Tonelaje"] = (df_curvas["To"] - df_curvas["From"]) * 2.7
 
-cortes_ley = np.arange(0.0, max_ley_bloques + paso_intervalo, paso_intervalo)
+col_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+unidad = "%" if col_ley == "Cu_pct" else "g/t"
+df_curvas["Ley"] = df_curvas[col_ley]
 
-datos_consolidacion = []
+df_curvas = df_curvas.sort_values("Ley", ascending=False)
 
-for cut in sorted(cortes_ley, reverse=True):
+df_curvas["Tonelaje Acumulado (Ton)"] = df_curvas["Tonelaje"].cumsum()
 
-    bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
-    bloques_parciales = df_b[
-        (df_b[f"Ley Estimada ({unidad})"] >= cut) &
-        (df_b[f"Ley Estimada ({unidad})"] < cut + paso_intervalo)
-    ]
-
-    n_parcial = len(bloques_parciales)
-    ton_parcial = n_parcial * (tamano_bloque ** 3) * 2.7
-    ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean() if n_parcial > 0 else 0.0
-
-    n_acum = len(bloques_en_corte)
-    ton_acum = n_acum * (tamano_bloque ** 3) * 2.7
-    ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
-
-    datos_consolidacion.append({
-        f"Ley Corte / Intervalo Inferior ({unidad})": round(cut, 2),
-        "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
-        "Ley Media Parcial": round(ley_med_parcial, 2),
-        "Tonelaje Acumulado (Ton)": round(ton_acum, 0),
-        "Ley Media Ponderada Acum.": round(ley_med_acum, 2)
-    })
-
-df_consolidado = pd.DataFrame(datos_consolidacion).sort_values(
-    by=f"Ley Corte / Intervalo Inferior ({unidad})"
+df_curvas["Ley Media Ponderada Acum."] = (
+    (df_curvas["Ley"] * df_curvas["Tonelaje"]).cumsum() /
+    df_curvas["Tonelaje Acumulado (Ton)"]
 )
 
+df_curvas[f"Ley Corte / Intervalo Inferior ({unidad})"] = df_curvas["Ley"]
+
+df_consolidado = df_curvas[
+    [
+        f"Ley Corte / Intervalo Inferior ({unidad})",
+        "Tonelaje Acumulado (Ton)",
+        "Ley Media Ponderada Acum."
+    ]
+]
+
+# Protección: evitar tabla y gráfico sin datos
+if df_consolidado.empty:
+    st.warning("⚠️ No hay datos suficientes para generar la tabla y las curvas Ley–Tonelaje.")
+    st.stop()
+
+st.markdown("---")
+st.write("#### 📊 Tabla de Consolidación de Recursos (Curva Ley–Tonelaje)")
 st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
 
-# ====================================================================
-# 📊 GRÁFICO LEY–TONELAJE (PROTEGIDO)
-# ====================================================================
+crear_boton_excel(df_consolidado, f"Tabla_Consolidacion_Ley_Tonelaje")
 
-# Protección: evitar gráfico sin datos
-if df_consolidado.empty:
-    st.warning("⚠️ No hay datos para generar la curva Ley–Tonelaje.")
-    st.stop()
-
-if df_consolidado["Tonelaje Acumulado (Ton)"].max() <= 0:
-    st.warning("⚠️ No hay tonelaje acumulado para graficar.")
-    st.stop()
+# ====================================================================
+# 📊 GENERACIÓN GRÁFICA: CURVAS AUXILIARES DE PLANIFICACIÓN MINERA
+# ====================================================================
+st.write("#### 📈 Curvas Técnicas de Planificación (Ley vs Tonelaje Acumulado)")
+st.caption("Visualización interactiva de doble eje Y. El comportamiento de estas curvas define la vida útil de la mina y la ley de cabeza promedio.")
 
 fig_curvas = go.Figure()
 
 fig_curvas.add_trace(go.Scatter(
-    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
-    y=df_consolidado["Tonelaje Acumulado (Ton)"],
-    name="Tonelaje Acumulado",
+    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
+    y=df_consolidado["Tonelaje Acumulado (Ton)"].values,
+    name="Tonelaje Acumulado (Ton)",
     mode="lines+markers",
     line=dict(color="#1f77b4", width=3),
     marker=dict(size=6),
@@ -935,8 +922,8 @@ fig_curvas.add_trace(go.Scatter(
 ))
 
 fig_curvas.add_trace(go.Scatter(
-    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
-    y=df_consolidado["Ley Media Ponderada Acum."],
+    x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
+    y=df_consolidado["Ley Media Ponderada Acum."].values,
     name="Ley Media Ponderada",
     mode="lines+markers",
     line=dict(color="#d62728", width=3, dash="dash"),
@@ -946,13 +933,27 @@ fig_curvas.add_trace(go.Scatter(
 
 fig_curvas.update_layout(
     hovermode="x",
-    xaxis=dict(title=f"Ley Corte ({unidad})"),
-    yaxis=dict(title="Tonelaje Acumulado (Ton)", titlefont=dict(color="#1f77b4")),
-    yaxis2=dict(title=f"Ley Media Ponderada ({unidad})", overlaying="y", side="right", titlefont=dict(color="#d62728")),
-    legend=dict(orientation="h", y=1.1, x=1, xanchor="right")
+    legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
+    xaxis=dict(
+        title=f"Ley de Corte / Intervalo Inferior ({unidad})",
+        gridcolor="rgba(200, 200, 200, 0.2)"
+    ),
+    yaxis=dict(
+        title="Tonelaje Acumulado (Ton)",
+        titlefont=dict(color="#1f77b4"),
+        tickfont=dict(color="#1f77b4"),
+        gridcolor="rgba(200, 200, 200, 0.2)"
+    ),
+    yaxis2=dict(
+        title=f"Ley Media Ponderada ({unidad})",
+        titlefont=dict(color="#d62728"),
+        tickfont=dict(color="#d62728"),
+        overlaying="y",
+        side="right"
+    )
 )
 
-st.plotly_chart(fig_curvas, use_container_width=True)
+st.plotly_chart(fig_curvas, use_container_width=True, key="grafico_curva_ley_tonelaje_doble_eje")
 
 
 
