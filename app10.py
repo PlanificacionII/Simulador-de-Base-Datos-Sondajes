@@ -696,6 +696,9 @@ with tab7:
     st.session_state["df_comp_final"] = df_comp_final
     st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
     crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
+# =======================================================================
+#        PESTAÑA 8
+#=====================================================================
 with tab8:
     st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
     st.write("Este módulo interpola las leyes de los compositos en una grilla tridimensional utilizando matrices nativas de NumPy sin bucles manuales.")
@@ -707,11 +710,11 @@ with tab8:
     st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
     c_bl1, c_bl2, c_bl3 = st.columns(3)
     with c_bl1:
-        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1, key="size_bloque_key")
+        tamano_bloque = st.selectbox("Tamaño del Bloque Cúbico (m):", [5, 10, 15, 20], index=1)
     with c_bl2:
-        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
+        ley_corte = st.number_input(f"Ley de Corte ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1)
     with c_bl3:
-        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
+        radio_busqueda = st.number_input("Radio de Búsqueda (m):", min_value=50, max_value=300, value=120, step=25)
         
     st.markdown("---")
     
@@ -741,8 +744,8 @@ with tab8:
         else:
             st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
             
-            if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
-                with st.spinner("Interpolando bloques mediante matriz de distancias..."):
+            if st.button("🚀 CONSTRUIR MODELO DE BLOQUES"):
+                with st.spinner("Interpolando bloques..."):
                     min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
                     min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
                     min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
@@ -778,7 +781,7 @@ with tab8:
                     st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron {len(df_bloques)} bloques.")
 
 # ====================================================================
-# 📊 REPORTE DE BLOQUES (limpio, sin curvas)
+# 📊 REPORTE DE BLOQUES (limpio)
 # ====================================================================
 if "db_bloques_activa" in st.session_state:
     df_b = st.session_state["db_bloques_activa"]
@@ -807,6 +810,9 @@ if "db_bloques_activa" in st.session_state:
         st.metric("Volumen Neto de Mena", f"{n_mena * vol_bloque:,.0f} m³")
 
     crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+#=======================================================================
+#	PESTAÑA 9
+#============================================================================
 with tab9:
     st.write("### 📈 Curvas Ley–Tonelaje y Consolidación de Recursos")
 
@@ -873,4 +879,3 @@ with tab9:
     )
 
     st.plotly_chart(fig_curvas, use_container_width=True)
-
