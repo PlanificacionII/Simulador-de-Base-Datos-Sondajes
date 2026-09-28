@@ -886,12 +886,11 @@ df_curvas[f"Ley Corte / Intervalo Inferior ({unidad})"] = df_curvas["Ley"]
 
 df_consolidado = df_curvas[
     [
-        f"Ley Corte / Intervalo Inferior ({unidad})"],
+        f"Ley Corte / Intervalo Inferior ({unidad})",
         "Tonelaje Acumulado (Ton)",
         "Ley Media Ponderada Acum."
     ]
 ]
-
 # Protección: evitar tabla y gráfico sin datos
 if df_consolidado.empty:
     st.warning("⚠️ No hay datos suficientes para generar la tabla y las curvas Ley–Tonelaje.")
