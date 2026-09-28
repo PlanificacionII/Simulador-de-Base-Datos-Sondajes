@@ -615,6 +615,9 @@ with tab6:
         
         st.write("*(Opcional) Descarga la hoja de frecuencias y estadísticas:*")
         crear_boton_excel(df_estadistica, f"Reporte_Estadistico_{col_seleccionada}")
+	#===========================================================================
+	# PESTAÑA 7 COMPOSITO DE LOS POZOS DE SONDAJES
+	#===========================================================================
 with tab7:
     st.write("### 📐 Módulo de Compositaje de Pozos (Regularización de Soporte)")
     st.write("El compositaje estandariza la longitud de las muestras para eliminar sesgos geométricos antes de la estimación de recursos.")
@@ -696,7 +699,7 @@ with tab7:
     st.session_state["df_comp_final"] = df_comp_final
     st.dataframe(df_comp_final, use_container_width=True, hide_index=True, height=200)
     crear_boton_excel(df_comp_final, f"Compositos_Longitud_{largo_composito}m")
- #===========================================================================
+    #===========================================================================
     # NUEVO: VISUALIZADOR 3D DE COMPOSITOS
     #===========================================================================
     st.markdown("---")
@@ -861,42 +864,123 @@ with tab8:
                 st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
                 crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
 
-                st.markdown("---")
-                st.write("#### 📊 Tabla de Consolidación de Reservas (12 Intervalos de Planificación)")
-                max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
-                min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
-                cortes_ley = np.linspace(min_ley, max_ley, 12)
-                paso_int = (max_ley - min_ley) / 11 if len(cortes_ley) > 1 else 0.1
-                
-                datos_c = []
-                for cut in cortes_ley:
-                    bloques_parciales = df_b[(df_b[f"Ley Estimada ({unidad})"] >= cut) & (df_b[f"Ley Estimada ({unidad})"] < cut + paso_int)]
-                    n_parcial = len(bloques_parciales)
-                    ton_parcial = n_parcial * vol_bloque * 2.7
-                    ley_med_parcial = bloques_parciales[f"Ley Estimada ({unidad})"].mean() if n_parcial > 0 else 0.0
-                    
-                    bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
-                    n_acum = len(bloques_en_corte)
-                    ton_acum = n_acum * vol_bloque * 2.7
-                    ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
-                    
-                    datos_c.append({
-                        f"Ley Corte ({unidad})": round(cut, 2),
-                        "Tonelaje Parcial (Ton)": round(ton_parcial, 0),
-                        "Ley Media Parcial": round(ley_med_parcial, 2),
-                        "Tonelaje Acumulado (Ton)": round(ton_acum, 0),
-                        "Ley Media Ponderada Acum.": round(ley_med_acum, 2)
-                    })
-                df_consolidado = pd.DataFrame(datos_c)
-                st.dataframe(df_consolidado, use_container_width=True, hide_index=True, height=250)
-                crear_boton_excel(df_consolidado, f"Tabla_Consolidacion_Ley_Tonelaje")
-                
-                st.write("#### 📈 Curvas de Planificación Minera (Gráficos Paralelos de Alta Estabilidad)")
-                df_grafico = df_consolidado.set_index(f"Ley Corte ({unidad})")
-                c_graf1, c_graf2 = st.columns(2)
-                with c_graf1:
-                    st.caption("Evolución del Tonelaje Acumulado (Ton)")
-                    st.line_chart(df_grafico["Tonelaje Acumulado (Ton)"], color="#1f77b4")
-                with c_graf2:
-                    st.caption(f"Evolución de la Ley Media Ponderada Acumulada ({unidad})")
-                    st.line_chart(df_grafico["Ley Media Ponderada Acum."], color="#d62728")
+           
+	#===========================================================================
+	# PESTAÑA 9 RESUMEN Y CURVAS TONELAJE-LEY
+	#===========================================================================
+with tab9:
+    st.write("### 📈 Módulo de Resumen del Modelo de Bloques y Curvas de Leyes")
+    
+    if "df_bloques" in st.session_state and st.session_state["df_bloques"] is not None:
+        df_b = st.session_state["df_bloques"]
+        
+        # Detectamos la unidad y columna según tu elemento seleccionado
+        col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+        unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+        
+        # Recuperamos las variables de volumen que ya calculaste en la pestaña 8
+        # Si vol_bloque no está guardado, puedes definirlo aquí o usar el de session_state
+        vol_bloque = st.session_state.get("vol_bloque", 125) # Valor por defecto si no se encuentra (ej: 5x5x5)
+        
+        #-----------------------------------------------------------------------
+        # PARTE A: TABLAS DE RESUMEN DEL MODELO DE BLOQUES
+        #-----------------------------------------------------------------------
+        st.write("#### 📋 Tablas de Resumen Estadístico")
+        
+        c_res1, c_res2 = st.columns(2)
+        with c_res1:
+            st.markdown("**Estadística General de Leyes:**")
+            st.dataframe(df_b[[f"Ley Estimada ({unidad})"]].describe(), use_container_width=True)
+            
+        with c_res2:
+            st.markdown("**Resumen de Recursos Totales (Sin Corte):**")
+            n_total_bloques = len(df_b)
+            ton_total = n_total_bloques * vol_bloque * 2.7
+            ley_global = df_b[f"Ley Estimada ({unidad})"].mean() if n_total_bloques > 0 else 0.0
+            
+            resumen_data = {
+                "Métrica": ["Cantidad de Bloques", "Tonelaje Total (Ton)", f"Ley Media Global ({unidad})"],
+                "Valor": [n_total_bloques, f"{ton_total:,.0f}", round(ley_global, 3)]
+            }
+            st.dataframe(pd.DataFrame(resumen_data), use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+        
+        #-----------------------------------------------------------------------
+        # PARTE B: CÁLCULO DE INTERVALOS DE CONSOLIDACIÓN (12 INTERVALOS)
+        #-----------------------------------------------------------------------
+        st.write("#### 📊 Curva Tonelaje - Ley Media vs Ley de Corte")
+        
+        max_ley = float(df_b[f"Ley Estimada ({unidad})"].max())
+        min_ley = float(df_b[f"Ley Estimada ({unidad})"].min())
+        cortes_ley = np.linspace(min_ley, max_ley, 12)
+        
+        datos_c = []
+        for cut in cortes_ley:
+            bloques_en_corte = df_b[df_b[f"Ley Estimada ({unidad})"] >= cut]
+            n_acum = len(bloques_en_corte)
+            ton_acum = n_acum * vol_bloque * 2.7
+            ley_med_acum = bloques_en_corte[f"Ley Estimada ({unidad})"].mean() if n_acum > 0 else 0.0
+            
+            datos_c.append({
+                "Ley de Corte": round(cut, 2),
+                "Tonelaje Acumulado (Ton)": round(ton_acum, 0),
+                "Ley Media Ponderada": round(ley_med_acum, 2)
+            })
+        df_curva = pd.DataFrame(datos_c)
+        
+        #-----------------------------------------------------------------------
+        # PARTE C: GRÁFICO INTERACTIVO DE DOBLE EJE Y (PLOTLY)
+        #-----------------------------------------------------------------------
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+        
+        fig_curva = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # Curva de Tonelaje (Eje Izquierdo - Azul)
+        fig_curva.add_trace(
+            go.Scatter(
+                x=df_curva["Ley de Corte"],
+                y=df_curva["Tonelaje Acumulado (Ton)"],
+                name="Tonelaje Acumulado (Ton)",
+                mode="lines+markers",
+                line=dict(color="#1f77b4", width=2),
+                marker=dict(size=6, symbol="square")
+            ),
+            secondary_y=False
+        )
+        
+        # Curva de Ley Media Ponderada (Eje Derecho - Rojo)
+        fig_curva.add_trace(
+            go.Scatter(
+                x=df_curva["Ley de Corte"],
+                y=df_curva["Ley Media Ponderada"],
+                name=f"Ley Media Ponderada ({unidad})",
+                mode="lines+markers",
+                line=dict(color="#d62728", width=2),
+                marker=dict(size=6, symbol="diamond")
+            ),
+            secondary_y=True
+        )
+        
+        fig_curva.update_layout(
+            title_text=f"Curva Tonelaje Ley {col_seleccionada}",
+            title_x=0.5,
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
+            height=500
+        )
+        
+        fig_curva.update_xaxes(title_text=f"Ley de Corte [{unidad}]", gridcolor="rgba(200,200,200,0.3)")
+        fig_curva.update_yaxes(title_text="Tonelaje Acumulado (Ton)", secondary_y=False, gridcolor="rgba(200,200,200,0.3)")
+        fig_curva.update_yaxes(title_text=f"Ley Media [{unidad}]", secondary_y=True)
+        
+        st.plotly_chart(fig_curva, use_container_width=True)
+        
+        # Botón de descarga y tabla oculta para control de los alumnos
+        with st.expander("👀 Ver Datos Consolidados de la Curva (Tabla)"):
+            st.dataframe(df_curva, use_container_width=True, hide_index=True)
+            crear_boton_excel(df_curva, "Tabla_Consolidacion_Ley_Tonelaje")
+            
+    else:
+        st.warning("⚠️ No se encontraron datos del Modelo de Bloques. Por favor, procesa la estimación en la Pestaña 8 primero.")
