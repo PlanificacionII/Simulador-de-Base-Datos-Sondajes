@@ -862,9 +862,8 @@ with tab8:
                 config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
                 fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
                 st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
- 		st.session_state["df_bloques"] = df_b
+                st.session_state["df_bloques"] = df_b
                 crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
-
            
 	#===========================================================================
 	# PESTAÑA 9 RESUMEN Y CURVAS TONELAJE-LEY
@@ -879,9 +878,12 @@ with tab9:
         col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
         unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
-        # Recuperamos las variables de volumen que ya calculaste en la pestaña 8
-        # Si vol_bloque no está guardado, puedes definirlo aquí o usar el de session_state
-        vol_bloque = st.session_state.get("vol_bloque", 125) # Valor por defecto si no se encuentra (ej: 5x5x5)
+        # =======================================================================
+        # AQUÍ VA EL CÓDIGO NUEVO (Líneas agregadas/modificadas para el volumen)
+        # =======================================================================
+        t_bloque = st.session_state.get("tamano_bloque", 5) 
+        vol_bloque = t_bloque ** 3  # Eleva al cubo el tamaño del bloque automáticamente
+        # =======================================================================
         
         #-----------------------------------------------------------------------
         # PARTE A: TABLAS DE RESUMEN DEL MODELO DE BLOQUES
