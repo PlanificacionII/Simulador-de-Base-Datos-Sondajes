@@ -972,7 +972,7 @@ with tab9:
             df_bloques = pd.DataFrame(bloques_estimados)
             st.session_state["db_bloques_activa"] = df_bloques
             st.success(f"🎉 ¡Modelo de bloques construido con éxito usando {metodo_estimacion}! Se cubicaron un total de {len(df_bloques)} bloques.")
-f "db_bloques_activa" in st.session_state:
+if "db_bloques_activa" in st.session_state:
             df_b = st.session_state["db_bloques_activa"]
             st.markdown("---")
             st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
