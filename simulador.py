@@ -750,38 +750,38 @@ with tab8:
         unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
         #-----------------------------------------------------------------------
-        # 1. CÁLCULO DEL VARIOGRAMA EXPERIMENTAL (Puntos Reales)
-        #-----------------------------------------------------------------------
-        # Extraemos coordenadas y leyes de los compositos generados en la Pestaña 7
-        coords_m = df_c[["X", "Y", "Z"]].values
-        leyes_m = df_c["Ley"].values
-        
-        # Para no congelar el navegador si hay miles de muestras, limitamos el cálculo a un máximo de 600 puntos distribuidos
-        if len(coords_m) > 600:
-            np.random.seed(42)
-            idx_muestreo = np.random.choice(len(coords_m), 600, replace=False)
-            coords_m = coords_m[idx_muestreo]
-            leyes_m = leyes_m[idx_muestreo]
-            
-       from scipy.spatial.distance import pdist
-        
-        # 1. Calcular distancias geométricas entre todos los pares de muestras
-        matriz_dist = pdist(coords_m)
-        
-        # 2. CORREGIDO: Calcular semivarianzas de leyes de forma nativa con NumPy (Evita el fallo de SciPy)
-        # Esto genera las diferencias al cuadrado exactas para cada par de muestras
-        n_muestras = len(leyes_m)
-        idx_i, idx_j = np.triu_indices(n_muestras, k=1)
-        matriz_semivarianza = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
-        # Definir los pasos de distancia (lags) basados en la distancia máxima encontrada
-        max_dist_real = float(np.max(matriz_dist))
-        dist_max_estudio = max_dist_real * 0.6  # Regla geoestadística: evaluar hasta el 60% del dominio
-        
-        n_pasos = 15
-        intervalos_dist = np.linspace(0, dist_max_estudio, n_pasos + 1)
-        
-        lags_experimentales = []
-        gammas_experimentales = []
+		# 1. CÁLCULO DEL VARIOGRAMA EXPERIMENTAL (Puntos Reales)
+		#-----------------------------------------------------------------------
+		# Extraemos coordenadas y leyes de los compositos generados en la Pestaña 7
+		coords_m = df_c[["X", "Y", "Z"]].values
+		leyes_m = df_c["Ley"].values
+		
+		# Para no congelar el navegador si hay miles de muestras, limitamos el cálculo a un máximo de 600 puntos distribuidos
+		if len(coords_m) > 600:
+			np.random.seed(42)
+			idx_muestreo = np.random.choice(len(coords_m), 600, replace=False)
+			coords_m = coords_m[idx_muestreo]
+			leyes_m = leyes_m[idx_muestreo]
+			
+		from scipy.spatial.distance import pdist
+		
+		# 1. Calcular distancias geométricas entre todos los pares de muestras
+		matriz_dist = pdist(coords_m)
+		
+		# 2. Calcular semivarianzas de leyes de forma nativa con NumPy
+		n_muestras = len(leyes_m)
+		idx_i, idx_j = np.triu_indices(n_muestras, k=1)
+		matriz_semivarianza = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+		
+		# Definir los pasos de distancia (lags) basados en la distancia máxima encontrada
+		max_dist_real = float(np.max(matriz_dist))
+		dist_max_estudio = max_dist_real * 0.6  # Regla geoestadística: evaluar hasta el 60% del dominio
+		
+		n_pasos = 15
+		intervalos_dist = np.linspace(0, dist_max_estudio, n_pasos + 1)
+		
+		lags_experimentales = []
+		gammas_experimentales = []
         
         # Agrupar los pares de puntos en bins para obtener los puntos experimentales
         for i in range(n_pasos):
