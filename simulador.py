@@ -867,81 +867,157 @@ with tab8:
 	else:
 		st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
 
-	#===========================================================================
-	# PESTAÑA 9 CONFIGURACIÓN Y ESTIMACIÓN SELECCIONABLE (IDW vs KRIGING)
-	#===========================================================================
+	# ====================================================================
+# 🧱 PESTAÑA 9: MÓDULO DE MODELAMIENTO DE BLOQUES (PARTE 1 DE 3)
+# ====================================================================
 with tab9:
-    st.write("### 🧊 Configuración y Estimación del Modelo de Bloques")
-    st.write("Selecciona el algoritmo de estimación para calcular las leyes en la grilla de bloques.")
+    st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
+    st.caption("Este módulo permite interpolar las leyes de los compositos utilizando métodos geométricos o geoestadísticos avanzados en una grilla tridimensional.")
     
-    if "df_comp_final" in st.session_state and "v_parametros" in st.session_state:
-        df_c = st.session_state["df_comp_final"]
-        vp = st.session_state["v_parametros"]
-        col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-        unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+    st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
+    c_bl1, c_bl2, c_bl3 = st.columns(3)
+    with c_bl1:
+        tamano_bloque = st.number_input("Tamaño del Bloque Cúbico (m):", min_value=5, max_value=20, value=10, step=5, key="size_bloque_key")
+    with c_bl2:
+        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
+    with c_bl3:
+        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
         
-        # 🛠️ NUEVO: Selector de algoritmo matemático
-        st.write("#### ⚙️ Selección del Algoritmo")
-        metodo_estimacion = st.selectbox(
-            "Selecciona el Algoritmo de Estimación:",
-            ["Inverso de la Distancia al Cuadrado (IDW 1/d²)", "Kriging Ordinario (OK)"],
-            key="metodo_estimacion_key"
-        )
+    st.write("#### ⚙️ Selección del Algoritmo de Estimación")
+    metodo_estimacion = st.selectbox(
+        "Selecciona el Algoritmo Matemático:",
+        ["Inverso de la Distancia al Cuadrado (IDW 1/d²)", "Kriging Ordinario (OK)"],
+        key="metodo_estimacion_key"
+    )
         
-        # ... (Mantén aquí tus controles de dimensiones de bloques, ej: tamano_bloque, etc.) ...
-        # Asumiremos que creas tu grilla de bloques vacía llamada df_b con columnas ['X', 'Y', 'Z']
-        
-      # --- PROCESAMIENTO MATEMÁTICO AL PRESIONAR EL BOTÓN ---
-        if st.button("Ejecutar Estimación del Modelo", key="btn_run_estimacion"):
-            # Coordenadas y muestras conocidas (Compositos de Pest. 7)
-            coords_muestras = df_c[["X", "Y", "Z"]].values
-            valores_muestras = df_c["Ley"].values
-            
-            # Usamos df_b que es el nombre real de tu grilla en memoria
-            coords_bloques = df_bloques[["X", "Y", "Z"]].values
-            
-            # Inicializamos vector para almacenar resultados
-            leyes_estimadas = np.zeros(len(coords_bloques))
+    st.markdown("---")
+    df_c_origen = st.session_state.get('df_comp_final', pd.DataFrame())
+    
+    if df_c_origen.empty:
+        st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para inicializar la base de datos de soporte regularizada.")
+    else:
+        xyz_comp = []
+        df_m = df_c_origen.merge(df_collar, left_on="Sondaje ID", right_on="Nombre", how="inner")
+        if not df_m.empty and "Desde (m)" in df_m.columns:
+            srv_df = pd.DataFrame(surveys)
+            df_m = df_m.merge(srv_df, left_on="Sondaje ID", right_on="ID", how="inner")
+            az_r = np.radians(df_m["Azimuth"].values)
+            dp_r = np.radians(df_m["Dip"].values)
+            pm = df_m["Desde (m)"].values + ((df_m["Hasta (m)"].values - df_m["Desde (m)"].values) / 2)
+            xc = df_m["UTM Este"].values + (pm * np.cos(dp_r) * np.sin(az_r))
+            yc = df_m["UTM Norte"].values + (pm * np.cos(dp_r) * np.cos(az_r))
+            zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
+            vl = df_m["Ley"].values if "Ley" in df_m.columns else df_m[f"Ley Comp. ({unidad})"].values
+            xyz_comp = np.column_stack((xc, yc, zc, vl))
+if len(xyz_comp) == 0:
+        st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
+    else:
+        st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
+        if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
+            with st.spinner("Generando grilla tridimensional de bloques..."):
+                min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
+                min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
+                min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
+                grid_x = np.arange(min_x, max_x, tamano_bloque)
+                grid_y = np.arange(min_y, max_y, tamano_bloque)
+                grid_z = np.arange(min_z, max_z, tamano_bloque)
+                mesh_x, mesh_y, mesh_z = np.meshgrid(grid_x, grid_y, grid_z)
+                bx_flat, by_flat, bz_flat = mesh_x.flatten(), mesh_y.flatten(), mesh_z.flatten()
+                
+            bloques_estimados = []
             
             if "IDW" in metodo_estimacion:
-                with st.spinner("Calculando estimación por Inverso de la Distancia (1/d²)..."):
-                    from scipy.spatial import distance_matrix
-                    dists = distance_matrix(coords_bloques, coords_muestras)
-                    dists = np.where(dists == 0, 1e-6, dists)
-                    pesos = 1.0 / (dists ** 2)
-                    suma_pesos = np.sum(pesos, axis=1, keepdims=True)
-                    pesos_normalizados = pesos / suma_pesos
-                    leyes_estimadas = np.dot(pesos_normalizados, valores_muestras)
-                    
-                st.success("¡Modelo estimado exitosamente por Inverso de la Distancia (IDW 1/d²)!")
-                
+                with st.spinner("Calculando interpolación por Inverso de la Distancia (IDW 1/d²)..."):
+                    for idx_b in range(len(bx_flat)):
+                        bx, by, bz = bx_flat[idx_b], by_flat[idx_b], bz_flat[idx_b]
+                        distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
+                        filtro = distancias <= radio_busqueda
+                        d_f, l_f = distancias[filtro], xyz_comp[:,3][filtro]
+                        if len(d_f) > 0:
+                            d_f = np.where(d_f == 0, 0.001, d_f)
+                            pesos = 1.0 / (d_f**2)
+                            ley_est = np.sum(l_f * pesos) / np.sum(pesos)
+                            cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
+                            bloques_estimados.append({
+                                "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
+                                f"Ley Estimada ({unidad})": round(float(ley_est), 2), "Categoría": cat
+                            })
             else:
                 with st.spinner("Resolviendo sistemas de matrices geoestadísticas por Kriging Ordinario..."):
-                    from skgstat import Variogram, OrdinaryKriging
-                    V = Variogram(coords_muestras, valores_muestras, model=vp["modelo"], 
-                                  nugget=vp["nugget"], sill=vp["sill"], maxlag=vp["range"])
-                    ok = OrdinaryKriging(V, min_points=2, max_points=12)
-                    leyes_estimadas = ok.transform(coords_bloques)
-                    
-                st.success("¡Modelo estimado exitosamente por Kriging Ordinario (OK)!")
+                    vp = st.session_state.get("v_parametros", None)
+                    if vp is None:
+                        st.error("❌ No se encontraron los parámetros del variograma. Por favor, calíbrelo primero en la Pestaña 8.")
+                    else:
+                        from skgstat import Variogram, OrdinaryKriging
+                        V = Variogram(xyz_comp[:, :3], xyz_comp[:, 3], model=vp["modelo"], 
+                                      nugget=vp["nugget"], sill=vp["sill"], maxlag=vp["range"])
+                        
+                        for idx_b in range(len(bx_flat)):
+                            bx, by, bz = bx_flat[idx_b], by_flat[idx_b], bz_flat[idx_b]
+                            distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
+                            filtro = distancias <= radio_busqueda
+                            
+                            if np.sum(filtro) >= 2:
+                                sub_ok = OrdinaryKriging(V, min_points=2, max_points=12)
+                                try:
+                                    ley_est = sub_ok.transform(np.array([[bx, by, bz]]))[0]
+                                    if ley_est < 0: ley_est = 0.0
+                                    cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
+                                    bloques_estimados.append({
+                                        "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
+                                        f"Ley Estimada ({unidad})": round(float(ley_est), 2), "Categoría": cat
+                                    })
+                                except:
+                                    continue
+                                    
+            df_bloques = pd.DataFrame(bloques_estimados)
+            st.session_state["db_bloques_activa"] = df_bloques
+            st.success(f"🎉 ¡Modelo de bloques construido con éxito usando {metodo_estimacion}! Se cubicaron un total de {len(df_bloques)} bloques.")
+f "db_bloques_activa" in st.session_state:
+            df_b = st.session_state["db_bloques_activa"]
+            st.markdown("---")
+            st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
+            df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
+            df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
+            n_mena, n_esteril = len(df_mena), len(df_esteril)
+            ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
+            ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean() if len(df_b) > 0 else 0.0
+            vol_bloque = tamano_bloque ** 3
+            tonelaje_mena = n_mena * vol_bloque * 2.7
             
-            # Guardamos el vector resultante en la columna correspondiente usando df_b
-            df_bloques[f"Ley Estimada ({unidad})"] = leyes_estimadas
+            c_rep1, c_rep2, c_rep3 = st.columns(3)
+            with c_rep1:
+                st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
+                st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
+            with c_rep2:
+                st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
+                st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
+            with c_rep3:
+                st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
+                st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
+
+            st.markdown("---")
+            st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
+            filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
+            df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
             
-            # GUARDAR EN SESSION STATE PARA LA PESTAÑA 10 (Curvas)
-            st.session_state["df_bloques"] = df_bloques
-            st.session_state["tamano_bloque"] = tamano_bloque 
-            
-            # --- SECCIÓN GRÁFICA 3D ---
+            import plotly.graph_objects as go
+            fig_bloques = go.Figure()
+            colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
+            textos_bloques = [f"Bloque Minero<br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
+            fig_bloques.add_trace(go.Scatter3d(
+                x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
+                mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
+            ))
             config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
             fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
             st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
             
-            # Botón de exportación actualizado a df_b
-            crear_boton_excel(df_bloques, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
-            
-    else:
-        st.warning("⚠️ Asegúrese de haber procesado los sondajes (Pest. 7) y configurado el Variograma (Pest. 8).")           
+            # Sincronizamos con el puente de la Pestaña 10
+            st.session_state["df_bloques"] = df_b
+            st.session_state["tamano_bloque"] = tamano_bloque
+            crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+          
 	#===========================================================================
 	# PESTAÑA 10 RESUMEN Y CURVAS TONELAJE-LEY (TABLA COMPLETA DE DISTRIBUCIÓN)
 	#===========================================================================
