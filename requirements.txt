@@ -5,3 +5,6 @@ openpyxl
 simplekml
 matplotlib
 scipy
+scikit-gstat
+scipy
+scikit-learn
