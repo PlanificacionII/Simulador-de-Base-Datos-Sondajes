@@ -960,7 +960,7 @@ if len(xyz_comp) == 0:
                             if np.sum(filtro) >= 2:
                                 sub_ok = OrdinaryKriging(V, min_points=2, max_points=12)
                                 try:
-                                    ley_est = sub_ok.transform(np.array([[bx, by, bz]]))[0]
+                                    ley_est = sub_ok.transform(np.array([[bx, by, bz]]))
                                     if ley_est < 0: ley_est = 0.0
                                     cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
                                     bloques_estimados.append({
@@ -969,7 +969,6 @@ if len(xyz_comp) == 0:
                                     })
                                 except:
                                     continue
-                                    
             df_bloques = pd.DataFrame(bloques_estimados)
             st.session_state["db_bloques_activa"] = df_bloques
             st.success(f"🎉 ¡Modelo de bloques construido con éxito usando {metodo_estimacion}! Se cubicaron un total de {len(df_bloques)} bloques.")
