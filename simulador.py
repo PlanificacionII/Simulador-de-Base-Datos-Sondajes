@@ -803,7 +803,7 @@ with tab8:
 		with c_v3:
 			range_val = st.slider("Alcance de Influencia (Range - Metros):", min_value=10, max_value=max_alcance_slider, value=int(max_alcance_slider*0.4), step=10, key="v_range")
 			
-	#-----------------------------------------------------------------------
+		#-----------------------------------------------------------------------
 		# 3. GENERACIÓN DE LA CURVA TEÓRICA CONTINUA (CORREGIDO SIN CAÍDA A CERO)
 		#-----------------------------------------------------------------------
 		h_curva = np.linspace(0, dist_max_estudio, 200)
@@ -891,71 +891,54 @@ with tab9:
         # ... (Mantén aquí tus controles de dimensiones de bloques, ej: tamano_bloque, etc.) ...
         # Asumiremos que creas tu grilla de bloques vacía llamada df_b con columnas ['X', 'Y', 'Z']
         
-        # --- PROCESAMIENTO MATEMÁTICO AL PRESIONAR EL BOTÓN ---
-        if st.button("Ejecutar Estimación del Modelo", key="btn_run_estimacion"):
-            # Coordenadas y muestras conocidas (Compositos de Pest. 7)
-            coords_muestras = df_c[["X", "Y", "Z"]].values
-            valores_muestras = df_c["Ley"].values
-            
-            # Coordenadas de los centros de los bloques vacíos
-            coords_bloques = df_bloques[["X", "Y", "Z"]].values
-            
-            # Inicializamos vector para almacenar resultados
-            leyes_estimadas = np.zeros(len(coords_bloques))
-            
-            if "IDW" in metodo_estimacion:
-                with st.spinner("Calculando estimación por Inverso de la Distancia (1/d²)..."):
-                    # Algoritmo IDW optimizado usando matrices de SciPy
-                    from scipy.spatial import distance_matrix
-                    
-                    # Matriz de distancias entre todos los bloques y todas las muestras
-                    # Filas: Bloques, Columnas: Muestras
-                    dists = distance_matrix(coords_bloques, coords_muestras)
-                    
-                    # Evitamos la división por cero si un bloque coincide exacto con una muestra
-                    dists = np.where(dists == 0, 1e-6, dists)
-                    
-                    # Calculamos los pesos (1 / d²)
-                    pesos = 1.0 / (dists ** 2)
-                    
-                    # Normalizamos los pesos para que sumen 1 por cada fila (bloque)
-                    suma_pesos = np.sum(pesos, axis=1, keepdims=True)
-                    pesos_normalizados = pesos / suma_pesos
-                    
-                    # Multiplicación matricial para obtener las leyes estimadas en un solo paso rápido
-                    leyes_estimadas = np.dot(pesos_normalizados, valores_muestras)
-                    
-                st.success("¡Modelo estimado exitosamente por Inverso de la Distancia (IDW 1/d²)!")
-                
-            else:
-                with st.spinner("Resolviendo sistemas de matrices geoestadísticas por Kriging Ordinario..."):
-                    from skgstat import Variogram, OrdinaryKriging
-                    
-                    # Construimos el objeto variograma matemático con los inputs de la Pestaña 8
-                    V = Variogram(coords_muestras, valores_muestras, model=vp["modelo"], 
-                                  nugget=vp["nugget"], sill=vp["sill"], maxlag=vp["range"])
-                    
-                    # Inicializar el estimador Kriging
-                    ok = OrdinaryKriging(V, min_points=2, max_points=12)
-                    
-                    # Resolver el Kriging en lote
-                    leyes_estimadas = ok.transform(coords_bloques)
-                    
-                st.success("¡Modelo estimado exitosamente por Kriging Ordinario (OK)!")
-            
-            # Guardamos el vector resultante de leyes en la columna correspondiente
-            df_bloques[f"Ley Estimada ({unidad})"] = leyes_estimadas
-            
-            # GUARDAR EN SESSION STATE PARA LA PESTAÑA 10 (Curvas)
-            st.session_state["df_bloques"] = df_bloques
-            st.session_state["tamano_bloque"] = tamano_bloque 
-            
-            # --- SECCIÓN GRÁFICA 3D ---
-            # Dibuja el modelo estimado (Sea IDW o Kriging, usará los mismos datos mapeados en df_b)
-            config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
-            fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
-            st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
-            crear_boton_excel(df_bloques, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+       # --- PROCESAMIENTO MATEMÁTICO AL PRESIONAR EL BOTÓN ---
+		if st.button("Ejecutar Estimación del Modelo", key="btn_run_estimacion"):
+			# Coordenadas y muestras conocidas (Compositos de Pest. 7)
+			coords_muestras = df_c[["X", "Y", "Z"]].values
+			valores_muestras = df_c["Ley"].values
+			
+			# CORREGIDO: Usamos df_b que es el nombre real de tu grilla en memoria
+			coords_bloques = df_b[["X", "Y", "Z"]].values
+			
+			# Inicializamos vector para almacenar resultados
+			leyes_estimadas = np.zeros(len(coords_bloques))
+			
+			if "IDW" in metodo_estimacion:
+				with st.spinner("Calculando estimación por Inverso de la Distancia (1/d²)..."):
+					from scipy.spatial import distance_matrix
+					dists = distance_matrix(coords_bloques, coords_muestras)
+					dists = np.where(dists == 0, 1e-6, dists)
+					pesos = 1.0 / (dists ** 2)
+					suma_pesos = np.sum(pesos, axis=1, keepdims=True)
+					pesos_normalizados = pesos / suma_pesos
+					leyes_estimadas = np.dot(pesos_normalizados, valores_muestras)
+					
+				st.success("¡Modelo estimado exitosamente por Inverso de la Distancia (IDW 1/d²)!")
+				
+			else:
+				with st.spinner("Resolviendo sistemas de matrices geoestadísticas por Kriging Ordinario..."):
+					from skgstat import Variogram, OrdinaryKriging
+					V = Variogram(coords_muestras, valores_muestras, model=vp["modelo"], 
+								  nugget=vp["nugget"], sill=vp["sill"], maxlag=vp["range"])
+					ok = OrdinaryKriging(V, min_points=2, max_points=12)
+					leyes_estimadas = ok.transform(coords_bloques)
+					
+				st.success("¡Modelo estimado exitosamente por Kriging Ordinario (OK)!")
+			
+			# Guardamos el vector resultante en la columna correspondiente usando df_b
+			df_b[f"Ley Estimada ({unidad})"] = leyes_estimadas
+			
+			# GUARDAR EN SESSION STATE PARA LA PESTAÑA 10 (Curvas)
+			st.session_state["df_bloques"] = df_b
+			st.session_state["tamano_bloque"] = tamano_bloque 
+			
+			# --- SECCIÓN GRÁFICA 3D ---
+			config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
+			fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
+			st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
+			
+			# Botón de exportación actualizado a df_b
+			crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
             
     else:
         st.warning("⚠️ Asegúrese de haber procesado los sondajes (Pest. 7) y configurado el Variograma (Pest. 8).")           
