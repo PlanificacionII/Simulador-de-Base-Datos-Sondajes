@@ -803,8 +803,8 @@ with tab8:
 		with c_v3:
 			range_val = st.slider("Alcance de Influencia (Range - Metros):", min_value=10, max_value=max_alcance_slider, value=int(max_alcance_slider*0.4), step=10, key="v_range")
 			
-		#-----------------------------------------------------------------------
-		# 3. GENERACIÓN DE LA CURVA TEÓRICA CONTINUA
+	#-----------------------------------------------------------------------
+		# 3. GENERACIÓN DE LA CURVA TEÓRICA CONTINUA (CORREGIDO SIN CAÍDA A CERO)
 		#-----------------------------------------------------------------------
 		h_curva = np.linspace(0, dist_max_estudio, 200)
 		gamma_teorico = np.zeros_like(h_curva)
@@ -812,18 +812,19 @@ with tab8:
 		
 		if modelo_tipo == "spherical":
 			for idx, h in enumerate(h_curva):
-				if h == 0:
-					gamma_teorico[idx] = 0
-				elif h <= range_val:
+				if h <= range_val:
+					# Eliminamos la condición 'if h == 0: 0' para que nazca en el Nugget
 					gamma_teorico[idx] = nugget_val + c_estructural * (1.5 * (h / range_val) - 0.5 * (h / range_val)**3)
 				else:
 					gamma_teorico[idx] = sill_val
 					
 		elif modelo_tipo == "exponential":
-			gamma_teorico = np.where(h_curva == 0, 0, nugget_val + c_estructural * (1.0 - np.exp(-3.0 * h_curva / range_val)))
+			# Quitamos el np.where que forzaba el cero en el origen h=0
+			gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * h_curva / range_val))
 			
 		elif modelo_tipo == "gaussian":
-			gamma_teorico = np.where(h_curva == 0, 0, nugget_val + c_estructural * (1.0 - np.exp(-3.0 * (h_curva / range_val)**2)))
+			# Quitamos el np.where que forzaba el cero en el origen h=0
+			gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * (h_curva / range_val)**2))
 
 		#-----------------------------------------------------------------------
 		# 4. GRÁFICO INTERACTIVO DE AJUSTE VARIOGRÁFICO (PLOTLY)
