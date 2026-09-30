@@ -909,7 +909,7 @@ with tab9:
             zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
             vl = df_m["Ley"].values if "Ley" in df_m.columns else df_m[f"Ley Comp. ({unidad})"].values
             xyz_comp = np.column_stack((xc, yc, zc, vl))
-if len(xyz_comp) == 0:
+    if len(xyz_comp) == 0:
         st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
     else:
         st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
