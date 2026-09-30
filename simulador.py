@@ -737,7 +737,7 @@ with tab7:
         st.plotly_chart(fig_3d, use_container_width=True)
     else:
         st.warning("No hay datos de sondajes disponibles para renderizar en el espacio 3D.")
-#===========================================================================
+	#===========================================================================
 	# PESTAÑA 8 MODULACIÓN DE VARIOGRAMAS INTERACTIVOS Y GRÁFICO DE AJUSTE
 	#===========================================================================
 with tab8:
@@ -763,12 +763,16 @@ with tab8:
             coords_m = coords_m[idx_muestreo]
             leyes_m = leyes_m[idx_muestreo]
             
-        from scipy.spatial.distance import pdist, squareform
+       from scipy.spatial.distance import pdist
         
-        # Calcular distancias y varianzas entre todos los pares de muestras
+        # 1. Calcular distancias geométricas entre todos los pares de muestras
         matriz_dist = pdist(coords_m)
-        matriz_semivarianza = 0.5 * (pdist(leyes_m[:, None], lambda u, v: (u - v)**2))
         
+        # 2. CORREGIDO: Calcular semivarianzas de leyes de forma nativa con NumPy (Evita el fallo de SciPy)
+        # Esto genera las diferencias al cuadrado exactas para cada par de muestras
+        n_muestras = len(leyes_m)
+        idx_i, idx_j = np.triu_indices(n_muestras, k=1)
+        matriz_semivarianza = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
         # Definir los pasos de distancia (lags) basados en la distancia máxima encontrada
         max_dist_real = float(np.max(matriz_dist))
         dist_max_estudio = max_dist_real * 0.6  # Regla geoestadística: evaluar hasta el 60% del dominio
