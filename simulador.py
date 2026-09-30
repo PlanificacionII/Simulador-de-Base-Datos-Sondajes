@@ -898,7 +898,7 @@ with tab9:
             valores_muestras = df_c["Ley"].values
             
             # Usamos df_b que es el nombre real de tu grilla en memoria
-            coords_bloques = df_b[["X", "Y", "Z"]].values
+            coords_bloques = df_bloques[["X", "Y", "Z"]].values
             
             # Inicializamos vector para almacenar resultados
             leyes_estimadas = np.zeros(len(coords_bloques))
@@ -926,10 +926,10 @@ with tab9:
                 st.success("¡Modelo estimado exitosamente por Kriging Ordinario (OK)!")
             
             # Guardamos el vector resultante en la columna correspondiente usando df_b
-            df_b[f"Ley Estimada ({unidad})"] = leyes_estimadas
+            df_bloques[f"Ley Estimada ({unidad})"] = leyes_estimadas
             
             # GUARDAR EN SESSION STATE PARA LA PESTAÑA 10 (Curvas)
-            st.session_state["df_bloques"] = df_b
+            st.session_state["df_bloques"] = df_bloques
             st.session_state["tamano_bloque"] = tamano_bloque 
             
             # --- SECCIÓN GRÁFICA 3D ---
@@ -938,7 +938,7 @@ with tab9:
             st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
             
             # Botón de exportación actualizado a df_b
-            crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+            crear_boton_excel(df_bloques, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
             
     else:
         st.warning("⚠️ Asegúrese de haber procesado los sondajes (Pest. 7) y configurado el Variograma (Pest. 8).")           
