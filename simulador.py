@@ -938,7 +938,7 @@ with tab9:
             st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
             
             # Botón de exportación actualizado a df_b
-            crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")")
+           crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
             
     else:
         st.warning("⚠️ Asegúrese de haber procesado los sondajes (Pest. 7) y configurado el Variograma (Pest. 8).")           
