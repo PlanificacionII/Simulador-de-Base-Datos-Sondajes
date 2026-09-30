@@ -737,30 +737,156 @@ with tab7:
         st.plotly_chart(fig_3d, use_container_width=True)
     else:
         st.warning("No hay datos de sondajes disponibles para renderizar en el espacio 3D.")
-	#===========================================================================
-	# PESTAÑA 8 MODULACIÓN DE VARIOGRAMAS INTERACTIVOS
+#===========================================================================
+	# PESTAÑA 8 MODULACIÓN DE VARIOGRAMAS INTERACTIVOS Y GRÁFICO DE AJUSTE
 	#===========================================================================
 with tab8:
     st.write("### 📉 Módulo de Variografía e Isotropía")
-    st.write("El variograma cuantifica la continuidad espacial y dependencia de las muestras mineras. Configura el modelo teórico para el algoritmo de Kriging.")
+    st.write("El variograma cuantifica la continuidad espacial de las leyes mineras. Configura el modelo teórico que mejor se ajuste a los puntos experimentales obtenidos de tus sondajes.")
     
     if "df_comp_final" in st.session_state and not st.session_state["df_comp_final"].empty:
         df_c = st.session_state["df_comp_final"]
         col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
         unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
-        st.write("#### 🛠️ Parámetros del Variograma Teórico")
+        #-----------------------------------------------------------------------
+        # 1. CÁLCULO DEL VARIOGRAMA EXPERIMENTAL (Puntos Reales)
+        #-----------------------------------------------------------------------
+        # Extraemos coordenadas y leyes de los compositos generados en la Pestaña 7
+        coords_m = df_c[["X", "Y", "Z"]].values
+        leyes_m = df_c["Ley"].values
+        
+        # Para no congelar el navegador si hay miles de muestras, limitamos el cálculo a un máximo de 600 puntos distribuidos
+        if len(coords_m) > 600:
+            np.random.seed(42)
+            idx_muestreo = np.random.choice(len(coords_m), 600, replace=False)
+            coords_m = coords_m[idx_muestreo]
+            leyes_m = leyes_m[idx_muestreo]
+            
+        from scipy.spatial.distance import pdist, squareform
+        
+        # Calcular distancias y varianzas entre todos los pares de muestras
+        matriz_dist = pdist(coords_m)
+        matriz_semivarianza = 0.5 * (pdist(leyes_m[:, None], lambda u, v: (u - v)**2))
+        
+        # Definir los pasos de distancia (lags) basados en la distancia máxima encontrada
+        max_dist_real = float(np.max(matriz_dist))
+        dist_max_estudio = max_dist_real * 0.6  # Regla geoestadística: evaluar hasta el 60% del dominio
+        
+        n_pasos = 15
+        intervalos_dist = np.linspace(0, dist_max_estudio, n_pasos + 1)
+        
+        lags_experimentales = []
+        gammas_experimentales = []
+        
+        # Agrupar los pares de puntos en bins para obtener los puntos experimentales
+        for i in range(n_pasos):
+            d_min = intervalos_dist[i]
+            d_max = intervalos_dist[i+1]
+            
+            # Máscara para identificar qué pares caen en este rango de distancia
+            filtro_par = (matriz_dist >= d_min) & (matriz_dist < d_max)
+            
+            if np.sum(filtro_par) > 2:  # Requerimos al menos 3 pares para estabilidad matemática
+                lags_experimentales.append((d_min + d_max) / 2)
+                gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
+                
+        #-----------------------------------------------------------------------
+        # 2. INTERFAZ DE USUARIO: CONTROLES DESLIZANTES (Sliders)
+        #-----------------------------------------------------------------------
+        st.write("#### 🛠️ Calibración del Modelo Teórico")
         c_v1, c_v2, c_v3 = st.columns(3)
+        
+        # Sugerimos dinámicamente un tope para el slider de Alcance basado en los datos
+        max_alcance_slider = int(np.ceil(dist_max_estudio)) if dist_max_estudio > 50 else 300
+        # Varianza global de las muestras como referencia para la Meseta
+        varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
         
         with c_v1:
             modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], key="v_model_type")
-            nugget_val = st.slider("Efecto Pepita (Nugget - C0):", min_value=0.00, max_value=1.00, value=0.05, step=0.01, key="v_nugget")
+            nugget_val = st.slider("Efecto Pepita (Nugget - C0):", min_value=0.00, max_value=round(varianza_datos, 2), value=round(varianza_datos*0.1, 2), step=0.01, key="v_nugget")
         with c_v2:
-            sill_val = st.slider("Meseta Teórica (Sill - C):", min_value=0.1, max_value=5.0, value=1.2, step=0.05, key="v_sill")
+            sill_val = st.slider("Meseta Teórica (Sill - C):", min_value=0.01, max_value=round(varianza_datos * 2.5, 2), value=round(varianza_datos, 2), step=0.05, key="v_sill")
         with c_v3:
-            range_val = st.slider("Alcance de Influencia (Range - Metros):", min_value=10, max_value=500, value=150, step=10, key="v_range")
+            range_val = st.slider("Alcance de Influencia (Range - Metros):", min_value=10, max_value=max_alcance_slider, value=int(max_alcance_slider*0.4), step=10, key="v_range")
             
-        # Guardamos la estructura del variograma en memoria para que la Pestaña 9 la use
+        #-----------------------------------------------------------------------
+        # 3. GENERACIÓN DE LA CURVA TEÓRICA CONTINUA
+        #-----------------------------------------------------------------------
+        # Generamos un vector continuo de distancias para dibujar la línea del modelo
+        h_curva = np.linspace(0, dist_max_estudio, 200)
+        gamma_teorico = np.zeros_like(h_curva)
+        
+        # Fórmulas geoestadísticas oficiales para los 3 modelos seleccionables
+        c_estructural = sill_val - nugget_val  # Contribución estructural
+        
+        if modelo_tipo == "spherical":
+            for idx, h in enumerate(h_curva):
+                if h == 0:
+                    gamma_teorico[idx] = 0
+                elif h <= range_val:
+                    gamma_teorico[idx] = nugget_val + c_estructural * (1.5 * (h / range_val) - 0.5 * (h / range_val)**3)
+                else:
+                    gamma_teorico[idx] = sill_val
+                    
+        elif modelo_tipo == "exponential":
+            # Al alcance práctico (95% de la meseta) se divide la distancia por (range/3)
+            gamma_teorico = np.where(h_curva == 0, 0, nugget_val + c_estructural * (1.0 - np.exp(-3.0 * h_curva / range_val)))
+            
+        elif modelo_tipo == "gaussian":
+            # Al alcance práctico se utiliza un factor cuadrático exponencial
+            gamma_teorico = np.where(h_curva == 0, 0, nugget_val + c_estructural * (1.0 - np.exp(-3.0 * (h_curva / range_val)**2)))
+
+        #-----------------------------------------------------------------------
+        # 4. GRÁFICO INTERACTIVO DE AJUSTE VARIOGRÁFICO (PLOTLY)
+        #-----------------------------------------------------------------------
+        import plotly.graph_objects as go
+        
+        fig_v = go.Figure()
+        
+        # Trazar puntos del Variograma Experimental (Muestras Reales)
+        if len(lags_experimentales) > 0:
+            fig_v.add_trace(go.Scatter(
+                x=lags_experimentales,
+                y=gammas_experimentales,
+                mode="markers",
+                name="Variograma Experimental (Datos)",
+                marker=dict(size=10, color="#1f77b4", symbol="circle")
+            ))
+            
+        # Trazar línea continua del Variograma Teórico (Diseño del Alumno)
+        fig_v.add_trace(go.Scatter(
+            x=h_curva,
+            y=gamma_teorico,
+            mode="lines",
+            name=f"Modelo Teórico ({modelo_tipo.capitalize()})",
+            line=dict(color="#d62728", width=3)
+        ))
+        
+        # Línea de referencia horizontal para la Varianza Total de los Datos
+        fig_v.add_trace(go.Scatter(
+            x=[0, dist_max_estudio],
+            y=[varianza_datos, varianza_datos],
+            mode="lines",
+            name="Varianza de las Muestras",
+            line=dict(color="gray", width=1.5, dash="dash")
+        ))
+        
+        fig_v.update_layout(
+            title="Ajuste de Continuidad Espacial (Variograma)",
+            title_x=0.5,
+            xaxis_title="Distancia de Separación (h) [Metros]",
+            yaxis_title="Semivarianza γ(h)",
+            hovermode="closest",
+            legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
+            height=500
+        )
+        fig_v.update_xaxes(gridcolor="rgba(200,200,200,0.3)")
+        fig_v.update_yaxes(gridcolor="rgba(200,200,200,0.3)", min_value=0)
+        
+        st.plotly_chart(fig_v, use_container_width=True)
+        
+        # Almacenamos los parámetros calibrados en memoria global para que los lea el Kriging de la Pestaña 9
         st.session_state["v_parametros"] = {
             "modelo": modelo_tipo,
             "nugget": nugget_val,
@@ -768,11 +894,11 @@ with tab8:
             "range": range_val
         }
         
-        st.success(f"✅ Estructura Geoestadística guardada con éxito. Modelo: {modelo_tipo.upper()} | Rango: {range_val}m. Proceda a estimar en la Pestaña 9.")
+        st.success(f"💾 Configuración guardada en memoria. Modelo: {modelo_tipo.upper()} | Alcance Calibrado: {range_val}m. Listo para estimar en la Pestaña 9.")
     else:
-        st.warning("⚠️ No se registran datos compositados en memoria. Realiza el procesamiento en la Pestaña 7 primero.")
+        st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
 
-#===========================================================================
+	#===========================================================================
 	# PESTAÑA 9 CONFIGURACIÓN Y ESTIMACIÓN SELECCIONABLE (IDW vs KRIGING)
 	#===========================================================================
 with tab9:
@@ -803,7 +929,7 @@ with tab9:
             valores_muestras = df_c["Ley"].values
             
             # Coordenadas de los centros de los bloques vacíos
-            coords_bloques = df_b[["X", "Y", "Z"]].values
+            coords_bloques = df_bloques[["X", "Y", "Z"]].values
             
             # Inicializamos vector para almacenar resultados
             leyes_estimadas = np.zeros(len(coords_bloques))
@@ -849,10 +975,10 @@ with tab9:
                 st.success("¡Modelo estimado exitosamente por Kriging Ordinario (OK)!")
             
             # Guardamos el vector resultante de leyes en la columna correspondiente
-            df_b[f"Ley Estimada ({unidad})"] = leyes_estimadas
+            df_bloques[f"Ley Estimada ({unidad})"] = leyes_estimadas
             
             # GUARDAR EN SESSION STATE PARA LA PESTAÑA 10 (Curvas)
-            st.session_state["df_bloques"] = df_b
+            st.session_state["df_bloques"] = df_bloques
             st.session_state["tamano_bloque"] = tamano_bloque 
             
             # --- SECCIÓN GRÁFICA 3D ---
@@ -860,7 +986,7 @@ with tab9:
             config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
             fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
             st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
-            crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+            crear_boton_excel(df_bloques, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
             
     else:
         st.warning("⚠️ Asegúrese de haber procesado los sondajes (Pest. 7) y configurado el Variograma (Pest. 8).")           
