@@ -949,7 +949,6 @@ if "db_bloques_activa" in st.session_state:
             gammas_experimentales = []
             max_dist_estudio = float(n_lags * lag_dist)
             
-            # Si se marca Omnidireccional 3D, ignora la restricción de los ángulos
             if omni_3d:
                 from scipy.spatial.distance import pdist
                 if len(coords_m) > 500:
@@ -964,7 +963,6 @@ if "db_bloques_activa" in st.session_state:
                 idx_i, idx_j = np.triu_indices(n_m, k=1)
                 matriz_semivarianza = 0.5 * ((l_f[idx_i] - l_f[idx_j]) ** 2)
                 
-                # Clasificación por Lags estándar
                 for step in range(int(n_lags)):
                     d_min = step * lag_dist
                     d_max = (step + 1) * lag_dist
@@ -973,50 +971,40 @@ if "db_bloques_activa" in st.session_state:
                         lags_experimentales.append((d_min + d_max) / 2)
                         gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
             else:
-                # Filtrado direccional avanzado según Acimut y Buzamiento (Geometría del Tubo)
-                # Convertimos la dirección de búsqueda elegida por el alumno a un Vector Director 3D
                 az_rad = np.radians(acimut)
                 dip_rad = np.radians(buzamiento)
                 
-                # Coordenadas esféricas aplicadas a minería:
                 v_dir = np.array([
-                    np.cos(dip_rad) * np.sin(az_rad),  # Componente X (Este)
-                    np.cos(dip_rad) * np.cos(az_rad),  # Componente Y (Norte)
-                    np.sin(dip_rad)                    # Componente Z (Cota)
+                    np.cos(dip_rad) * np.sin(az_rad),
+                    np.cos(dip_rad) * np.cos(az_rad),
+                    np.sin(dip_rad)
                 ])
                 
-                # Tomamos una muestra aleatoria para mantener la velocidad fluida en Streamlit Cloud
                 n_muestras = len(coords_m)
                 muestreo_max = 400 if n_muestras > 400 else n_muestras
                 
                 np.random.seed(42)
                 indices_estudio = np.random.choice(n_muestras, muestreo_max, replace=False) if n_muestras > 400 else np.arange(n_muestras)
                 
-                # Estructuramos listas de almacenamiento por bins (lags)
                 lags_acum = {s: [] for s in range(int(n_lags))}
                 gammas_acum = {s: [] for s in range(int(n_lags))}
                 
-                # Comparamos pares de muestras vectorialmente
                 for i in range(len(indices_estudio)):
                     for j in range(i + 1, len(indices_estudio)):
                         idx_i = indices_estudio[i]
                         idx_j = indices_estudio[j]
                         
-                        # Vector de separación entre el par de muestras actual
                         vector_sep = coords_m[idx_i] - coords_m[idx_j]
                         dist_real = np.linalg.norm(vector_sep)
                         
                         if 0 < dist_real <= max_dist_estudio:
-                            # Determinamos el Lag al que pertenece por distancia
                             bin_lag = int(dist_real // lag_dist)
                             if bin_lag >= n_lags: bin_lag = int(n_lags - 1)
                             
-                            # Cálculo del ángulo de desviación angular con el eje del tubo
                             cos_alpha = np.abs(np.dot(vector_sep, v_dir)) / (dist_real * 1.0)
                             cos_alpha = np.clip(cos_alpha, -1.0, 1.0)
                             angulo_desviacion = np.degrees(np.arccos(cos_alpha))
                             
-                            # Si está dentro de la tolerancia angular (T) y el radio de desviación (B), entra al bin
                             if angulo_desviacion <= tolerancia_t:
                                 semivarianza_par = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
                                 lags_acum[bin_lag].append(dist_real)
