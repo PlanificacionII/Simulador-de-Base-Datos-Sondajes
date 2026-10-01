@@ -1182,6 +1182,7 @@ with tab8:
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
 with tab9:
+
     st.write("### 🧊 Modelo de Bloques 3D (Kriging Simplificado)")
     st.caption("Estimación de leyes en un modelo de bloques regular usando IDW, compatible con variografía.")
 
@@ -1215,91 +1216,95 @@ with tab9:
 
     if df_c.empty:
         st.warning("⚠️ No hay compositos disponibles. Genera la base en la Pestaña 7.")
+        st.stop()
+
+    # Extraer coordenadas y leyes
+    coords_assay = df_c[["X", "Y", "Z"]].values
+    valores_assay = df_c["Ley"].values
+
+    # 🔥 Filtrar leyes cero
+    mask_ley = valores_assay > 0
+    coords_assay = coords_assay[mask_ley]
+    valores_assay = valores_assay[mask_ley]
+
+    st.info("🔧 Se utilizará un kriging simplificado (IDW) para fines docentes.")
+
+    bx_list, by_list, bz_list, ley_block = [], [], [], []
+
+    # Alcance del variograma (si existe)
+    alcance_variograma = st.session_state.get("v_parametros", {}).get("range", 200)
+
+    # Estimación por IDW
+    for x0 in x_centros:
+        for y0 in y_centros:
+            for z0 in z_centros:
+                centro = np.array([x0, y0, z0])
+                dist = np.linalg.norm(coords_assay - centro, axis=1)
+
+                dist[dist == 0] = 0.1  # evitar división por cero
+
+                mask = dist <= alcance_variograma
+
+                if np.sum(mask) < 3:
+                    continue
+
+                w = 1.0 / dist[mask]
+                w = w / np.sum(w)
+                est_ley = np.sum(w * valores_assay[mask])
+
+                bx_list.append(x0)
+                by_list.append(y0)
+                bz_list.append(z0)
+                ley_block.append(est_ley)
+
+    if len(ley_block) == 0:
+        st.warning("⚠️ No se pudieron estimar bloques. Ajusta el alcance o el tamaño de bloque.")
     else:
-        coords_assay = df_c[["X", "Y", "Z"]].values
-        valores_assay = df_c["Ley"].values
-# 🔥 Filtrar leyes cero
-mask_ley = valores_assay > 0
-coords_assay = coords_assay[mask_ley]
-valores_assay = valores_assay[mask_ley]
-        st.info("🔧 Se utilizará un kriging simplificado (IDW) para fines docentes.")
+        df_blocks = pd.DataFrame({
+            "X_centro": bx_list,
+            "Y_centro": by_list,
+            "Z_centro": bz_list,
+            f"Ley_{col_ley_b}": ley_block
+        })
 
-        bx_list, by_list, bz_list, ley_block = [], [], [], []
+        st.write("#### 📋 Tabla Resumida del Modelo de Bloques")
+        st.dataframe(df_blocks.head(200), use_container_width=True)
 
-        # Alcance del variograma (si existe)
-        alcance_variograma = st.session_state.get("v_parametros", {}).get("range", 200)
+        crear_boton_excel(df_blocks, "Modelo_Bloques_Kriging_Simplificado")
 
-        # Estimación por IDW
-        for x0 in x_centros:
-            for y0 in y_centros:
-                for z0 in z_centros:
-                    centro = np.array([x0, y0, z0])
-                    dist = np.linalg.norm(coords_assay - centro, axis=1)
+        # Visualización 3D del modelo de bloques
+        st.write("#### 🛰️ Visualización 3D del Modelo de Bloques")
 
-                    dist[dist == 0] = 0.1  # evitar división por cero
+        fig_blocks = go.Figure()
 
-                    mask = dist <= alcance_variograma
+        fig_blocks.add_trace(go.Scatter3d(
+            x=df_blocks["X_centro"],
+            y=df_blocks["Y_centro"],
+            z=df_blocks["Z_centro"],
+            mode="markers",
+            marker=dict(
+                size=4,
+                color=df_blocks[f"Ley_{col_ley_b}"],
+                colorscale="Viridis",
+                cmin=float(df_blocks[f"Ley_{col_ley_b}"].min()),
+                cmax=float(df_blocks[f"Ley_{col_ley_b}"].max()),
+                colorbar=dict(title=f"Ley {unidad_b}")
+            ),
+            name="Bloques Estimados"
+        ))
 
-                    if np.sum(mask) < 3:
-                        continue
+        fig_blocks.update_layout(
+            scene=dict(
+                xaxis_title="X (UTM Este)",
+                yaxis_title="Y (UTM Norte)",
+                zaxis_title="Z (Cota)",
+                aspectmode="data"
+            ),
+            margin=dict(l=0, r=0, t=30, b=0),
+            title="Modelo de Bloques 3D – Kriging Simplificado"
+        )
 
-                    w = 1.0 / dist[mask]
-                    w = w / np.sum(w)
-                    est_ley = np.sum(w * valores_assay[mask])
-
-                    bx_list.append(x0)
-                    by_list.append(y0)
-                    bz_list.append(z0)
-                    ley_block.append(est_ley)
-
-        if len(ley_block) == 0:
-            st.warning("⚠️ No se pudieron estimar bloques. Ajusta el alcance o el tamaño de bloque.")
-        else:
-            df_blocks = pd.DataFrame({
-                "X_centro": bx_list,
-                "Y_centro": by_list,
-                "Z_centro": bz_list,
-                f"Ley_{col_ley_b}": ley_block
-            })
-
-            st.write("#### 📋 Tabla Resumida del Modelo de Bloques")
-            st.dataframe(df_blocks.head(200), use_container_width=True)
-
-            crear_boton_excel(df_blocks, "Modelo_Bloques_Kriging_Simplificado")
-
-            # Visualización 3D del modelo de bloques
-            st.write("#### 🛰️ Visualización 3D del Modelo de Bloques")
-
-            fig_blocks = go.Figure()
-
-            fig_blocks.add_trace(go.Scatter3d(
-                x=df_blocks["X_centro"],
-                y=df_blocks["Y_centro"],
-                z=df_blocks["Z_centro"],
-                mode="markers",
-                marker=dict(
-                    size=4,
-                    color=df_blocks[f"Ley_{col_ley_b}"],
-                    colorscale="Viridis",
-                    cmin=float(df_blocks[f"Ley_{col_ley_b}"].min()),
-                    cmax=float(df_blocks[f"Ley_{col_ley_b}"].max()),
-                    colorbar=dict(title=f"Ley {unidad_b}")
-                ),
-                name="Bloques Estimados"
-            ))
-
-            fig_blocks.update_layout(
-                scene=dict(
-                    xaxis_title="X (UTM Este)",
-                    yaxis_title="Y (UTM Norte)",
-                    zaxis_title="Z (Cota)",
-                    aspectmode="data"
-                ),
-                margin=dict(l=0, r=0, t=30, b=0),
-                title="Modelo de Bloques 3D – Kriging Simplificado"
-            )
-
-            st.plotly_chart(fig_blocks, use_container_width=True)
+        st.plotly_chart(fig_blocks, use_container_width=True)
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
