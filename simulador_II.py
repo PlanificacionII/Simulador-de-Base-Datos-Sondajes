@@ -738,7 +738,7 @@ with tab7:
     else:
         st.warning("No hay datos de sondajes disponibles para renderizar en el espacio 3D.")
 # ====================================================================
-# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (PARTE 1 DE 2)
+# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (ESTRUCTURA LINEAL SEGURO)
 # ====================================================================
 with tab8:
     st.write("### 📉 Módulo de Variografía e Isotropía Avanzada")
@@ -754,44 +754,169 @@ with tab8:
         leyes_m = df_c["Ley"].values
         varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
         
-        # Creación de Layout en dos grandes columnas (Controles a la izquierda, Gráfico a la derecha)
-        col_controles, col_grafico = st.columns([1, 1.2])
+        # ------------------------------------------------------------------
+        # PANEL 1: CONFIGURACIÓN GEOMÉTRICA (UN BAJO EL OTRO)
+        # ------------------------------------------------------------------
+        st.markdown("#### 📐 1. Geometría del Tubo de Búsqueda")
+        c_geo1, c_geo2 = st.columns(2)
+        with c_geo1:
+            n_lags = st.number_input("Número de lags = ", min_value=1, max_value=30, value=7, step=1, key="v_n_lags")
+            lag_dist = st.number_input("Lag separación (L) = ", min_value=5.0, max_value=100.0, value=20.0, step=5.0, key="v_lag_dist")
+        with c_geo2:
+            tolerancia_t = st.number_input("Tolerancia (T) = ", min_value=5.0, max_value=90.0, value=30.0, step=5.0, key="v_tol_t")
+            radio_tubo = st.number_input("Radio del tubo (B) = ", min_value=5.0, max_value=100.0, value=20.0, step=5.0, key="v_radio_b")
         
-        with col_controles:
-            st.markdown("##### 📐 Geometría del Tubo de Búsqueda")
+        omni_3d = st.checkbox("Omnidireccional 3D", value=False, key="v_omni_3d")
+        omni_plano = st.checkbox("Omnidireccional en el plano", value=False, key="v_omni_plano")
+        
+        st.markdown("#### 🧭 2. Orientación Angular (Ángulos de Euler)")
+        c_ang1, c_ang2 = st.columns(2)
+        with c_ang1:
+            acimut = st.number_input("Acimut = ", min_value=0, max_value=360, value=18, step=1, key="v_acimut")
+        with c_ang2:
+            buzamiento = st.number_input("Buzamiento = ", min_value=-90, max_value=90, value=65, step=1, key="v_buzamiento")
             
-            # Sub-columnas para replicar el panel superior de la imagen
-            c_geo1, c_geo2 = st.columns(2)
-            with c_geo1:
-                n_lags = st.number_input("Número de lags = ", min_value=1, max_value=30, value=7, step=1, key="v_n_lags")
-                lag_dist = st.number_input("Lag separación (L) = ", min_value=5.0, max_value=100.0, value=20.0, step=5.0, key="v_lag_dist")
-            with c_geo2:
-                tolerancia_t = st.number_input("Tolerancia (T) = ", min_value=5.0, max_value=90.0, value=30.0, step=5.0, key="v_tol_t")
-                radio_tubo = st.number_input("Radio del tubo (B) = ", min_value=5.0, max_value=100.0, value=20.0, step=5.0, key="v_radio_b")
-            
-            # Opciones de Omnidireccionalidad (Casillas de verificación)
-            omni_3d = st.checkbox("Omnidireccional 3D", value=False, key="v_omni_3d")
-            omni_plano = st.checkbox("Omnidireccional en el plano", value=False, key="v_omni_plano")
-            
-            st.markdown("---")
-            st.markdown("##### 🧭 Orientación Angular (Ángulos de Euler)")
-            c_ang1, c_ang2 = st.columns(2)
-            with c_ang1:
-                acimut = st.number_input("Acimut = ", min_value=0, max_value=360, value=18, step=1, key="v_acimut")
-            with c_ang2:
-                buzamiento = st.number_input("Buzamiento = ", min_value=-90, max_value=90, value=65, step=1, key="v_buzamiento")
-                
-            st.markdown("---")
-            st.markdown("##### 🛠️ Ajuste Teórico (Estructuras)")
-            modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], key="v_model_type")
-            
-            c_mod1, c_mod2 = st.columns(2)
-            with c_mod1:
-                nugget_val = st.slider("Pepita (Nugget - C0):", min_value=0.00, max_value=round(varianza_datos, 2), value=round(varianza_datos*0.1, 2), step=0.01, key="v_nugget")
-                sill_val = st.slider("Meseta (Sill - C):", min_value=0.01, max_value=round(varianza_datos * 2.0, 2), value=round(varianza_datos, 2), step=0.05, key="v_sill")
-            with c_mod2:
-                range_val = st.slider("Alcance (Range - m):", min_value=10, max_value=int(n_lags * lag_dist), value=int(n_lags * lag_dist * 0.5), step=10, key="v_range")	
+        st.markdown("#### 🛠  3. Ajuste Teórico (Estructuras)")
+        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], key="v_model_type")
+        
+        c_mod1, c_mod2 = st.columns(2)
+        with c_mod1:
+            nugget_val = st.slider("Pepita (Nugget - C0):", min_value=0.00, max_value=round(varianza_datos, 2), value=round(varianza_datos*0.1, 2), step=0.01, key="v_nugget")
+            sill_val = st.slider("Meseta (Sill - C):", min_value=0.01, max_value=round(varianza_datos * 2.0, 2), value=round(varianza_datos, 2), step=0.05, key="v_sill")
+        with c_mod2:
+            range_val = st.slider("Alcance (Range - m):", min_value=10, max_value=int(n_lags * lag_dist), value=int(n_lags * lag_dist * 0.5), step=10, key="v_range")
 
+        # ------------------------------------------------------------------
+        # PANEL 2: MOTOR MATEMÁTICO DE FILTRADO Y PROYECCIÓN
+        # ------------------------------------------------------------------
+        st.markdown("---")
+        st.markdown("#### 📊 4. Gráfico de Ajuste Variográfico")
+        
+        lags_experimentales = []
+        gammas_experimentales = []
+        max_dist_estudio = float(n_lags * lag_dist)
+        
+        if omni_3d:
+            from scipy.spatial.distance import pdist
+            if len(coords_m) > 500:
+                np.random.seed(42)
+                idx_m = np.random.choice(len(coords_m), 500, replace=False)
+                c_f, l_f = coords_m[idx_m], leyes_m[idx_m]
+            else:
+                c_f, l_f = coords_m, leyes_m
+            
+            matriz_dist = pdist(c_f)
+            n_m = len(l_f)
+            idx_i, idx_j = np.triu_indices(n_m, k=1)
+            matriz_semivarianza = 0.5 * ((l_f[idx_i] - l_f[idx_j]) ** 2)
+            
+            for step in range(int(n_lags)):
+                d_min = step * lag_dist
+                d_max = (step + 1) * lag_dist
+                filtro_par = (matriz_dist >= d_min) & (matriz_dist < d_max)
+                if np.sum(filtro_par) > 2:
+                    lags_experimentales.append((d_min + d_max) / 2)
+                    gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
+        else:
+            az_rad = np.radians(acimut)
+            dip_rad = np.radians(buzamiento)
+            
+            v_dir = np.array([
+                np.cos(dip_rad) * np.sin(az_rad),
+                np.cos(dip_rad) * np.cos(az_rad),
+                np.sin(dip_rad)
+            ])
+            
+            n_muestras = len(coords_m)
+            muestreo_max = 400 if n_muestras > 400 else n_muestras
+            
+            np.random.seed(42)
+            indices_estudio = np.random.choice(n_muestras, muestreo_max, replace=False) if n_muestras > 400 else np.arange(n_muestras)
+            
+            lags_acum = {s: [] for s in range(int(n_lags))}
+            gammas_acum = {s: [] for s in range(int(n_lags))}
+            
+            for i in range(len(indices_estudio)):
+                for j in range(i + 1, len(indices_estudio)):
+                    idx_i = indices_estudio[i]
+                    idx_j = indices_estudio[j]
+                    
+                    vector_sep = coords_m[idx_i] - coords_m[idx_j]
+                    dist_real = np.linalg.norm(vector_sep)
+                    
+                    if 0 < dist_real <= max_dist_estudio:
+                        bin_lag = int(dist_real // lag_dist)
+                        if bin_lag >= n_lags: bin_lag = int(n_lags - 1)
+                        
+                        cos_alpha = np.abs(np.dot(vector_sep, v_dir)) / (dist_real * 1.0)
+                        cos_alpha = np.clip(cos_alpha, -1.0, 1.0)
+                        angulo_desviacion = np.degrees(np.arccos(cos_alpha))
+                        
+                        if angulo_desviacion <= tolerancia_t:
+                            semivarianza_par = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+                            lags_acum[bin_lag].append(dist_real)
+                            gammas_acum[bin_lag].append(semivarianza_par)
+            
+            for s in range(int(n_lags)):
+                if len(lags_acum[s]) > 2:
+                    lags_experimentales.append(np.mean(lags_acum[s]))
+                    gammas_experimentales.append(np.mean(gammas_acum[s]))
+
+        # --- GENERACIÓN DE LA CURVA TEÓRICA CONTINUA ---
+        h_curva = np.linspace(0, max_dist_estudio, 200)
+        gamma_teorico = np.zeros_like(h_curva)
+        c_estructural = sill_val - nugget_val
+        
+        if modelo_tipo == "spherical":
+            for idx, h in enumerate(h_curva):
+                if h <= range_val:
+                    gamma_teorico[idx] = nugget_val + c_estructural * (1.5 * (h / range_val) - 0.5 * (h / range_val)**3)
+                else:
+                    gamma_teorico[idx] = sill_val
+        elif modelo_tipo == "exponential":
+            gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * h_curva / range_val))
+        elif modelo_tipo == "gaussian":
+            gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * (h_curva / range_val)**2))
+
+        # --- RENDERIZADO DEL GRÁFICO INTERACTIVO EN PLOTLY ---
+        import plotly.graph_objects as go
+        fig_v = go.Figure()
+        
+        if len(lags_experimentales) > 0:
+            fig_v.add_trace(go.Scatter(
+                x=lags_experimentales, y=gammas_experimentales, mode="markers+lines",
+                name="Variograma Experimental",
+                marker=dict(size=10, color="#1f77b4", symbol="circle"),
+                line=dict(color="rgba(31, 119, 180, 0.4)", width=1, dash="dash")
+            ))
+        
+        fig_v.add_trace(go.Scatter(
+            x=h_curva, y=gamma_teorico, mode="lines",
+            name=f"Modelo Teórico ({modelo_tipo.capitalize()})", line=dict(color="#d62728", width=3)
+        ))
+        
+        fig_v.add_trace(go.Scatter(
+            x=[0, max_dist_estudio], y=[varianza_datos, varianza_datos], mode="lines",
+            name="Varianza de las Muestras", line=dict(color="gray", width=1.5, dash="dash")
+        ))
+        
+        fig_v.update_layout(
+            title=f"Ajuste Geoestadístico (Dirección: Acimut {acimut}° / Buzamiento {buzamiento}°)",
+            title_x=0.5, xaxis_title="Distancia de Separación (h) [Metros]", yaxis_title="Semivarianza γ(h)",
+            hovermode="closest", legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
+            height=520, margin=dict(l=40, r=20, t=40, b=40)
+        )
+        fig_v.update_xaxes(gridcolor="rgba(200,200,200,0.3)", range=[0, max_dist_estudio])
+        fig_v.update_yaxes(gridcolor="rgba(200,200,200,0.3)", range=[0, varianza_datos * 1.8])
+        
+        st.plotly_chart(fig_v, use_container_width=True)
+        
+        st.session_state["v_parametros"] = {
+            "modelo": modelo_tipo, "nugget": nugget_val, "sill": sill_val, "range": range_val
+        }
+        st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
+    else:
+        st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
 # ====================================================================
 # 🧱 PESTAÑA 9: MÓDULO DE MODELAMIENTO DE BLOQUES (PARTE 1 DE 3)
 # ====================================================================
