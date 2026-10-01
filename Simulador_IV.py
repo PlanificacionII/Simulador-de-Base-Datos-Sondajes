@@ -962,7 +962,7 @@ with tab8:
 
         st.markdown("#### 🎯 Cabeceo Múltiple")
         cab_desde = st.number_input("Desde (°)", -90, 90, 0)
-        cab_hasta = st.number_input("Hasta (°)", -90, 90, 180)
+        cab_hasta = st.number_input("Hasta (°)", min_value=0, max_value=180, value=180)
         cab_n = st.number_input("Nº variogramas", 1, 20, 9)
         lista_buz = np.linspace(cab_desde, cab_hasta, cab_n)
 
