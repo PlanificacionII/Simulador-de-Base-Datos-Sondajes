@@ -738,28 +738,31 @@ with tab7:
     else:
         st.warning("No hay datos de sondajes disponibles para renderizar en el espacio 3D.")
 # ====================================================================
-# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (ALINEACIÓN RECTA COMPLETA)
+# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (BLINDADO CONTRA SYNTAXERROR)
 # ====================================================================
 with tab8:
     st.write("### 📉 Módulo de Variografía e Isotropía Avanzada")
     st.caption("Configura la geometría del tubo de búsqueda tridimensional y calibra el modelo teórico de continuidad.")
     
-    # Intentamos rescatar los compositos guardados en memoria de la pestaña 7
+    # Rescatamos la base de datos de compositos generada en la pestaña 7
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     
+    # CONTROL DE SEGURIDAD DIRECTO: Si está vacío, muestra aviso y frena la pestaña
     if df_c.empty:
         st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
-    else:
+    
+    # Si contiene datos, ejecuta el código de forma lineal directa
+    if not df_c.empty:
         col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
         unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
-        # Extraemos coordenadas y leyes de la base de datos activa
+        # Extraemos las matrices de coordenadas espaciales y leyes
         coords_m = df_c[["X", "Y", "Z"]].values
         leyes_m = df_c["Ley"].values
         varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
         
         # ------------------------------------------------------------------
-        # PANEL 1: CONFIGURACIÓN GEOMÉTRICA (SECUENCIAL Y LINEAL)
+        # PANEL 1: CONFIGURACIÓN GEOMÉTRICA DE ANISOTROPÍA ESPACIAL
         # ------------------------------------------------------------------
         st.markdown("#### 📐 1. Geometría del Tubo de Búsqueda")
         c_geo1, c_geo2 = st.columns(2)
@@ -791,7 +794,7 @@ with tab8:
             range_val = st.slider("Alcance (Range - m):", min_value=10, max_value=int(n_lags * lag_dist), value=int(n_lags * lag_dist * 0.5), step=10, key="v_range")
 
         # ------------------------------------------------------------------
-        # PANEL 2: MOTOR MATEMÁTICO DE FILTRADO Y PROYECCIÓN
+        # PANEL 2: MOTOR MATEMÁTICO DE FILTRADO Y PROYECCIÓN VECTORIAL
         # ------------------------------------------------------------------
         st.markdown("---")
         st.markdown("#### 📊 4. Gráfico de Ajuste Variográfico")
@@ -915,16 +918,9 @@ with tab8:
         
         st.plotly_chart(fig_v, use_container_width=True)
         
-        # GUARDADO EN MEMORIA DIRECTO CON INDENTACIÓN CONTROLADA (8 ESPACIOS)
-        st.session_state["v_parametros"] = {
-            "modelo": modelo_tipo, 
-            "nugget": nugget_val, 
-            "sill": sill_val, 
-            "range": range_val
-        }
+        # ASIGNACIÓN FINAL EN UNA SOLA LÍNEA RECTA Y DENTRO DEL BLOQUE ACTIVO
+        st.session_state["v_parametros"] = dict(modelo=modelo_tipo, nugget=nugget_val, sill=sill_val, range=range_val)
         st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
-    else:
-        #st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
 # ====================================================================
 # 🧱 PESTAÑA 9: MÓDULO DE MODELAMIENTO DE BLOQUES (PARTE 1 DE 3)
 # ====================================================================
