@@ -738,14 +738,18 @@ with tab7:
     else:
         st.warning("No hay datos de sondajes disponibles para renderizar en el espacio 3D.")
 # ====================================================================
-# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (SIN ERRATA DE ANIDACIÓN)
+# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (ALINEACIÓN RECTA COMPLETA)
 # ====================================================================
 with tab8:
     st.write("### 📉 Módulo de Variografía e Isotropía Avanzada")
     st.caption("Configura la geometría del tubo de búsqueda tridimensional y calibra el modelo teórico de continuidad.")
     
-    if "df_comp_final" in st.session_state and not st.session_state["df_comp_final"].empty:
-        df_c = st.session_state["df_comp_final"]
+    # Intentamos rescatar los compositos guardados en memoria de la pestaña 7
+    df_c = st.session_state.get("df_comp_final", pd.DataFrame())
+    
+    if df_c.empty:
+        st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
+    else:
         col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
         unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
@@ -911,8 +915,12 @@ with tab8:
         
         st.plotly_chart(fig_v, use_container_width=True)
         
+        # GUARDADO EN MEMORIA DIRECTO CON INDENTACIÓN CONTROLADA (8 ESPACIOS)
         st.session_state["v_parametros"] = {
-            "modelo": modelo_tipo, "nugget": nugget_val, "sill": sill_val, "range": range_val
+            "modelo": modelo_tipo, 
+            "nugget": nugget_val, 
+            "sill": sill_val, 
+            "range": range_val
         }
         st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
     else:
