@@ -923,7 +923,7 @@ with tab8:
             "range": range_val
         }
         st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
-    #else:
+    else:
         #st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
 # ====================================================================
 # 🧱 PESTAÑA 9: MÓDULO DE MODELAMIENTO DE BLOQUES (PARTE 1 DE 3)
@@ -1199,18 +1199,11 @@ if "db_bloques_activa" in st.session_state:
             fig_v.update_xaxes(gridcolor="rgba(200,200,200,0.3)", range=[0, max_dist_estudio])
             fig_v.update_yaxes(gridcolor="rgba(200,200,200,0.3)", range=[0, max_dist_val * 1.5 if 'max_dist_val' in locals() else varianza_datos * 1.8])
             
-            st.plotly_chart(fig_v, use_container_width=True)
-            
-        # Almacenamiento en memoria para que el Kriging de la Pestaña 9 asimile el modelo
-         st.session_state["v_parametros"] = {
-            "modelo": modelo_tipo, 
-            "nugget": nugget_val, 
-            "sill": sill_val, 
-            "range": range_val
-        }
-         st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
-    else:
-        st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
+           st.plotly_chart(fig_v, use_container_width=True)
+        
+        # SOLUCIÓN ABSOLUTA: Definición plana sin llaves ni saltos de línea
+        st.session_state["v_parametros"] = dict(modelo=modelo_tipo, nugget=nugget_val, sill=sill_val, range=range_val)
+        st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
 	#===========================================================================
 	# PESTAÑA 10 RESUMEN Y CURVAS TONELAJE-LEY (TABLA COMPLETA DE DISTRIBUCIÓN)
 	#===========================================================================
