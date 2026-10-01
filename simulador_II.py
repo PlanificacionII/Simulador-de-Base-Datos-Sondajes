@@ -1066,7 +1066,7 @@ if "db_bloques_activa" in st.session_state:
             st.session_state["df_bloques"] = df_b
             st.session_state["tamano_bloque"] = tamano_bloque
             crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
-            with col_grafico:
+            #with col_grafico:
             st.markdown("##### 📊 Gráfico de Ajuste Variográfico")
             
             # --- MOTOR MATEMÁTICO: FILTRADO VECTORIAL DE PARES (ANISOTROPÍA 3D) ---
