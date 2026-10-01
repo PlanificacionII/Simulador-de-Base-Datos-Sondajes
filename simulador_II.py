@@ -1194,10 +1194,13 @@ if "db_bloques_activa" in st.session_state:
             st.plotly_chart(fig_v, use_container_width=True)
             
         # Almacenamiento en memoria para que el Kriging de la Pestaña 9 asimile el modelo
-        st.session_state["v_parametros"] = {
-            "modelo": modelo_tipo, "nugget": nugget_val, "sill": sill_val, "range": range_val
+         st.session_state["v_parametros"] = {
+            "modelo": modelo_tipo, 
+            "nugget": nugget_val, 
+            "sill": sill_val, 
+            "range": range_val
         }
-        st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
+         st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
     else:
         st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
 	#===========================================================================
