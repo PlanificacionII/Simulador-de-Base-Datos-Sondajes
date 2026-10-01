@@ -916,7 +916,7 @@ if "db_bloques_activa" in st.session_state:
             with c_rep2:
                 st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
                 st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
-          with c_rep3:
+            with c_rep3:
                 st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
                 st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
 
