@@ -999,20 +999,25 @@ with tab9:
             st.plotly_chart(fig_blocks, use_container_width=True)
 
 # ====================================================================
-# PESTAÑA 10: CURVAS LEY–TONELAJE (CORREGIDO)
+# 📈 PESTAÑA 10: CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
+from plotly.subplots import make_subplots
+
 with tab10:
     st.write("### 📈 Curvas Ley–Tonelaje para Planificación Minera")
     st.caption("Curvas de tonelaje acumulado y ley media ponderada en función de la ley de corte.")
 
+    # Construcción de tabla base desde los ensayos
     df_curvas = df_assays.copy()
 
+    # Tonelaje por tramo (densidad 2.7 t/m³)
     df_curvas["Tonelaje"] = (df_curvas["To"] - df_curvas["From"]) * 2.7
 
     col_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
     unidad = "%" if col_ley == "Cu_pct" else "g/t"
     df_curvas["Ley"] = df_curvas[col_ley]
 
+    # Ordenar por ley descendente
     df_curvas = df_curvas.sort_values("Ley", ascending=False)
     df_curvas["Tonelaje Acumulado (Ton)"] = df_curvas["Tonelaje"].cumsum()
 
@@ -1038,12 +1043,14 @@ with tab10:
 
     st.write("#### 📈 Curvas Técnicas de Planificación Minera")
 
+    # FIGURA CORRECTA CON DOBLE EJE
     fig_curvas = make_subplots(specs=[[{"secondary_y": True}]])
 
+    # Tonelaje acumulado (eje izquierdo)
     fig_curvas.add_trace(
         go.Scatter(
-            x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
-            y=df_consolidado["Tonelaje Acumulado (Ton)"].values,
+            x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
+            y=df_consolidado["Tonelaje Acumulado (Ton)"],
             name="Tonelaje Acumulado (Ton)",
             mode="lines+markers",
             line=dict(color="#1f77b4", width=3),
@@ -1052,10 +1059,11 @@ with tab10:
         secondary_y=False
     )
 
+    # Ley media ponderada (eje derecho)
     fig_curvas.add_trace(
         go.Scatter(
-            x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"].values,
-            y=df_consolidado["Ley Media Ponderada Acum."].values,
+            x=df_consolidado[f"Ley Corte / Intervalo Inferior ({unidad})"],
+            y=df_consolidado["Ley Media Ponderada Acum."],
             name="Ley Media Ponderada",
             mode="lines+markers",
             line=dict(color="#d62728", width=3, dash="dash"),
@@ -1064,23 +1072,28 @@ with tab10:
         secondary_y=True
     )
 
+    # Layout profesional
     fig_curvas.update_layout(
-        hovermode="x",
-        legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
+        hovermode="x unified",
+        legend=dict(orientation="h", y=1.15, x=1, xanchor="right"),
         margin=dict(l=40, r=40, t=40, b=40),
+        height=550
     )
 
+    # Eje X
     fig_curvas.update_xaxes(title_text=f"Ley Corte ({unidad})")
 
+    # Eje Y izquierdo
     fig_curvas.update_yaxes(
         title_text="Tonelaje Acumulado (Ton)",
-        titlefont=dict(color="#1f77b4"),
+        color="#1f77b4",
         secondary_y=False
     )
 
+    # Eje Y derecho
     fig_curvas.update_yaxes(
         title_text=f"Ley Media Ponderada ({unidad})",
-        titlefont=dict(color="#d62728"),
+        color="#d62728",
         secondary_y=True
     )
 
