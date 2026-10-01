@@ -923,8 +923,8 @@ with tab8:
             "range": range_val
         }
         st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
-    else:
-        st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
+    #else:
+        #st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
 # ====================================================================
 # 🧱 PESTAÑA 9: MÓDULO DE MODELAMIENTO DE BLOQUES (PARTE 1 DE 3)
 # ====================================================================
