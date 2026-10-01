@@ -1312,14 +1312,19 @@ with tab10:
     st.write("### 📈 Curvas Ley–Tonelaje para Planificación Minera")
     st.caption("Curvas de tonelaje acumulado y ley media ponderada en función de la ley de corte.")
 
+    # Selección de ley
+    col_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+    unidad = "%" if col_ley == "Cu_pct" else "g/t"
+
     # Construcción de tabla base desde los ensayos
     df_curvas = df_assays.copy()
+
+    # 🔥 Filtrar bloques con ley > 0
     df_curvas = df_curvas[df_curvas[col_ley] > 0]
+
     # Tonelaje por tramo (densidad 2.7 t/m³)
     df_curvas["Tonelaje"] = (df_curvas["To"] - df_curvas["From"]) * 2.7
 
-    col_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-    unidad = "%" if col_ley == "Cu_pct" else "g/t"
     df_curvas["Ley"] = df_curvas[col_ley]
 
     # Ordenar por ley descendente
