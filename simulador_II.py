@@ -738,7 +738,7 @@ with tab7:
     else:
         st.warning("No hay datos de sondajes disponibles para renderizar en el espacio 3D.")
 # ====================================================================
-# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (ESTRUCTURA LINEAL SEGURO)
+# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (SIN ERRATA DE ANIDACIÓN)
 # ====================================================================
 with tab8:
     st.write("### 📉 Módulo de Variografía e Isotropía Avanzada")
@@ -755,7 +755,7 @@ with tab8:
         varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
         
         # ------------------------------------------------------------------
-        # PANEL 1: CONFIGURACIÓN GEOMÉTRICA (UN BAJO EL OTRO)
+        # PANEL 1: CONFIGURACIÓN GEOMÉTRICA (SECUENCIAL Y LINEAL)
         # ------------------------------------------------------------------
         st.markdown("#### 📐 1. Geometría del Tubo de Búsqueda")
         c_geo1, c_geo2 = st.columns(2)
@@ -776,7 +776,7 @@ with tab8:
         with c_ang2:
             buzamiento = st.number_input("Buzamiento = ", min_value=-90, max_value=90, value=65, step=1, key="v_buzamiento")
             
-        st.markdown("#### 🛠  3. Ajuste Teórico (Estructuras)")
+        st.markdown("#### 🛠️ 3. Ajuste Teórico (Estructuras)")
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], key="v_model_type")
         
         c_mod1, c_mod2 = st.columns(2)
