@@ -867,8 +867,11 @@ st.plotly_chart(fig_comp3d, use_container_width=True)
 with tab8:
 
     st.write("## 📉 Variografía PRO — Geoestadística Avanzada")
-    st.caption("Anisotropía 3D • Elipsoides • Cabeceo múltiple • Pares 3D • Exportación GSLib")
+    st.caption("Anisotropía 3D • Elipsoides • Cabeceo múltiple • Ajuste de variograma • Exportación GSLib")
 
+    # ============================
+    # CARGA DE COMPOSITOS
+    # ============================
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     if df_c.empty:
         st.error("⚠ No hay compositos disponibles. Genera la base en la Pestaña 7.")
@@ -877,307 +880,231 @@ with tab8:
     coords = df_c[["X", "Y", "Z"]].values
     leyes = df_c["Ley"].values
 
-    # ================================================================
-    # 🔧 FUNCIONES CORREGIDAS
-    # ================================================================
+    # ============================
+    # FUNCIONES
+    # ============================
     def rotar_3d(vec, rx, ry, rz):
         rx, ry, rz = np.radians([rx, ry, rz])
-
-        Rx = np.array([
-            [1, 0, 0],
-            [0, np.cos(rx), -np.sin(rx)],
-            [0, np.sin(rx),  np.cos(rx)]
-        ])
-
-        Ry = np.array([
-            [ np.cos(ry), 0, np.sin(ry)],
-            [ 0,          1, 0        ],
-            [-np.sin(ry), 0, np.cos(ry)]
-        ])
-
-        Rz = np.array([
-            [np.cos(rz), -np.sin(rz), 0],
-            [np.sin(rz),  np.cos(rz), 0],
-            [0,           0,          1]
-        ])
-
+        Rx = np.array([[1,0,0],[0,np.cos(rx),-np.sin(rx)],[0,np.sin(rx),np.cos(rx)]])
+        Ry = np.array([[np.cos(ry),0,np.sin(ry)],[0,1,0],[-np.sin(ry),0,np.cos(ry)]])
+        Rz = np.array([[np.cos(rz),-np.sin(rz),0],[np.sin(rz),np.cos(rz),0],[0,0,1]])
         R = Rz @ Ry @ Rx
+        return R @ vec.reshape(3,1) if vec.ndim==1 else R @ vec
 
-        if vec.ndim == 1:
-            vec = vec.reshape(3, 1)
+    def rotar_matriz(X,Y,Z,rx,ry,rz):
+        pts = np.vstack([X.flatten(),Y.flatten(),Z.flatten()])
+        rot = rotar_3d(pts,rx,ry,rz)
+        return rot[0].reshape(X.shape), rot[1].reshape(Y.shape), rot[2].reshape(Z.shape)
 
-        return R @ vec
-
-    def rotar_matriz(X, Y, Z, rx, ry, rz):
-        pts = np.vstack([X.flatten(), Y.flatten(), Z.flatten()])
-        pts_rot = rotar_3d(pts, rx, ry, rz)
-        Xr = pts_rot[0].reshape(X.shape)
-        Yr = pts_rot[1].reshape(Y.shape)
-        Zr = pts_rot[2].reshape(Z.shape)
-        return Xr, Yr, Zr
-
-    def vector_direccion(az, dip):
+    def vector_direccion(az,dip,rx,ry,rz):
         az_r = np.radians(az)
         dip_r = np.radians(dip)
         v = np.array([
-            np.cos(dip_r) * np.sin(az_r),
-            np.cos(dip_r) * np.cos(az_r),
+            np.cos(dip_r)*np.sin(az_r),
+            np.cos(dip_r)*np.cos(az_r),
             np.sin(dip_r)
         ])
-        return rotar_3d(v, rot_x, rot_y, rot_z).flatten()
+        return rotar_3d(v,rx,ry,rz).flatten()
 
-    def dentro_elipsoide(vec):
-        x, y, z = vec
-        return (x/el_a)**2 + (y/el_b)**2 + (z/el_c)**2 <= 1
+    def dentro_elipsoide(vec,a,b,c):
+        x,y,z = vec
+        return (x/a)**2 + (y/b)**2 + (z/c)**2 <= 1
 
-    # ================================================================
-    # 🟩 LAYOUT PRO — DOS COLUMNAS
-    # ================================================================
-    col_left, col_right = st.columns([0.42, 0.58])
+    # ============================
+    # LAYOUT
+    # ============================
+    col_left, col_right = st.columns([0.42,0.58])
 
-    # ================================================================
-    # 🟩 PANEL IZQUIERDO — PARÁMETROS
-    # ================================================================
+    # ============================
+    # PANEL IZQUIERDO
+    # ============================
     with col_left:
+
         st.markdown("### 🎛️ Parámetros del Variograma")
 
-        n_lags = st.number_input("Número de lags", 3, 30, 7)
-        lag_sep = st.number_input("Lag separación (m)", 5, 200, 20)
-        tol_ang = st.number_input("Tolerancia angular (°)", 5, 90, 30)
-        radio_tubo = st.number_input("Radio del tubo (m)", 5, 200, 20)
+        n_lags = st.number_input("Número de lags",3,30,7)
+        lag_sep = st.number_input("Lag separación (m)",5,200,20)
+        tol_ang = st.number_input("Tolerancia angular (°)",5,90,30)
 
         st.markdown("#### 🧭 Dirección Principal")
-        acimut = st.number_input("Acimut (°)", 0, 360, 18)
-        buzamiento = st.number_input("Buzamiento (°)", -90, 90, 65)
+        acimut = st.number_input("Acimut (°)",0,360,18)
+        buzamiento = st.number_input("Buzamiento (°)",-90,90,65)
 
-        st.markdown("#### 🎚️ Anisotropía 3D (Rotación Completa)")
-        rot_x = st.number_input("Rotación X (°)", -180, 180, 0)
-        rot_y = st.number_input("Rotación Y (°)", -180, 180, 0)
-        rot_z = st.number_input("Rotación Z (°)", -180, 180, 0)
+        st.markdown("#### 🎚️ Rotación 3D")
+        rot_x = st.number_input("Rotación X (°)",-180,180,0)
+        rot_y = st.number_input("Rotación Y (°)",-180,180,0)
+        rot_z = st.number_input("Rotación Z (°)",-180,180,0)
 
         st.markdown("#### 🟠 Elipsoide de Búsqueda")
-        el_a = st.number_input("Eje mayor (m)", 10, 500, 200)
-        el_b = st.number_input("Eje intermedio (m)", 10, 500, 120)
-        el_c = st.number_input("Eje menor (m)", 10, 500, 60)
+        el_a = st.number_input("Eje mayor (m)",10,500,200)
+        el_b = st.number_input("Eje intermedio (m)",10,500,120)
+        el_c = st.number_input("Eje menor (m)",10,500,60)
 
         st.markdown("#### 🎯 Cabeceo Múltiple")
-        cab_desde = st.number_input("Desde (°)", -90, 90, 0)
-        cab_hasta = st.number_input("Hasta (°)", min_value=0, max_value=180, value=180)
-        cab_n = st.number_input("Nº variogramas", 1, 20, 9)
-        lista_buz = np.linspace(cab_desde, cab_hasta, cab_n)
+        cab_desde = st.number_input("Desde (°)",-90,90,0)
+        cab_hasta = st.number_input("Hasta (°)",0,180,180)
+        cab_n = st.number_input("Nº variogramas",1,20,9)
+        lista_buz = np.linspace(cab_desde,cab_hasta,cab_n)
+
+        st.markdown("#### 📈 Ajuste del Modelo Teórico")
+        modelo_teorico = st.selectbox("Modelo Teórico",["Esférico","Exponencial","Gaussiano"])
+        nugget_val = st.number_input("Nugget",0.0,5.0,0.05,0.01)
+        sill_val = st.number_input("Sill",0.1,5.0,1.0,0.1)
+        range_val = st.number_input("Range (m)",10,500,120,10)
 
         generar = st.button("🚀 Generar Variogramas PRO")
 
-    # ================================================================
-    # 🟦 PANEL DERECHO — RESULTADOS
-    # ================================================================
+    # ============================
+    # PANEL DERECHO
+    # ============================
     with col_right:
 
         if generar:
 
+            # ============================
+            # VARIOGRAMA EXPERIMENTAL
+            # ============================
             fig_varios = go.Figure()
-            pares_3d = []
 
             for buz in lista_buz:
 
-                v_dir = vector_direccion(acimut, buz)
+                v_dir = vector_direccion(acimut,buz,rot_x,rot_y,rot_z)
                 max_dist = n_lags * lag_sep
 
                 lags_exp = [[] for _ in range(n_lags)]
                 gammas_exp = [[] for _ in range(n_lags)]
 
                 for i in range(len(coords)):
-                    for j in range(i + 1, len(coords)):
+                    for j in range(i+1,len(coords)):
 
                         vec = coords[i] - coords[j]
-                        vec_rot = rotar_3d(vec, rot_x, rot_y, rot_z).flatten()
-
+                        vec_rot = rotar_3d(vec,rot_x,rot_y,rot_z).flatten()
                         dist = np.linalg.norm(vec_rot)
-                        if dist == 0 or dist > max_dist:
+
+                        if dist==0 or dist>max_dist:
                             continue
 
-                        if not dentro_elipsoide(vec_rot):
+                        if not dentro_elipsoide(vec_rot,el_a,el_b,el_c):
                             continue
 
-                        cosang = np.abs(np.dot(vec_rot, v_dir)) / (dist + 1e-9)
-                        ang = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
+                        cosang = np.abs(np.dot(vec_rot,v_dir))/(dist+1e-9)
+                        ang = np.degrees(np.arccos(np.clip(cosang,-1,1)))
 
                         if ang <= tol_ang:
-                            lag_bin = int(dist // lag_sep)
-                            if lag_bin >= n_lags:
-                                lag_bin = n_lags - 1
-
-                            semivar = 0.5 * (leyes[i] - leyes[j])**2
+                            lag_bin = min(int(dist//lag_sep),n_lags-1)
+                            semivar = 0.5*(leyes[i]-leyes[j])**2
                             lags_exp[lag_bin].append(dist)
                             gammas_exp[lag_bin].append(semivar)
 
-                            pares_3d.append((coords[i], coords[j]))
-
-                lag_x = []
-                lag_y = []
-                for k in range(n_lags):
-                    if len(lags_exp[k]) > 0:
-                        lag_x.append(np.mean(lags_exp[k]))
-                        lag_y.append(np.mean(gammas_exp[k]))
+                lag_x = [np.mean(l) for l in lags_exp if len(l)>0]
+                lag_y = [np.mean(g) for g in gammas_exp if len(g)>0]
 
                 fig_varios.add_trace(go.Scatter(
-                    x=lag_x,
-                    y=lag_y,
+                    x=lag_x,y=lag_y,
                     mode="lines+markers",
                     name=f"Buz {buz:.1f}°"
                 ))
 
             fig_varios.update_layout(
-                title="Variogramas PRO por Cabeceo",
+                title="Variogramas Experimentales por Cabeceo",
                 xaxis_title="Distancia h (m)",
                 yaxis_title="Semivarianza γ(h)",
                 height=450
             )
-            st.plotly_chart(fig_varios, use_container_width=True)
+            st.plotly_chart(fig_varios,use_container_width=True)
 
-            # ============================================================
-            # 🟠 ELIPSOIDE DE BÚSQUEDA 3D
-            # ============================================================
-            st.markdown("### 🟠 Elipsoide de Búsqueda (3D)")
+            # ============================
+            # MODELO TEÓRICO AJUSTABLE
+            # ============================
+            st.markdown("### 📈 Ajuste del Modelo Teórico")
 
-            u = np.linspace(0, 2*np.pi, 40)
-            v = np.linspace(0, np.pi, 40)
+            h = np.linspace(0,max(lag_x),200)
 
-            x = el_a * np.outer(np.cos(u), np.sin(v))
-            y = el_b * np.outer(np.sin(u), np.sin(v))
-            z = el_c * np.outer(np.ones_like(u), np.cos(v))
+            if modelo_teorico=="Esférico":
+                gamma_teo = [
+                    nugget_val + (sill_val-nugget_val)*(1.5*(d/range_val)-0.5*(d/range_val)**3)
+                    if d<=range_val else sill_val
+                    for d in h
+                ]
+            elif modelo_teorico=="Exponencial":
+                gamma_teo = nugget_val + (sill_val-nugget_val)*(1-np.exp(-3*h/range_val))
+            else:
+                gamma_teo = nugget_val + (sill_val-nugget_val)*(1-np.exp(-3*(h/range_val)**2))
 
-            Xr, Yr, Zr = rotar_matriz(x, y, z, rot_x, rot_y, rot_z)
+            fig_teo = go.Figure()
+            fig_teo.add_trace(go.Scatter(x=lag_x,y=lag_y,mode="markers",name="Experimental"))
+            fig_teo.add_trace(go.Scatter(x=h,y=gamma_teo,mode="lines",name=f"Modelo {modelo_teorico}"))
 
-            fig_elip = go.Figure(data=[
-                go.Surface(
-                    x=Xr, y=Yr, z=Zr,
-                    colorscale="Viridis",
-                    opacity=0.6,
-                    showscale=False
-                )
-            ])
+            fig_teo.update_layout(
+                title="Ajuste Experimental vs Teórico",
+                xaxis_title="Distancia h (m)",
+                yaxis_title="γ(h)",
+                height=450
+            )
+            st.plotly_chart(fig_teo,use_container_width=True)
+
+            # ============================
+            # ELIPSOIDE 3D
+            # ============================
+            st.markdown("### 🟠 Elipsoide de Búsqueda 3D")
+
+            u = np.linspace(0,2*np.pi,40)
+            v = np.linspace(0,np.pi,40)
+            x = el_a*np.outer(np.cos(u),np.sin(v))
+            y = el_b*np.outer(np.sin(u),np.sin(v))
+            z = el_c*np.outer(np.ones_like(u),np.cos(v))
+
+            Xr,Yr,Zr = rotar_matriz(x,y,z,rot_x,rot_y,rot_z)
+
+            fig_elip = go.Figure(data=[go.Surface(
+                x=Xr,y=Yr,z=Zr,
+                colorscale="Viridis",
+                opacity=0.6,
+                showscale=False
+            )])
 
             fig_elip.update_layout(
                 title="Elipsoide de Búsqueda Rotado",
                 height=500,
-                scene=dict(
-                    xaxis_title="X",
-                    yaxis_title="Y",
-                    zaxis_title="Z",
-                    aspectmode="data"
-                )
+                scene=dict(aspectmode="data")
             )
+            st.plotly_chart(fig_elip,use_container_width=True)
 
-            st.plotly_chart(fig_elip, use_container_width=True)
+            # ============================
+            # DIRECCIÓN ANISOTRÓPICA
+            # ============================
+            st.markdown("### 🧭 Dirección Anisotrópica 3D")
 
-            # ============================================================
-            # 🧭 DIRECCIÓN ANISOTRÓPICA 3D
-            # ============================================================
-            st.markdown("### 🧭 Dirección Anisotrópica (3D)")
-
-            v_dir = vector_direccion(acimut, buzamiento)
+            v_dir = vector_direccion(acimut,buzamiento,rot_x,rot_y,rot_z)
 
             fig_dir = go.Figure()
-
             fig_dir.add_trace(go.Scatter3d(
-                x=[0, v_dir[0]*200],
-                y=[0, v_dir[1]*200],
-                z=[0, v_dir[2]*200],
+                x=[0,v_dir[0]*200],
+                y=[0,v_dir[1]*200],
+                z=[0,v_dir[2]*200],
                 mode="lines+markers",
-                line=dict(color="red", width=6),
-                marker=dict(size=4),
-                name="Dirección"
+                line=dict(color="red",width=6),
+                marker=dict(size=4)
             ))
 
             fig_dir.update_layout(
-                title="Dirección del Variograma (Acimut + Buzamiento + Rotación 3D)",
+                title="Dirección del Variograma",
                 height=450,
-                scene=dict(
-                    xaxis_title="X",
-                    yaxis_title="Y",
-                    zaxis_title="Z",
-                    aspectmode="data"
-                )
+                scene=dict(aspectmode="data")
             )
+            st.plotly_chart(fig_dir,use_container_width=True)
 
-            st.plotly_chart(fig_dir, use_container_width=True)
-
-            # ============================================================
-            # 📈 VARIOGRAMA EXPERIMENTAL VS TEÓRICO
-            # ============================================================
-            st.markdown("### 📈 Variograma Experimental vs Modelo Teórico")
-
-            modelo_teorico = st.selectbox(
-                "Modelo Teórico",
-                ["Esférico", "Exponencial", "Gaussiano"]
-            )
-
-            h = np.linspace(0, max(lag_x), 200)
-
-            if modelo_teorico == "Esférico":
-                gamma_teo = [
-                    nugget_val + (sill_val - nugget_val)*(1.5*(d/range_val) - 0.5*(d/range_val)**3)
-                    if d <= range_val else sill_val
-                    for d in h
-                ]
-            elif modelo_teorico == "Exponencial":
-                gamma_teo = nugget_val + (sill_val - nugget_val)*(1 - np.exp(-3*h/range_val))
-            else:
-                gamma_teo = nugget_val + (sill_val - nugget_val)*(1 - np.exp(-3*(h/range_val)**2))
-
-            fig_comp = go.Figure()
-
-            fig_comp.add_trace(go.Scatter(
-                x=lag_x,
-                y=lag_y,
-                mode="markers",
-                name="Experimental",
-                marker=dict(size=8, color="blue")
-            ))
-
-            fig_comp.add_trace(go.Scatter(
-                x=h,
-                y=gamma_teo,
-                mode="lines",
-                name=f"Modelo {modelo_teorico}",
-                line=dict(color="red", width=3)
-            ))
-
-            fig_comp.update_layout(
-                title="Comparación Variograma Experimental vs Teórico",
-                xaxis_title="Distancia h (m)",
-                yaxis_title="Semivarianza γ(h)",
-                height=450
-            )
-
-            st.plotly_chart(fig_comp, use_container_width=True)
-
-            # ============================================================
-            # 💾 EXPORTACIÓN
-            # ============================================================
-            st.markdown("### 💾 Exportación")
-
-            df_export = pd.DataFrame({
-                "Lag": lag_x,
-                "Gamma": lag_y
-            })
-
-            st.download_button(
-                "📥 Exportar CSV",
-                df_export.to_csv(index=False).encode("utf-8"),
-                "variograma_pro.csv"
-            )
+            # ============================
+            # EXPORTACIÓN
+            # ============================
+            df_export = pd.DataFrame({"Lag":lag_x,"Gamma":lag_y})
+            st.download_button("📥 Exportar CSV",df_export.to_csv(index=False).encode("utf-8"),"variograma_pro.csv")
 
             gslib = "Variograma_PRO\n2\nLag\nGamma\n"
-            for lx, gy in zip(lag_x, lag_y):
+            for lx,gy in zip(lag_x,lag_y):
                 gslib += f"{lx} {gy}\n"
 
-            st.download_button(
-                "📥 Exportar GSLib",
-                gslib.encode("utf-8"),
-                "variograma_pro.dat"
-            )
+            st.download_button("📥 Exportar GSLib",gslib.encode("utf-8"),"variograma_pro.dat")
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
