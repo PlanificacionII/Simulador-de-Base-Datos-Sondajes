@@ -953,10 +953,8 @@ with tab7:
     )
 
     st.plotly_chart(fig, use_container_width=True)
-
-
 # ====================================================================
-# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Versión Definitiva, Fluida y Probada)
+# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Estilo Software Minero Comercial)
 # ====================================================================
 import numpy as np
 import pandas as pd
@@ -965,17 +963,9 @@ from scipy.spatial.distance import pdist
 
 with tab8:
     st.markdown("## 📉 Variografía PRO — Geoestadística Avanzada")
-    st.caption("Análisis direccional, ajuste teórico interactivo y exportación.")
+    st.caption("Análisis direccional, ajuste teórico interactivo y elipsoide de anisotropía.")
 
-    # 🛠️ INICIALIZACIÓN ABSOLUTA EN MEMORIA
-    if "lags_calculados" not in st.session_state:
-        st.session_state["lags_calculados"] = []
-    if "gammas_calculados" not in st.session_state:
-        st.session_state["gammas_calculados"] = []
-
-    # ============================================================
-    # 1. CARGA DE DATOS
-    # ============================================================
+    # 1. CARGA DE DATOS & CONTROL DE ESTADO SEGURO
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     if df_c.empty:
         st.warning("⚠ No hay compositos disponibles. Genere la base en la Pestaña 7.")
@@ -986,14 +976,23 @@ with tab8:
     leyes_m = df_c[col_ley].values
     varianza_datos = float(np.var(leyes_m))
 
-    # ============================================================
-    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA)
-    # ============================================================
-    col_left, col_right = st.columns([0.40, 0.60])
+    # Inicialización única en memoria interna para romper el congelamiento de los sliders
+    if "v_nugget" not in st.session_state:
+        st.session_state["v_nugget"] = float(varianza_datos * 0.15)
+    if "v_sill" not in st.session_state:
+        st.session_state["v_sill"] = float(varianza_datos)
+    if "v_range" not in st.session_state:
+        st.session_state["v_range"] = 80.0
+    if "lags_calculados" not in st.session_state:
+        st.session_state["lags_calculados"] = []
+    if "gammas_calculados" not in st.session_state:
+        st.session_state["gammas_calculados"] = []
+# 2. PANEL DE CONFIGURACIÓN (IZQUIERDA)
+    col_left, col_right = st.columns([0.38, 0.62])
 
     with col_left:
         st.markdown("### 🎛️ Parámetros Experimentales")
-        n_lags = st.number_input("Número de lags", 1, 30, 7, key="v_n_lags")
+        n_lags = st.number_input("Número de lags", 1, 30, 8, key="v_n_lags")
         lag_dist = st.number_input("Lag separación (m)", 1.0, 200.0, 20.0, key="v_lag_dist")
         tolerancia_t = st.number_input("Tolerancia angular (°)", 5.0, 90.0, 30.0, key="v_tolerancia")
         omni_3d = st.checkbox("Omnidireccional 3D", value=False, key="v_omni")
@@ -1002,32 +1001,27 @@ with tab8:
         acimut = st.number_input("Acimut (°)", 0, 360, 18, key="v_acimut")
         buzamiento = st.number_input("Buzamiento (°)", -90, 90, 65, key="v_buzamiento")
 
-        # 🚀 BOTÓN QUE COMPILA Y CALCULA LOS PUNTOS AZULES
         btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
 
         st.markdown("---")
-        st.markdown("### 🛠️ Ajuste Teórico (Manual del Alumno)")
+        st.markdown("### 🛠️ Ajuste Teórico (Controles Activos)")
         
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
         
-        # Sliders hiper-reactivos e independientes
-        nugget_val = st.slider("Efecto Pepita (Nugget)", 0.00, float(varianza_datos), float(varianza_datos * 0.1), step=0.01, key="v_nugget_directo")
-        sill_val = st.slider("Meseta (Sill Total)", 0.01, float(varianza_datos * 2.0), float(varianza_datos), step=0.01, key="v_sill_directo")
+        # Sliders vinculados al estado para garantizar reactividad matemática inmediata al arrastrar
+        nugget_val = st.slider("Efecto Pepita (Nugget)", 0.00, float(varianza_datos), key="v_nugget", step=0.005)
+        sill_val = st.slider("Meseta (Sill Total)", 0.01, float(varianza_datos * 2.0), key="v_sill", step=0.005)
         
         max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
-        range_val = st.slider("Alcance (Range en metros)", 5, max_alcance_dinamico, int(n_lags * lag_dist * 0.5), step=5, key="v_range_directo")
-
-    # ============================================================
-    # 3. PROCESAMIENTO MATRICIAL (Numpy Vectorizado)
-    # ============================================================
+        range_val = st.slider("Alcance (Range en metros)", 5, max_alcance_dinamico, key="v_range", step=5)
+# 3. PROCESAMIENTO MATRICIAL VECTORIZADO
     max_dist = float(n_lags * lag_dist)
 
     if btn_calcular:
-        with st.spinner("Calculando pares de puntos geoestadísticos..."):
+        with st.spinner("Calculando pares geoestadísticos..."):
             lags_tmp_res = []
             gammas_tmp_res = []
             
-            # Cálculo ultra-rápido de distancias euclidianas y semivarianzas
             matriz_dist = pdist(coords_m)
             idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
             matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
@@ -1043,11 +1037,7 @@ with tab8:
             else:
                 az_rad = np.radians(acimut)
                 dip_rad = np.radians(buzamiento)
-                v_dir = np.array([
-                    np.cos(dip_rad) * np.sin(az_rad),
-                    np.cos(dip_rad) * np.cos(az_rad),
-                    np.sin(dip_rad)
-                ])
+                v_dir = np.array([np.cos(dip_rad) * np.sin(az_rad), np.cos(dip_rad) * np.cos(az_rad), np.sin(dip_rad)])
 
                 vectores = coords_m[idx_i] - coords_m[idx_j]
                 mask_dist = (matriz_dist > 0) & (matriz_dist <= max_dist)
@@ -1073,108 +1063,104 @@ with tab8:
                             lags_tmp_res.append((d_min + d_max) / 2)
                             gammas_tmp_res.append(np.mean(semiv_finales[mask_lag]))
 
-            # Guardar resultados fijos en memoria de sesión
             st.session_state["lags_calculados"] = lags_tmp_res
             st.session_state["gammas_calculados"] = gammas_tmp_res
             st.rerun()
 
-    # Recuperación segura para renderizar el gráfico
     lags_exp = st.session_state.get("lags_calculados", [])
     gammas_exp = st.session_state.get("gammas_calculados", [])
-
-    # ============================================================
-    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (ECUACIONES GEOESTADÍSTICAS)
-    # ============================================================
-    h = np.linspace(0, max_dist * 1.2, 200)
+ # 4. MODELACIÓN MATEMÁTICA PURA
+    h = np.linspace(0, max_dist * 1.15, 200)
     c_struct = float(sill_val - nugget_val)
     gamma_teo = []
 
     for d in h:
         if modelo_tipo == "spherical":
             if d <= range_val:
-                # Comienza en la altura exacta de nugget_val en el eje Y
                 valor = nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
             else:
                 valor = sill_val
             gamma_teo.append(valor)
-            
         elif modelo_tipo == "exponential":
             valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * d / range_val))
             gamma_teo.append(valor)
-            
         elif modelo_tipo == "gaussian":
             valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * (d / range_val)**2))
             gamma_teo.append(valor)
-
-   # ============================================================
-    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY (ESCALA FIJA)
-    # ============================================================
+# 5. PANEL DERECHO — DISEÑO PROFESIONAL (ESTILO SOFTWARE MINERO)
     with col_right:
-        st.markdown("### 📈 Ajuste de Curvas Geoestadísticas")
+        st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
 
         fig = go.Figure()
 
-        # 1. Variograma Experimental (Puntos Azules fijos)
+        # 1. Variograma Experimental Estilizado (Puntos de Control Técnicos)
         if len(lags_exp) > 0:
             fig.add_trace(go.Scatter(
                 x=lags_exp, y=gammas_exp,
                 mode="markers+lines",
-                name="Experimental (Fijo)",
-                marker=dict(size=10, color="blue"),
-                line=dict(color="blue", width=1.5, dash="dot")
+                name="Experimental",
+                marker=dict(size=8, color="#0A2540", line=dict(width=1, color="white")),
+                line=dict(color="#20639B", width=1.5, dash="dash")
             ))
         else:
             fig.add_annotation(
-                text="Haga clic en 'Calcular Variograma Experimental'<br>para cargar los puntos del yacimiento.",
-                xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
-                font=dict(size=14, color="orange")
+                text="Haga clic en 'Calcular Variograma Experimental'<br>para procesar los sondajes mineros.",
+                xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False, font=dict(size=13, color="#DE7A22")
             )
 
-        # 2. Curva continua teórica interactiva (Línea roja)
+        # 2. Curva Teórica Continua Imponente
         fig.add_trace(go.Scatter(
             x=h, y=gamma_teo,
             mode="lines",
-            name=f"Modelo: {modelo_tipo}",
-            line=dict(color="red", width=3.5)
+            name=f"Modelo {modelo_tipo.capitalize()}",
+            line=dict(color="#E63946", width=3)
         ))
 
-        # 3. Línea de referencia horizontal de la Varianza Global
+        # 3. Línea de Referencia de la Varianza Global
         fig.add_shape(
-            type="line", x0=0, x1=max_dist * 1.2, y0=varianza_datos, y1=varianza_datos,
-            line=dict(color="gray", width=2, dash="dash"),
+            type="line", x0=0, x1=max_dist * 1.15, y0=varianza_datos, y1=varianza_datos,
+            line=dict(color="#8D99AE", width=1.5, dash="longdash"),
         )
-        
         fig.add_annotation(
-            x=max_dist * 0.9, y=varianza_datos, text="Varianza Muestral Global",
-            showarrow=False, yshift=10, font=dict(color="gray")
+            x=max_dist * 0.85, y=varianza_datos, text="Varianza Global Muestral",
+            showarrow=False, yshift=10, font=dict(color="#5C677D", size=11)
         )
 
-        # 🛠️ CORRECCIÓN DE ESCALA: Fijamos el rango del eje Y para ver el movimiento del Nugget
-        max_y_fijo = float(varianza_datos * 2.2) # Límite superior fijo basado en los datos
-
+        # Configuración de escala fija y cuadrícula limpia tipo software comercial
+        max_y_limite = float(varianza_datos * 1.4)
+        
         fig.update_layout(
-            xaxis_title="Distancia de separación o Lag h (m)",
-            yaxis_title="Semivarianza γ(h)",
-            height=520,
+            xaxis_title=dict(text="Distancia de Separación o Lag h (m)", font=dict(size=12, color="#2B2D42")),
+            yaxis_title=dict(text="Semivarianza γ(h)", font=dict(size=12, color="#2B2D42")),
+            height=510,
             hovermode="x unified",
-            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
-            margin=dict(l=40, r=20, t=20, b=40),
-            # Se fuerza a que el eje Y empiece siempre en 0 y no se autoajuste con el Nugget
-            yaxis=dict(autorange=True) 
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            margin=dict(l=55, r=25, t=15, b=50),
+            legend=dict(
+                yanchor="bottom", y=0.02, xanchor="right", x=0.98,
+                bgcolor="rgba(255, 255, 255, 0.9)", bordercolor="#BDC3C7", borderwidth=1
+            ),
+            xaxis=dict(
+                showgrid=True, gridcolor="#E5E5E5", showline=True, linecolor="#2B2D42", 
+                linewidth=1.5, mirror=True, ticks="inside"
+            ),
+            yaxis=dict(
+                showgrid=True, gridcolor="#E5E5E5", showline=True, linecolor="#2B2D42", 
+                linewidth=1.5, mirror=True, ticks="inside", range=[0.0, max_y_limite]
+            )
         )
 
         st.plotly_chart(fig, use_container_width=True)
-        st.info("💡 **Ajuste visual corregido:** Al fijar el origen en 0, ahora verás de forma clara cómo el inicio de la **curva roja** se despega del fondo y sube verticalmente a medida que aumentas el Efecto Nugget.")
-
-    # ============================================================
-    # 6. GUARDAR PARÁMETROS PARA KRIGING
-    # ============================================================
+        st.info("💡 **Ajuste Geológico:** Mueva el deslizador del **Nugget** a la izquierda. Verá de inmediato cómo el origen vertical de la **línea roja** sube y baja de manera estable sobre la cuadrícula.")
+ # 6. GUARDAR PARÁMETROS PARA KRIGING
     st.session_state["v_parametros"] = dict(
         modelo=modelo_tipo,
         nugget=float(nugget_val),
         sill=float(sill_val),
         range=float(range_val)
-    )# ====================================================================
+    )
+# ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
 with tab9:
