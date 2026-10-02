@@ -776,90 +776,184 @@ with tab6:
 
         st.pyplot(fig_hist)
 # ====================================================================
-# 📐 PESTAÑA 7 — COMPOSITAJE DE POZOS (COMPATIBLE CON VARIOGRAFÍA)
+# 📐 PESTAÑA 7 — COMPOSITAJE DE SONDAJES (Banco / Collarín)
 # ====================================================================
 with tab7:
-    st.write("### 📐 Compositaje de Pozos (Centro de Intervalos)")
-    st.caption("Genera una base de datos compositada con coordenadas reales para variografía y modelo de bloques.")
 
-    col_ley_comp = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-    unidad_comp = "%" if col_ley_comp == "Cu_pct" else "g/t"
+    st.markdown("## 📐 Módulo de Compositaje de Pozos")
+    st.caption("Regularización del soporte minero para estimación de recursos.")
 
-    registros_comp = []
+    # ============================================================
+    # 1. Selección del método de compositaje
+    # ============================================================
+    metodo = st.radio(
+        "Seleccione el método de compositaje:",
+        ["Por Collarín (Longitud fija)", "Por Banco (RL / Cota)"],
+        horizontal=True
+    )
 
-    # Recorrer todos los collares
-    for idx, row_c in df_collar.iterrows():
-        p_id = row_c["Nombre"]
+    # ============================================================
+    # 2. Parámetros según método
+    # ============================================================
+    if metodo == "Por Collarín (Longitud fija)":
+        largo_composito = st.number_input(
+            "Longitud del composito (m):",
+            min_value=1, max_value=50, value=10, step=1
+        )
+    else:
+        banco_altura = st.number_input(
+            "Altura del banco (m):",
+            min_value=2, max_value=50, value=10, step=1
+        )
 
-        ensayos_pozo = df_assays[df_assays["ID"] == p_id]
-        srv = df_surveys[df_surveys["ID"] == p_id].iloc[0]
+    st.markdown("---")
 
-        az = np.radians(srv["Azimuth"])
-        dp = np.radians(srv["Dip"])
+    # ============================================================
+    # 3. Cálculo del compositaje
+    # ============================================================
+    compositos = []
 
-        # Recorrer todos los tramos del pozo
-        for _, ens in ensayos_pozo.iterrows():
-            p_m = ens["From"] + 5  # centro del intervalo
+    for idx, row in df_collar.iterrows():
 
-            # Coordenadas reales del tramo
-            int_x = float(row_c["UTM Este"]) + (p_m * np.cos(dp) * np.sin(az))
-            int_y = float(row_c["UTM Norte"]) + (p_m * np.cos(dp) * np.cos(az))
-            int_z = float(row_c["Z_Cota"]) + (p_m * np.sin(dp))
+        p_id = row["Nombre"]
+        x_coll = float(row["UTM Este"])
+        y_coll = float(row["UTM Norte"])
+        z_coll = float(row["Z_Cota"])
 
-            ley_val = float(ens[col_ley_comp])
+        ensayos_pozo = df_assays[df_assays["ID"] == p_id].sort_values(by="From")
+        srv = next((s for s in surveys if s["ID"] == p_id), None)
 
-            registros_comp.append({
-                "ID": p_id,
-                "From": ens["From"],
-                "To": ens["To"],
-                "X": int_x,
-                "Y": int_y,
-                "Z": int_z,
-                "Ley": ley_val
-            })
+        if ensayos_pozo.empty or not srv:
+            continue
 
-    df_comp_final = pd.DataFrame(registros_comp)
+        az_rad = np.radians(srv["Azimuth"])
+        dp_rad = np.radians(srv["Dip"])
 
-    st.write("#### 📋 Base de Datos Compositada (Simplificada)")
-    st.dataframe(df_comp_final.head(300), use_container_width=True)
+        # ============================================================
+        # MÉTODO 1: COLLARÍN (Longitud fija)
+        # ============================================================
+        if metodo == "Por Collarín (Longitud fija)":
 
-    crear_boton_excel(df_comp_final, "Compositos_Simplificados")
+            prof_max = float(ensayos_pozo["To"].max())
+            n_comp = int(np.ceil(prof_max / largo_composito))
 
-    # Guardar en memoria para variografía y modelo de bloques
+            for k in range(n_comp):
+
+                c_from = k * largo_composito
+                c_to = min(c_from + largo_composito, prof_max)
+                c_len = c_to - c_from
+                if c_len <= 0:
+                    continue
+
+                suma_ley_long = 0.0
+                suma_inter = 0.0
+
+                for _, ensay in ensayos_pozo.iterrows():
+                    overlap_from = max(c_from, float(ensay["From"]))
+                    overlap_to = min(c_to, float(ensay["To"]))
+                    inter = overlap_to - overlap_from
+
+                    if inter > 0:
+                        suma_ley_long += float(ensay[col_seleccionada]) * inter
+                        suma_inter += inter
+
+                ley_comp = (suma_ley_long / suma_inter) if suma_inter > 0 else 0.0
+
+                pm = c_from + (c_len / 2)
+                xi = x_coll + (pm * np.cos(dp_rad) * np.sin(az_rad))
+                yi = y_coll + (pm * np.cos(dp_rad) * np.cos(az_rad))
+                zi = z_coll + (pm * np.sin(dp_rad))
+
+                compositos.append({
+                    "ID": p_id,
+                    "X": round(xi, 2),
+                    "Y": round(yi, 2),
+                    "Z": round(zi, 2),
+                    "Desde": round(c_from, 2),
+                    "Hasta": round(c_to, 2),
+                    "Ley": round(ley_comp, 4)
+                })
+
+        # ============================================================
+        # MÉTODO 2: BANCO (RL / Cota)
+        # ============================================================
+        else:
+
+            z_min = ensayos_pozo["Z"].min()
+            z_max = ensayos_pozo["Z"].max()
+
+            bancos = np.arange(z_min, z_max + banco_altura, banco_altura)
+
+            for b in range(len(bancos) - 1):
+
+                z_inf = bancos[b]
+                z_sup = bancos[b + 1]
+
+                ensayos_banco = ensayos_pozo[
+                    (ensayos_pozo["Z"] >= z_inf) &
+                    (ensayos_pozo["Z"] < z_sup)
+                ]
+
+                if ensayos_banco.empty:
+                    continue
+
+                suma_ley = np.sum(ensayos_banco[col_seleccionada] * ensayos_banco["Longitud"])
+                suma_long = np.sum(ensayos_banco["Longitud"])
+
+                ley_comp = suma_ley / suma_long if suma_long > 0 else 0.0
+
+                xi = ensayos_banco["X"].mean()
+                yi = ensayos_banco["Y"].mean()
+                zi = ensayos_banco["Z"].mean()
+
+                compositos.append({
+                    "ID": p_id,
+                    "X": round(xi, 2),
+                    "Y": round(yi, 2),
+                    "Z": round(zi, 2),
+                    "Banco Inferior": round(z_inf, 2),
+                    "Banco Superior": round(z_sup, 2),
+                    "Ley": round(ley_comp, 4)
+                })
+
+    # ============================================================
+    # 4. TABLA FINAL
+    # ============================================================
+    df_comp_final = pd.DataFrame(compositos)
     st.session_state["df_comp_final"] = df_comp_final
 
-    st.success("💾 Compositos generados y almacenados correctamente. Listos para variografía y modelo de bloques.")
-# ====================================================================
-# 🛰️ VISUALIZACIÓN 3D DE POZOS COMPOSITADOS
-# ====================================================================
-st.write("#### 🛰️ Visualización 3D de Pozos Compositados")
+    st.markdown("### 📋 Tabla de Compositos")
+    st.dataframe(df_comp_final, use_container_width=True, height=250)
 
-fig_comp3d = go.Figure()
+    crear_boton_excel(df_comp_final, "Compositos")
 
-fig_comp3d.add_trace(go.Scatter3d(
-    x=df_comp_final["X"],
-    y=df_comp_final["Y"],
-    z=df_comp_final["Z"],
-    mode="markers",
-    marker=dict(
-        size=4,
-        color=df_comp_final["Ley"],
-        colorscale="Viridis",
-        colorbar=dict(title=f"Ley ({unidad_comp})")
+    st.markdown("---")
+
+    # ============================================================
+    # 5. VISUALIZACIÓN 3D (SOLO EN PESTAÑA 7)
+    # ============================================================
+    st.markdown("### 🌐 Visualización 3D de Compositos")
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter3d(
+        x=df_comp_final["X"],
+        y=df_comp_final["Y"],
+        z=df_comp_final["Z"],
+        mode="markers",
+        marker=dict(size=4, color=df_comp_final["Ley"], colorscale="Viridis"),
+        text=df_comp_final["ID"],
+        hoverinfo="text"
+    ))
+
+    fig.update_layout(
+        height=600,
+        scene=dict(aspectmode="data"),
+        margin=dict(l=0, r=0, t=40, b=0)
     )
-))
 
-fig_comp3d.update_layout(
-    height=500,
-    scene=dict(
-        xaxis_title="X",
-        yaxis_title="Y",
-        zaxis_title="Z",
-        aspectmode="data"
-    )
-)
+    st.plotly_chart(fig, use_container_width=True)
 
-st.plotly_chart(fig_comp3d, use_container_width=True)
 
 # ====================================================================
 # 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Simulador IV — Versión Ordenada)
