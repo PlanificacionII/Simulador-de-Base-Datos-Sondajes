@@ -1175,7 +1175,7 @@ with tab8:
             ),
             yaxis=dict(
                 showgrid=True, gridcolor="#E5E5E5", showline=True, linecolor="#2B2D42", 
-                linewidth=1.5, mirror=True, ticks="inside", range=[0.0, max_y_limite]
+                linewidth=1.5, mirror=True, ticks="inside", autorange=True     #range=[0.0, max_y_limite]
             )
         )
 
