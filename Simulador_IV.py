@@ -1160,7 +1160,7 @@ with tab8:
             legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
             margin=dict(l=40, r=20, t=20, b=40),
             # Se fuerza a que el eje Y empiece siempre en 0 y no se autoajuste con el Nugget
-            yaxis=dict(range=[0.0, max_y_fijo]) 
+            yaxis=dict(autorange=True) 
         )
 
         st.plotly_chart(fig, use_container_width=True)
