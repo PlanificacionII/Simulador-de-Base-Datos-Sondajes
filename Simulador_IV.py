@@ -1111,22 +1111,36 @@ with tab8:
     lags_exp = st.session_state["lags_calculados"]
     gammas_exp = st.session_state["gammas_calculados"]
 
-    # ============================================================
-    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL
+     # ============================================================
+    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (FÓRMULAS CORREGIDAS)
     # ============================================================
     h = np.linspace(0, max_dist * 1.2, 200)
-    c_struct = sill_val - nugget_val
+    
+    # C es la varianza estructural (la altura del escalón por encima del nugget)
+    c_struct = float(sill_val - nugget_val)
 
-    if modelo_tipo == "spherical":
-        gamma_teo = [
-            nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
-            if d <= range_val else sill_val
-            for d in h
-        ]
-    elif modelo_tipo == "exponential":
-        gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * h / range_val))
-    elif modelo_tipo == "gaussian":
-        gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * (h / range_val)**2))
+    gamma_teo = []
+    for d in h:
+        if d == 0:
+            gamma_teo.append(0.0)  # Por definición, la semivarianza en distancia cero es cero
+        else:
+            if modelo_tipo == "spherical":
+                if d <= range_val:
+                    # Fórmula esférica estándar: Nugget + C * [1.5*(d/a) - 0.5*(d/a)^3]
+                    valor = nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
+                else:
+                    valor = sill_val
+                gamma_teo.append(valor)
+                
+            elif modelo_tipo == "exponential":
+                # Fórmula exponencial estándar: Nugget + C * [1 - exp(-3*d/a)]
+                valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * d / range_val))
+                gamma_teo.append(valor)
+                
+            elif modelo_tipo == "gaussian":
+                # Fórmula gaussiana estándar: Nugget + C * [1 - exp(-3*(d/a)^2)]
+                valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * (d / range_val)**2))
+                gamma_teo.append(valor)
 
     # ============================================================
     # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY
