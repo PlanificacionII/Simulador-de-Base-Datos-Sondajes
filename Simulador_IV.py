@@ -1106,8 +1106,8 @@ with tab8:
             valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * (d / range_val)**2))
             gamma_teo.append(valor)
 
-    # ============================================================
-    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY
+   # ============================================================
+    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY (ESCALA FIJA)
     # ============================================================
     with col_right:
         st.markdown("### 📈 Ajuste de Curvas Geoestadísticas")
@@ -1149,17 +1149,22 @@ with tab8:
             showarrow=False, yshift=10, font=dict(color="gray")
         )
 
+        # 🛠️ CORRECCIÓN DE ESCALA: Fijamos el rango del eje Y para ver el movimiento del Nugget
+        max_y_fijo = float(varianza_datos * 2.2) # Límite superior fijo basado en los datos
+
         fig.update_layout(
             xaxis_title="Distancia de separación o Lag h (m)",
             yaxis_title="Semivarianza γ(h)",
             height=520,
             hovermode="x unified",
             legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
-            margin=dict(l=40, r=20, t=20, b=40)
+            margin=dict(l=40, r=20, t=20, b=40),
+            # Se fuerza a que el eje Y empiece siempre en 0 y no se autoajuste con el Nugget
+            yaxis=dict(range=[0.0, max_y_fijo]) 
         )
 
         st.plotly_chart(fig, use_container_width=True)
-        st.info("💡 **Fluidez Completa:** Haz clic primero en el botón azul para calcular el yacimiento. Luego mueve el Nugget o el Sill y verás la interacción instantánea en la línea roja.")
+        st.info("💡 **Ajuste visual corregido:** Al fijar el origen en 0, ahora verás de forma clara cómo el inicio de la **curva roja** se despega del fondo y sube verticalmente a medida que aumentas el Efecto Nugget.")
 
     # ============================================================
     # 6. GUARDAR PARÁMETROS PARA KRIGING
