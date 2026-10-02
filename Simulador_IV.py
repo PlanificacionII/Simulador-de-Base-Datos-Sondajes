@@ -1026,8 +1026,11 @@ with tab8:
     # [AQUÍ VA LA SECCIÓN 3 DEL CÁLCULO EXPERIMENTAL QUE YA TIENES]
 
     # ============================================================
-    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (SIN ARTEFACTOS EN CERO)
+    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (FÓRMULA SEGURA CON MAX_DIST)
     # ============================================================
+    # Definición global para evitar el NameError al mover los sliders
+    max_dist = float(n_lags * lag_dist)
+    
     h = np.linspace(0, max_dist * 1.2, 200)
     c_struct = float(sill_val - nugget_val)
     gamma_teo = []
@@ -1035,7 +1038,6 @@ with tab8:
     for d in h:
         if modelo_tipo == "spherical":
             if d <= range_val:
-                # La curva nace directamente en el valor del Nugget
                 valor = nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
             else:
                 valor = sill_val
