@@ -992,8 +992,8 @@ with tab8:
     if "v_range_val" not in st.session_state:
         st.session_state["v_range_val"] = 50.0
 
-    # ============================================================
-    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA)
+     # ============================================================
+    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA) — REACTIVIDAD DIRECTA
     # ============================================================
     col_left, col_right = st.columns([0.40, 0.60])
 
@@ -1008,7 +1008,7 @@ with tab8:
         acimut = st.number_input("Acimut (°)", 0, 360, 18, key="v_acimut")
         buzamiento = st.number_input("Buzamiento (°)", -90, 90, 65, key="v_buzamiento")
 
-        # BOTÓN DE CÁLCULO (Aislado del ajuste de curvas)
+        # BOTÓN DE CÁLCULO (Solo calcula los puntos azules)
         btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
 
         st.markdown("---")
@@ -1016,140 +1016,48 @@ with tab8:
         
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
         
-        # Sliders vinculados de manera segura mediante session_state dinámico
-        nugget_val = st.slider(
-            "Efecto Pepita (Nugget)", 
-            min_value=0.00, 
-            max_value=float(varianza_datos), 
-            value=st.session_state["v_nugget_val"], 
-            step=0.01,
-            key="v_nugget_slider"
-        )
-        st.session_state["v_nugget_val"] = nugget_val
-
-        sill_val = st.slider(
-            "Meseta (Sill Total)", 
-            min_value=0.01, 
-            max_value=float(varianza_datos * 2.0), 
-            value=st.session_state["v_sill_val"], 
-            step=0.01,
-            key="v_sill_slider"
-        )
-        st.session_state["v_sill_val"] = sill_val
-
+        # Sliders simplificados y ultra-reactivos (Sin duplicación de variables)
+        nugget_val = st.slider("Efecto Pepita (Nugget)", 0.00, float(varianza_datos), float(varianza_datos * 0.1), step=0.01, key="v_nugget_directo")
+        sill_val = st.slider("Meseta (Sill Total)", 0.01, float(varianza_datos * 2.0), float(varianza_datos), step=0.01, key="v_sill_directo")
+        
         max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
-        range_val = st.slider(
-            "Alcance (Range en metros)", 
-            min_value=5, 
-            max_value=max_alcance_dinamico, 
-            value=int(np.clip(st.session_state["v_range_val"], 5, max_alcance_dinamico)), 
-            step=5,
-            key="v_range_slider"
-        )
-        st.session_state["v_range_val"] = range_val
+        range_val = st.slider("Alcance (Range en metros)", 5, max_alcance_dinamico, int(n_lags * lag_dist * 0.5), step=5, key="v_range_directo")
+
+    # [AQUÍ VA LA SECCIÓN 3 DEL CÁLCULO EXPERIMENTAL QUE YA TIENES]
 
     # ============================================================
-    # 3. EJECUCIÓN DEL VARIOGRAMA EXPERIMENTAL (SOLO AL PRESIONAR BOTÓN)
-    # ============================================================
-    max_dist = n_lags * lag_dist
-
-    if btn_calcular:
-        with st.spinner("Calculando pares de puntos geoestadísticos..."):
-            lags_tmp_res = []
-            gammas_tmp_res = []
-            
-            matriz_dist = pdist(coords_m)
-            idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
-            matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
-
-            if omni_3d:
-                for k in range(n_lags):
-                    d_min = k * lag_dist
-                    d_max = (k + 1) * lag_dist
-                    mask = (matriz_dist >= d_min) & (matriz_dist < d_max)
-                    if np.sum(mask) > 2:
-                        lags_tmp_res.append((d_min + d_max) / 2)
-                        gammas_tmp_res.append(np.mean(matriz_semiv[mask]))
-            else:
-                az_rad = np.radians(acimut)
-                dip_rad = np.radians(buzamiento)
-                v_dir = np.array([
-                    np.cos(dip_rad) * np.sin(az_rad),
-                    np.cos(dip_rad) * np.cos(az_rad),
-                    np.sin(dip_rad)
-                ])
-
-                vectores = coords_m[idx_i] - coords_m[idx_j]
-                mask_dist = (matriz_dist > 0) & (matriz_dist <= max_dist)
-                
-                if np.any(mask_dist):
-                    dist_filtradas = matriz_dist[mask_dist]
-                    vectores_filtrados = vectores[mask_dist]
-                    semiv_filtradas = matriz_semiv[mask_dist]
-
-                    dot_products = np.abs(np.sum(vectores_filtrados * v_dir, axis=1))
-                    cosang = dot_products / (dist_filtradas + 1e-9)
-                    angulos = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
-
-                    mask_angular = angulos <= tolerancia_t
-                    dist_finales = dist_filtradas[mask_angular]
-                    semiv_finales = semiv_filtradas[mask_angular]
-
-                    for k in range(n_lags):
-                        d_min = k * lag_dist
-                        d_max = (k + 1) * lag_dist
-                        mask_lag = (dist_finales >= d_min) & (dist_finales < d_max)
-                        if np.sum(mask_lag) > 2:
-                            lags_tmp_res.append((d_min + d_max) / 2)
-                            gammas_tmp_res.append(np.mean(semiv_finales[mask_lag]))
-
-            st.session_state["lags_calculados"] = lags_tmp_res
-            st.session_state["gammas_calculados"] = gammas_tmp_res
-            st.rerun()
-
-    # Recuperar puntos calculados estables de la memoria
-    lags_exp = st.session_state["lags_calculados"]
-    gammas_exp = st.session_state["gammas_calculados"]
-
-     # ============================================================
-    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (FÓRMULAS CORREGIDAS)
+    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (SIN ARTEFACTOS EN CERO)
     # ============================================================
     h = np.linspace(0, max_dist * 1.2, 200)
-    
-    # C es la varianza estructural (la altura del escalón por encima del nugget)
     c_struct = float(sill_val - nugget_val)
-
     gamma_teo = []
+
     for d in h:
-        if d == 0:
-            gamma_teo.append(0.0)  # Por definición, la semivarianza en distancia cero es cero
-        else:
-            if modelo_tipo == "spherical":
-                if d <= range_val:
-                    # Fórmula esférica estándar: Nugget + C * [1.5*(d/a) - 0.5*(d/a)^3]
-                    valor = nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
-                else:
-                    valor = sill_val
-                gamma_teo.append(valor)
-                
-            elif modelo_tipo == "exponential":
-                # Fórmula exponencial estándar: Nugget + C * [1 - exp(-3*d/a)]
-                valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * d / range_val))
-                gamma_teo.append(valor)
-                
-            elif modelo_tipo == "gaussian":
-                # Fórmula gaussiana estándar: Nugget + C * [1 - exp(-3*(d/a)^2)]
-                valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * (d / range_val)**2))
-                gamma_teo.append(valor)
+        if modelo_tipo == "spherical":
+            if d <= range_val:
+                # La curva nace directamente en el valor del Nugget
+                valor = nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
+            else:
+                valor = sill_val
+            gamma_teo.append(valor)
+            
+        elif modelo_tipo == "exponential":
+            valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * d / range_val))
+            gamma_teo.append(valor)
+            
+        elif modelo_tipo == "gaussian":
+            valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * (d / range_val)**2))
+            gamma_teo.append(valor)
 
     # ============================================================
-    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY
+    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY (CORREGIDO)
     # ============================================================
     with col_right:
         st.markdown("### 📈 Ajuste de Curvas Geoestadísticas")
 
         fig = go.Figure()
 
+        # 1. Variograma Experimental (Puntos Azules fijos de la memoria)
         if len(lags_exp) > 0:
             fig.add_trace(go.Scatter(
                 x=lags_exp, y=gammas_exp,
@@ -1165,7 +1073,7 @@ with tab8:
                 font=dict(size=14, color="orange")
             )
 
-        # Curva continua teórica interactiva (Modifica su intercepto en Y según el nugget_val)
+        # 2. Curva continua teórica interactiva
         fig.add_trace(go.Scatter(
             x=h, y=gamma_teo,
             mode="lines",
@@ -1173,7 +1081,7 @@ with tab8:
             line=dict(color="red", width=3.5)
         ))
 
-        # Línea de la Varianza Muestral Global
+        # 3. Línea de la Varianza Muestral Global
         fig.add_shape(
             type="line", x0=0, x1=max_dist * 1.2, y0=varianza_datos, y1=varianza_datos,
             line=dict(color="gray", width=2, dash="dash"),
@@ -1194,7 +1102,7 @@ with tab8:
         )
 
         st.plotly_chart(fig, use_container_width=True)
-        st.info("💡 **Fluidez Garantizada:** Los deslizadores han sido blindados en la memoria interna de la aplicación. Al arrastrar el Nugget, la curva roja en la posición `0` subirá o bajará de inmediato.")  
+        st.info("💡 **Ajuste en vivo:** Mueve el slider del Nugget. Verás cómo el inicio de la curva roja se desplaza suavemente hacia arriba o hacia abajo en el eje vertical de inmediato.") 
     # ============================================================
     # 6. GUARDAR PARÁMETROS PARA KRIGING
     # ============================================================
