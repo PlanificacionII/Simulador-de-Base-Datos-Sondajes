@@ -1111,7 +1111,7 @@ with tab8:
         # Anotación de texto para la Varianza
         fig.add_annotation(
             x=max_dist, y=varianza_datos, text="Varianza de los datos",
-            showarrow=False, ysift=10, font=dict(color="gray")
+            showarrow=False, yshift=10, font=dict(color="gray")
         )
 
         # Diseño estético del gráfico profesional
