@@ -1026,10 +1026,14 @@ with tab8:
     # [AQUÍ VA LA SECCIÓN 3 DEL CÁLCULO EXPERIMENTAL QUE YA TIENES]
 
     # ============================================================
-    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (FÓRMULA SEGURA CON MAX_DIST)
+    # 4. MODELACIÓN TEÓRICA EN TIEMPO REAL (FÓRMULA SEGURA)
     # ============================================================
-    # Definición global para evitar el NameError al mover los sliders
+    # 1. Definición global de distancias para evitar NameError
     max_dist = float(n_lags * lag_dist)
+    
+    # 2. Recuperación segura de los puntos experimentales de la memoria para evitar NameError
+    lags_exp = st.session_state.get("lags_calculados", [])
+    gammas_exp = st.session_state.get("gammas_calculados", [])
     
     h = np.linspace(0, max_dist * 1.2, 200)
     c_struct = float(sill_val - nugget_val)
@@ -1052,14 +1056,14 @@ with tab8:
             gamma_teo.append(valor)
 
     # ============================================================
-    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY (CORREGIDO)
+    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY
     # ============================================================
     with col_right:
         st.markdown("### 📈 Ajuste de Curvas Geoestadísticas")
 
         fig = go.Figure()
 
-        # 1. Variograma Experimental (Puntos Azules fijos de la memoria)
+        # Dibujar puntos experimentales si existen en la memoria
         if len(lags_exp) > 0:
             fig.add_trace(go.Scatter(
                 x=lags_exp, y=gammas_exp,
@@ -1075,7 +1079,7 @@ with tab8:
                 font=dict(size=14, color="orange")
             )
 
-        # 2. Curva continua teórica interactiva
+        # Curva continua teórica interactiva
         fig.add_trace(go.Scatter(
             x=h, y=gamma_teo,
             mode="lines",
@@ -1083,7 +1087,7 @@ with tab8:
             line=dict(color="red", width=3.5)
         ))
 
-        # 3. Línea de la Varianza Muestral Global
+        # Línea de la Varianza Muestral Global
         fig.add_shape(
             type="line", x0=0, x1=max_dist * 1.2, y0=varianza_datos, y1=varianza_datos,
             line=dict(color="gray", width=2, dash="dash"),
@@ -1104,7 +1108,6 @@ with tab8:
         )
 
         st.plotly_chart(fig, use_container_width=True)
-        st.info("💡 **Ajuste en vivo:** Mueve el slider del Nugget. Verás cómo el inicio de la curva roja se desplaza suavemente hacia arriba o hacia abajo en el eje vertical de inmediato.") 
     # ============================================================
     # 6. GUARDAR PARÁMETROS PARA KRIGING
     # ============================================================
