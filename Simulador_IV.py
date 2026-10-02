@@ -1006,20 +1006,21 @@ with tab8:
         sill_val = st.slider("Meseta (Sill Total)", 0.01, varianza_datos * 2.0, varianza_datos, step=0.01)
         range_val = st.slider("Alcance (Range en metros)", 5, int(n_lags * lag_dist * 1.5), int(n_lags * lag_dist * 0.5), step=5)
 
-    # ============================================================
-    # 3. CÁLCULO DEL VARIOGRAMA EXPERIMENTAL
+        # ============================================================
+    # 3. CÁLCULO OPTIMIZADO DEL VARIOGRAMA EXPERIMENTAL (VECTORIZADO)
     # ============================================================
     lags_exp = []
     gammas_exp = []
     max_dist = n_lags * lag_dist
 
-    # Spinner para evitar que el alumno piense que el programa se cayó si hay más de 1,000 datos
-    with st.spinner("Calculando pares de puntos geoestadísticos..."):
-        if omni_3d:
-            matriz_dist = pdist(coords_m)
-            idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
-            matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+    with st.spinner("Calculando pares de puntos geoestadísticos en tiempo récord..."):
+        # 3.1 Cálculo ultra-rápido de distancias y diferencias de leyes
+        matriz_dist = pdist(coords_m)  # Distancias euclidianas entre todos los pares
+        idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
+        matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
 
+        if omni_3d:
+            # Filtro Omnidireccional por cada lag
             for k in range(n_lags):
                 d_min = k * lag_dist
                 d_max = (k + 1) * lag_dist
@@ -1028,37 +1029,49 @@ with tab8:
                     lags_exp.append((d_min + d_max) / 2)
                     gammas_exp.append(np.mean(matriz_semiv[mask]))
         else:
+            # Filtro Direccional Vectorizado (Sustituye por completo los lentos bucles for i, j)
             az_rad = np.radians(acimut)
             dip_rad = np.radians(buzamiento)
+            
+            # Vector director de la búsqueda
             v_dir = np.array([
                 np.cos(dip_rad) * np.sin(az_rad),
                 np.cos(dip_rad) * np.cos(az_rad),
                 np.sin(dip_rad)
             ])
 
-            lags_tmp = [[] for _ in range(n_lags)]
-            gammas_tmp = [[] for _ in range(n_lags)]
+            # Calcular todos los vectores de separación entre pares
+            vectores = coords_m[idx_i] - coords_m[idx_j]
+            
+            # Máscara inicial por distancia máxima para ahorrar procesamiento técnico
+            mask_dist = (matriz_dist > 0) & (matriz_dist <= max_dist)
+            
+            if np.any(mask_dist):
+                # Filtrar solo los pares que cumplen la distancia
+                dist_filtradas = matriz_dist[mask_dist]
+                vectores_filtrados = vectores[mask_dist]
+                semiv_filtradas = matriz_semiv[mask_dist]
 
-            for i in range(len(coords_m)):
-                for j in range(i + 1, len(coords_m)):
-                    vec = coords_m[i] - coords_m[j]
-                    dist = np.linalg.norm(vec)
-                    if 0 < dist <= max_dist:
-                        bin_lag = int(dist // lag_dist)
-                        if bin_lag >= n_lags:
-                            bin_lag = n_lags - 1
+                # Producto punto matricial para calcular el coseno del ángulo de forma masiva
+                dot_products = np.abs(np.sum(vectores_filtrados * v_dir, axis=1))
+                cosang = dot_products / (dist_filtradas + 1e-9)
+                angulos = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
 
-                        cosang = np.abs(np.dot(vec, v_dir)) / (dist + 1e-9)
-                        ang = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
+                # Filtrar por tolerancia angular
+                mask_angular = angulos <= tolerancia_t
+                
+                dist_finales = dist_filtradas[mask_angular]
+                semiv_finales = semiv_filtradas[mask_angular]
 
-                        if ang <= tolerancia_t:
-                            semivar = 0.5 * (leyes_m[i] - leyes_m[j]) ** 2
-                            lags_tmp[bin_lag].append(dist)
-                            gammas_tmp[bin_lag].append(semivar)
-
-            lags_exp = [np.mean(l) for l in lags_tmp if len(l) > 0]
-            gammas_exp = [np.mean(g) for g in gammas_tmp if len(g) > 0]
-
+                # Clasificar en "bins" (lags) usando operaciones lógicas de NumPy
+                for k in range(n_lags):
+                    d_min = k * lag_dist
+                    d_max = (k + 1) * lag_dist
+                    mask_lag = (dist_finales >= d_min) & (dist_finales < d_max)
+                    
+                    if np.sum(mask_lag) > 2:
+                        lags_exp.append((d_min + d_max) / 2)
+                        gammas_exp.append(np.mean(semiv_finales[mask_lag]))
     # ============================================================
     # 4. MODELACIÓN TEÓRICA CURVA CONTINUA
     # ============================================================
