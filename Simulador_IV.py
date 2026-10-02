@@ -965,7 +965,9 @@ with tab8:
     st.markdown("## 📉 Variografía PRO — Geoestadística Avanzada")
     st.caption("Análisis direccional, ajuste teórico interactivo y elipsoide de anisotropía.")
 
-     # 1. CARGA DE DATOS & CONTROL DE ESTADO SEGURO
+  # ============================================================
+    # 1. CARGA DE DATOS (SIN ASIGNACIONES FORZADAS DE ESTADO)
+    # ============================================================
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     if df_c.empty:
         st.warning("⚠ No hay compositos disponibles. Genere la base en la Pestaña 7.")
@@ -976,18 +978,15 @@ with tab8:
     leyes_m = df_c[col_ley].values
     varianza_datos = float(np.var(leyes_m))
 
-    # 🔥 FORZAR VALORES INICIALES CORRECTOS (Eliminamos el 'if ... not in st.session_state')
-    # Esto sobreescribe cualquier valor antiguo de 0.01 que haya quedado atrapado en la memoria
-    st.session_state["v_nugget"] = float(varianza_datos * 0.15)
-    st.session_state["v_sill"] = float(varianza_datos)
-    st.session_state["v_range"] = 80.0
-
-    # Estos dos se mantienen igual para no borrar el variograma experimental calculado
+    # Mantener en memoria solo las estructuras experimentales fijas
     if "lags_calculados" not in st.session_state:
         st.session_state["lags_calculados"] = []
     if "gammas_calculados" not in st.session_state:
         st.session_state["gammas_calculados"] = []
-# 2. PANEL DE CONFIGURACIÓN (IZQUIERDA)
+
+    # ============================================================
+    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA) — ULTRA REACTIVO
+    # ============================================================
     col_left, col_right = st.columns([0.38, 0.62])
 
     with col_left:
@@ -1008,12 +1007,32 @@ with tab8:
         
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
         
-        # Sliders vinculados al estado para garantizar reactividad matemática inmediata al arrastrar
-        nugget_val = st.slider("Efecto Pepita (Nugget)", 0.00, float(varianza_datos), key="v_nugget", step=0.005)
-        sill_val = st.slider("Meseta (Sill Total)", 0.01, float(varianza_datos * 2.0), key="v_sill", step=0.005)
+        # 🔥 SOLUCIÓN DEFINITIVA: Definimos el valor por defecto directamente en el componente
+        # SIN usar la propiedad 'key=' para evitar que Streamlit bloquee la reactividad en bucle.
+        nugget_val = st.slider(
+            "Efecto Pepita (Nugget)", 
+            min_value=0.00, 
+            max_value=float(varianza_datos), 
+            value=float(varianza_datos * 0.15), 
+            step=0.005
+        )
+        
+        sill_val = st.slider(
+            "Meseta (Sill Total)", 
+            min_value=0.01, 
+            max_value=float(varianza_datos * 2.0), 
+            value=float(varianza_datos), 
+            step=0.005
+        )
         
         max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
-        range_val = st.slider("Alcance (Range en metros)", 5, max_alcance_dinamico, key="v_range", step=5)
+        range_val = st.slider(
+            "Alcance (Range en metros)", 
+            min_value=5, 
+            max_value=max_alcance_dinamico, 
+            value=int(n_lags * lag_dist * 0.5), 
+            step=5
+        )
 # 3. PROCESAMIENTO MATRICIAL VECTORIZADO
     max_dist = float(n_lags * lag_dist)
 
