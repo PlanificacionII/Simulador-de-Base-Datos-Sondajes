@@ -993,6 +993,7 @@ with tab8:
     if "range_alumno" not in st.session_state:
         st.session_state["range_alumno"] = 80.0
 
+    
     # ============================================================
     # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA) — LIBERTAD CONTINUA
     # ============================================================
@@ -1016,34 +1017,35 @@ with tab8:
         
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
         
-        # 🔥 VINCULACIÓN SEGURA SIN BUCLE DE REESCRITURA
-        # El componente lee 'key', pero guarda de forma nativa la posición que el alumno arrastra
-       st.slider(
-    "Efecto Pepita (Nugget)", 
-    min_value=0.00, 
-    max_value=float(varianza_datos), 
-    key="nugget_alumno", 
-    step=0.005
-)
-nugget_val = st.session_state["nugget_alumno"]
+        # Sliders vinculados a session_state y luego leídos
+        st.slider(
+            "Efecto Pepita (Nugget)", 
+            min_value=0.00, 
+            max_value=float(varianza_datos), 
+            key="nugget_alumno", 
+            step=0.005
+        )
+        nugget_val = st.session_state["nugget_alumno"]
+        
+        st.slider(
+            "Meseta (Sill Total)", 
+            min_value=0.01, 
+            max_value=float(varianza_datos * 2.0), 
+            key="sill_alumno", 
+            step=0.005
+        )
+        sill_val = st.session_state["sill_alumno"]
+        
+        max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
+        st.slider(
+            "Alcance (Range en metros)", 
+            min_value=5, 
+            max_value=max_alcance_dinamico, 
+            key="range_alumno", 
+            step=5
+        )
+        range_val = st.session_state["range_alumno"]
 
-st.slider(
-    "Meseta (Sill Total)", 
-    min_value=0.01, 
-    max_value=float(varianza_datos * 2.0), 
-    key="sill_alumno", 
-    step=0.005
-)
-sill_val = st.session_state["sill_alumno"]
-
-st.slider(
-    "Alcance (Range en metros)", 
-    min_value=5, 
-    max_value=max_alcance_dinamico, 
-    key="range_alumno", 
-    step=5
-)
-range_val = st.session_state["range_alumno"]
 
 # 3. PROCESAMIENTO MATRICIAL VECTORIZADO
     max_dist = float(n_lags * lag_dist)
