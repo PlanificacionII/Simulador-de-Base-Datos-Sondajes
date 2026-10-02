@@ -956,7 +956,7 @@ with tab7:
 
 
 # ====================================================================
-# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Versión Interactiva con Memoria de Estado)
+# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Versión Interactiva con Estado Blindado)
 # ====================================================================
 import numpy as np
 import pandas as pd
@@ -967,14 +967,8 @@ with tab8:
     st.markdown("## 📉 Variografía PRO — Geoestadística Avanzada")
     st.caption("Análisis direccional, ajuste teórico interactivo y exportación.")
 
-    # Inicializar variables en la memoria de Streamlit si no existen
-    if "lags_calculados" not in st.session_state:
-        st.session_state["lags_calculados"] = []
-    if "gammas_calculados" not in st.session_state:
-        st.session_state["gammas_calculados"] = []
-
     # ============================================================
-    # 1. CARGA DE DATOS
+    # 1. CARGA DE DATOS Y COALINEACIÓN DE CONFIGURACIÓN
     # ============================================================
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     if df_c.empty:
@@ -986,8 +980,20 @@ with tab8:
     leyes_m = df_c[col_ley].values
     varianza_datos = float(np.var(leyes_m))
 
+    # 🛠️ INICIALIZACIÓN CRÍTICA: Evita que los sliders se queden pegados al recargar
+    if "lags_calculados" not in st.session_state:
+        st.session_state["lags_calculados"] = []
+    if "gammas_calculados" not in st.session_state:
+        st.session_state["gammas_calculados"] = []
+    if "v_nugget_val" not in st.session_state:
+        st.session_state["v_nugget_val"] = float(varianza_datos * 0.1)
+    if "v_sill_val" not in st.session_state:
+        st.session_state["v_sill_val"] = float(varianza_datos)
+    if "v_range_val" not in st.session_state:
+        st.session_state["v_range_val"] = 50.0
+
     # ============================================================
-    # 2. PANEL DE CONFIGURACIÓN
+    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA)
     # ============================================================
     col_left, col_right = st.columns([0.40, 0.60])
 
@@ -1002,18 +1008,45 @@ with tab8:
         acimut = st.number_input("Acimut (°)", 0, 360, 18, key="v_acimut")
         buzamiento = st.number_input("Buzamiento (°)", -90, 90, 65, key="v_buzamiento")
 
-        # 🔥 BOTÓN DE ACCIÓN CRÍTICO
+        # BOTÓN DE CÁLCULO (Aislado del ajuste de curvas)
         btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
 
         st.markdown("---")
         st.markdown("### 🛠️ Ajuste Teórico (Manual del Alumno)")
-        # Al interactuar con estos controles NO se recalcula el variograma experimental
-        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
-        nugget_val = st.slider("Efecto Pepita (Nugget)", 0.00, varianza_datos, varianza_datos * 0.1, step=0.01, key="v_nugget")
-        sill_val = st.slider("Meseta (Sill Total)", 0.01, varianza_datos * 2.0, varianza_datos, step=0.01, key="v_sill")
         
+        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
+        
+        # Sliders vinculados de manera segura mediante session_state dinámico
+        nugget_val = st.slider(
+            "Efecto Pepita (Nugget)", 
+            min_value=0.00, 
+            max_value=float(varianza_datos), 
+            value=st.session_state["v_nugget_val"], 
+            step=0.01,
+            key="v_nugget_slider"
+        )
+        st.session_state["v_nugget_val"] = nugget_val
+
+        sill_val = st.slider(
+            "Meseta (Sill Total)", 
+            min_value=0.01, 
+            max_value=float(varianza_datos * 2.0), 
+            value=st.session_state["v_sill_val"], 
+            step=0.01,
+            key="v_sill_slider"
+        )
+        st.session_state["v_sill_val"] = sill_val
+
         max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
-        range_val = st.slider("Alcance (Range en metros)", 5, max_alcance_dinamico, int(n_lags * lag_dist * 0.5), step=5, key="v_range")
+        range_val = st.slider(
+            "Alcance (Range en metros)", 
+            min_value=5, 
+            max_value=max_alcance_dinamico, 
+            value=int(np.clip(st.session_state["v_range_val"], 5, max_alcance_dinamico)), 
+            step=5,
+            key="v_range_slider"
+        )
+        st.session_state["v_range_val"] = range_val
 
     # ============================================================
     # 3. EJECUCIÓN DEL VARIOGRAMA EXPERIMENTAL (SOLO AL PRESIONAR BOTÓN)
@@ -1070,12 +1103,11 @@ with tab8:
                             lags_tmp_res.append((d_min + d_max) / 2)
                             gammas_tmp_res.append(np.mean(semiv_finales[mask_lag]))
 
-            # Guardar en memoria de sesión permanente
             st.session_state["lags_calculados"] = lags_tmp_res
             st.session_state["gammas_calculados"] = gammas_tmp_res
-            st.success("¡Variograma experimental calculado con éxito!")
+            st.rerun()
 
-    # Recuperar los puntos desde el estado interno
+    # Recuperar puntos calculados estables de la memoria
     lags_exp = st.session_state["lags_calculados"]
     gammas_exp = st.session_state["gammas_calculados"]
 
@@ -1104,7 +1136,6 @@ with tab8:
 
         fig = go.Figure()
 
-        # 1. Variograma Experimental (Puntos Azules si ya se calcularon)
         if len(lags_exp) > 0:
             fig.add_trace(go.Scatter(
                 x=lags_exp, y=gammas_exp,
@@ -1114,14 +1145,13 @@ with tab8:
                 line=dict(color="blue", width=1.5, dash="dot")
             ))
         else:
-            # Mensaje en el gráfico si está vacío
             fig.add_annotation(
                 text="Haga clic en 'Calcular Variograma Experimental'<br>para cargar los puntos del yacimiento.",
                 xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
                 font=dict(size=14, color="orange")
             )
 
-        # 2. Variograma Teórico Seleccionado (Curva Continua Roja que responde inmediatamente a los Sliders)
+        # Curva continua teórica interactiva (Modifica su intercepto en Y según el nugget_val)
         fig.add_trace(go.Scatter(
             x=h, y=gamma_teo,
             mode="lines",
@@ -1129,7 +1159,7 @@ with tab8:
             line=dict(color="red", width=3.5)
         ))
 
-        # 3. Línea de referencia: Varianza Muestral Global
+        # Línea de la Varianza Muestral Global
         fig.add_shape(
             type="line", x0=0, x1=max_dist * 1.2, y0=varianza_datos, y1=varianza_datos,
             line=dict(color="gray", width=2, dash="dash"),
@@ -1150,18 +1180,17 @@ with tab8:
         )
 
         st.plotly_chart(fig, use_container_width=True)
-        
-        st.info("💡 **Fluidez Activa:** Ahora puedes cambiar el modelo matemático o mover los deslizadores (*Nugget, Sill, Range*) de la izquierda y verás cómo la **curva roja** responde instantáneamente sobre el gráfico sin recargar los puntos.")
-
+        st.info("💡 **Fluidez Garantizada:** Los deslizadores han sido blindados en la memoria interna de la aplicación. Al arrastrar el Nugget, la curva roja en la posición `0` subirá o bajará de inmediato.")  
     # ============================================================
     # 6. GUARDAR PARÁMETROS PARA KRIGING
     # ============================================================
     st.session_state["v_parametros"] = dict(
         modelo=modelo_tipo,
-        nugget=nugget_val,
-        sill=sill_val,
-        range=range_val
-    )# ====================================================================
+        nugget=float(nugget_val),
+        sill=float(sill_val),
+        range=float(range_val)
+    )
+# ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
 with tab9:
