@@ -965,7 +965,7 @@ with tab8:
     st.markdown("## 📉 Variografía PRO — Geoestadística Avanzada")
     st.caption("Análisis direccional, ajuste teórico interactivo y elipsoide de anisotropía.")
 
-    # 1. CARGA DE DATOS & CONTROL DE ESTADO SEGURO
+     # 1. CARGA DE DATOS & CONTROL DE ESTADO SEGURO
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     if df_c.empty:
         st.warning("⚠ No hay compositos disponibles. Genere la base en la Pestaña 7.")
@@ -976,13 +976,13 @@ with tab8:
     leyes_m = df_c[col_ley].values
     varianza_datos = float(np.var(leyes_m))
 
-    # Inicialización única en memoria interna para romper el congelamiento de los sliders
-    if "v_nugget" not in st.session_state:
-        st.session_state["v_nugget"] = float(varianza_datos * 0.15)
-    if "v_sill" not in st.session_state:
-        st.session_state["v_sill"] = float(varianza_datos)
-    if "v_range" not in st.session_state:
-        st.session_state["v_range"] = 80.0
+    # 🔥 FORZAR VALORES INICIALES CORRECTOS (Eliminamos el 'if ... not in st.session_state')
+    # Esto sobreescribe cualquier valor antiguo de 0.01 que haya quedado atrapado en la memoria
+    st.session_state["v_nugget"] = float(varianza_datos * 0.15)
+    st.session_state["v_sill"] = float(varianza_datos)
+    st.session_state["v_range"] = 80.0
+
+    # Estos dos se mantienen igual para no borrar el variograma experimental calculado
     if "lags_calculados" not in st.session_state:
         st.session_state["lags_calculados"] = []
     if "gammas_calculados" not in st.session_state:
