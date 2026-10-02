@@ -956,7 +956,7 @@ with tab7:
 
 
 # ====================================================================
-# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Simulador IV — Versión Ordenada)
+# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Simulador IV — Versión Ordenada y Estable)
 # ====================================================================
 with tab8:
 
@@ -1000,306 +1000,123 @@ with tab8:
         sill_val = st.slider("Sill", 0.01, varianza_datos * 2.0, varianza_datos, 0.05)
         range_val = st.slider("Range (m)", 10, int(n_lags * lag_dist), int(n_lags * lag_dist * 0.5), 10)
 
-        generar = st.button("🚀 Generar Variograma PRO")
+    # ============================================================
+    # 3. SIEMPRE CALCULAR EL VARIOGRAMA (NO DEPENDE DEL BOTÓN)
+    # ============================================================
+
+    # -----------------------------
+    # 3.1 VARIOGRAMA EXPERIMENTAL
+    # -----------------------------
+    lags_exp = []
+    gammas_exp = []
+    max_dist = n_lags * lag_dist
+
+    if omni_3d:
+        from scipy.spatial.distance import pdist
+        matriz_dist = pdist(coords_m)
+        idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
+        matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+
+        for k in range(n_lags):
+            d_min = k * lag_dist
+            d_max = (k + 1) * lag_dist
+            mask = (matriz_dist >= d_min) & (matriz_dist < d_max)
+            if np.sum(mask) > 2:
+                lags_exp.append((d_min + d_max) / 2)
+                gammas_exp.append(np.mean(matriz_semiv[mask]))
+
+    else:
+        az_rad = np.radians(acimut)
+        dip_rad = np.radians(buzamiento)
+        v_dir = np.array([
+            np.cos(dip_rad) * np.sin(az_rad),
+            np.cos(dip_rad) * np.cos(az_rad),
+            np.sin(dip_rad)
+        ])
+
+        lags_tmp = [[] for _ in range(n_lags)]
+        gammas_tmp = [[] for _ in range(n_lags)]
+
+        for i in range(len(coords_m)):
+            for j in range(i + 1, len(coords_m)):
+                vec = coords_m[i] - coords_m[j]
+                dist = np.linalg.norm(vec)
+                if 0 < dist <= max_dist:
+                    bin_lag = int(dist // lag_dist)
+                    if bin_lag >= n_lags:
+                        bin_lag = n_lags - 1
+
+                    cosang = np.abs(np.dot(vec, v_dir)) / (dist + 1e-9)
+                    ang = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
+
+                    if ang <= tolerancia_t:
+                        semivar = 0.5 * (leyes_m[i] - leyes_m[j]) ** 2
+                        lags_tmp[bin_lag].append(dist)
+                        gammas_tmp[bin_lag].append(semivar)
+
+        lags_exp = [np.mean(l) for l in lags_tmp if len(l) > 0]
+        gammas_exp = [np.mean(g) for g in gammas_tmp if len(g) > 0]
+
+    # -----------------------------
+    # 3.2 MODELO TEÓRICO (CURVA ROJA)
+    # -----------------------------
+    h = np.linspace(0, max_dist, 200)
+    c_struct = sill_val - nugget_val
+
+    if modelo_tipo == "spherical":
+        gamma_teo = [
+            nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
+            if d <= range_val else sill_val
+            for d in h
+        ]
+    elif modelo_tipo == "exponential":
+        gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * h / range_val))
+    else:
+        gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * (h / range_val)**2))
 
     # ============================================================
-    # 3. PANEL DERECHO — GRÁFICO PRINCIPAL
+    # 4. PANEL DERECHO — GRÁFICO
     # ============================================================
     with col_right:
 
-        if generar:
+        st.markdown("### 📈 Variograma Experimental vs Teórico")
 
-            # ============================================================
-            # 3.1 VARIOGRAMA EXPERIMENTAL
-            # ============================================================
-            st.markdown("### 📈 Variograma Experimental vs Teórico")
+        fig = go.Figure()
 
-            lags_exp = []
-            gammas_exp = []
-            max_dist = n_lags * lag_dist
+        # Experimental (AZUL)
+        fig.add_trace(go.Scatter(
+            x=lags_exp,
+            y=gammas_exp,
+            mode="markers+lines",
+            name="Experimental",
+            line=dict(color="blue", width=2)
+        ))
 
-            if omni_3d:
-                from scipy.spatial.distance import pdist
-                matriz_dist = pdist(coords_m)
-                idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
-                matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+        # Teórico (ROJO)
+        fig.add_trace(go.Scatter(
+            x=h,
+            y=gamma_teo,
+            mode="lines",
+            name=f"Modelo {modelo_tipo}",
+            line=dict(color="red", width=4)   # 🔥 CURVA ROJA
+        ))
 
-                for k in range(n_lags):
-                    d_min = k * lag_dist
-                    d_max = (k + 1) * lag_dist
-                    mask = (matriz_dist >= d_min) & (matriz_dist < d_max)
-                    if np.sum(mask) > 2:
-                        lags_exp.append((d_min + d_max) / 2)
-                        gammas_exp.append(np.mean(matriz_semiv[mask]))
+        fig.update_layout(
+            height=420,
+            margin=dict(l=20, r=20, t=40, b=20)
+        )
 
-            else:
-                az_rad = np.radians(acimut)
-                dip_rad = np.radians(buzamiento)
-                v_dir = np.array([
-                    np.cos(dip_rad) * np.sin(az_rad),
-                    np.cos(dip_rad) * np.cos(az_rad),
-                    np.sin(dip_rad)
-                ])
+        st.plotly_chart(fig, use_container_width=True)
 
-                lags_tmp = [[] for _ in range(n_lags)]
-                gammas_tmp = [[] for _ in range(n_lags)]
-
-                for i in range(len(coords_m)):
-                    for j in range(i + 1, len(coords_m)):
-                        vec = coords_m[i] - coords_m[j]
-                        dist = np.linalg.norm(vec)
-                        if 0 < dist <= max_dist:
-                            bin_lag = int(dist // lag_dist)
-                            if bin_lag >= n_lags:
-                                bin_lag = n_lags - 1
-
-                            cosang = np.abs(np.dot(vec, v_dir)) / (dist + 1e-9)
-                            ang = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
-
-                            if ang <= tolerancia_t:
-                                semivar = 0.5 * (leyes_m[i] - leyes_m[j]) ** 2
-                                lags_tmp[bin_lag].append(dist)
-                                gammas_tmp[bin_lag].append(semivar)
-
-                lags_exp = [np.mean(l) for l in lags_tmp if len(l) > 0]
-                gammas_exp = [np.mean(g) for g in gammas_tmp if len(g) > 0]
-
-            # ============================================================
-            # 3.2 MODELO TEÓRICO — CURVA ROJA
-            # ============================================================
-            h = np.linspace(0, max_dist, 200)
-            c_struct = sill_val - nugget_val
-
-            if modelo_tipo == "spherical":
-                gamma_teo = [
-                    nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
-                    if d <= range_val else sill_val
-                    for d in h
-                ]
-            elif modelo_tipo == "exponential":
-                gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * h / range_val))
-            else:
-                gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * (h / range_val)**2))
-
-            # ============================================================
-            # 3.3 GRÁFICO ORDENADO
-            # ============================================================
-            fig = go.Figure()
-
-            # Experimental (AZUL)
-            fig.add_trace(go.Scatter(
-                x=lags_exp,
-                y=gammas_exp,
-                mode="markers+lines",
-                name="Experimental",
-                line=dict(color="blue", width=2)
-            ))
-
-            # Teórico (ROJO)
-            fig.add_trace(go.Scatter(
-                x=h,
-                y=gamma_teo,
-                mode="lines",
-                name=f"Modelo {modelo_tipo}",
-                line=dict(color="red", width=4)   # 🔥 CURVA ROJA
-            ))
-
-            fig.update_layout(
-                height=420,
-                margin=dict(l=20, r=20, t=40, b=20)
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-
-            st.markdown("---")
-
-            # ============================================================
-            # 3.4 COMPARACIÓN MULTI-DIRECCIONAL
-            # ============================================================
-            st.markdown("### 📊 Comparación de Variogramas en Múltiples Direcciones")
-
-            direcciones_extra = [
-                ("Horizontal E–O", acimut, 0),
-                ("Horizontal N–S", (acimut + 90) % 360, 0),
-                ("Vertical", acimut, 90)
-            ]
-
-            fig_multi = go.Figure()
-
-            for nombre_dir, az_dir, dip_dir in direcciones_extra:
-                az_rad = np.radians(az_dir)
-                dip_rad = np.radians(dip_dir)
-                v_dir = np.array([
-                    np.cos(dip_rad) * np.sin(az_rad),
-                    np.cos(dip_rad) * np.cos(az_rad),
-                    np.sin(dip_rad)
-                ])
-
-                lags_dir = [[] for _ in range(n_lags)]
-                gammas_dir = [[] for _ in range(n_lags)]
-
-                for i in range(len(coords_m)):
-                    for j in range(i + 1, len(coords_m)):
-                        vec = coords_m[i] - coords_m[j]
-                        dist = np.linalg.norm(vec)
-                        if 0 < dist <= max_dist:
-                            bin_lag = int(dist // lag_dist)
-                            if bin_lag >= n_lags:
-                                bin_lag = n_lags - 1
-
-                            cosang = np.abs(np.dot(vec, v_dir)) / (dist + 1e-9)
-                            ang = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
-
-                            if ang <= tolerancia_t:
-                                semivar = 0.5 * (leyes_m[i] - leyes_m[j])**2
-                                lags_dir[bin_lag].append(dist)
-                                gammas_dir[bin_lag].append(semivar)
-
-                lag_x_dir = [np.mean(l) for l in lags_dir if len(l) > 0]
-                lag_y_dir = [np.mean(g) for g in gammas_dir if len(g) > 0]
-
-                if len(lag_x_dir) > 0:
-                    fig_multi.add_trace(go.Scatter(
-                        x=lag_x_dir,
-                        y=lag_y_dir,
-                        mode="lines+markers",
-                        name=nombre_dir
-                    ))
-
-            fig_multi.update_layout(height=400)
-            st.plotly_chart(fig_multi, use_container_width=True)
-
-            st.markdown("---")
-
-            # ============================================================
-            # 3.5 AJUSTE AUTOMÁTICO
-            # ============================================================
-            st.markdown("### 🤖 Ajuste Automático del Modelo Teórico")
-
-            if len(lags_exp) > 3:
-                mejor_error = 1e9
-                mejor_params = (nugget_val, sill_val, range_val)
-
-                for sill_test in np.linspace(varianza_datos * 0.5, varianza_datos * 1.5, 8):
-                    for range_test in np.linspace(max_dist * 0.3, max_dist * 1.2, 8):
-                        c_struct_test = sill_test - nugget_val
-
-                        if modelo_tipo == "spherical":
-                            gamma_test = [
-                                nugget_val + c_struct_test * (1.5 * (d / range_test) - 0.5 * (d / range_test)**3)
-                                if d <= range_test else sill_test
-                                for d in lags_exp
-                            ]
-                        elif modelo_tipo == "exponential":
-                            gamma_test = nugget_val + c_struct_test * (1 - np.exp(-3 * np.array(lags_exp) / range_test))
-                        else:
-                            gamma_test = nugget_val + c_struct_test * (1 - np.exp(-3 * (np.array(lags_exp) / range_test)**2))
-
-                        error = np.mean((np.array(gammas_exp) - np.array(gamma_test))**2)
-
-                        if error < mejor_error:
-                            mejor_error = error
-                            mejor_params = (nugget_val, sill_test, range_test)
-
-                nugget_auto, sill_auto, range_auto = mejor_params
-                st.info(f"Mejor ajuste automático: Nugget={nugget_auto:.3f}, Sill={sill_auto:.3f}, Range={range_auto:.1f} m (Error={mejor_error:.4f})")
-
-            st.markdown("---")
-
-            # ============================================================
-            # 3.6 ELIPSOIDE 3D
-            # ============================================================
-            st.markdown("### 🟠 Elipsoide de Búsqueda 3D")
-
-            u = np.linspace(0, 2*np.pi, 40)
-            v = np.linspace(0, np.pi, 40)
-
-            a = range_val
-            b = range_val * 0.7
-            c = range_val * 0.4
-
-            x = a * np.outer(np.cos(u), np.sin(v))
-            y = b * np.outer(np.sin(u), np.sin(v))
-            z = c * np.outer(np.ones_like(u), np.cos(v))
-
-            fig_elip = go.Figure(data=[go.Surface(
-                x=x, y=y, z=z,
-                colorscale="Viridis",
-                opacity=0.6,
-                showscale=False
-            )])
-
-            fig_elip.update_layout(height=450)
-            st.plotly_chart(fig_elip, use_container_width=True)
-
-            st.markdown("---")
-
-            # ============================================================
-            # 3.7 DIRECCIÓN ANISOTRÓPICA 3D
-            # ============================================================
-            st.markdown("### 🧭 Dirección Anisotrópica 3D")
-
-            az_rad = np.radians(acimut)
-            dip_rad = np.radians(buzamiento)
-            v_dir = np.array([
-                np.cos(dip_rad) * np.sin(az_rad),
-                np.cos(dip_rad) * np.cos(az_rad),
-                np.sin(dip_rad)
-            ])
-
-            fig_dir = go.Figure()
-            fig_dir.add_trace(go.Scatter3d(
-                x=[0, v_dir[0] * range_val],
-                y=[0, v_dir[1] * range_val],
-                z=[0, v_dir[2] * range_val],
-                mode="lines+markers",
-                line=dict(color="red", width=6),
-                marker=dict(size=4)
-            ))
-
-            fig_dir.update_layout(height=450)
-            st.plotly_chart(fig_dir, use_container_width=True)
-
-            st.markdown("---")
-
-            # ============================================================
-            # 3.8 EXPORTACIONES
-            # ============================================================
-            st.markdown("### 💾 Exportaciones Mineras")
-
-            df_export = pd.DataFrame({"Lag": lags_exp, "Gamma": gammas_exp})
-            st.download_button("📥 Exportar CSV", df_export.to_csv(index=False).encode("utf-8"), "variograma.csv")
-
-            geo_eas = "Variograma_Experimental\n2\nLag\nGamma\n"
-            for lx, gy in zip(lags_exp, gammas_exp):
-                geo_eas += f"{lx:.3f} {gy:.5f}\n"
-
-            st.download_button("📥 Exportar GeoEAS", geo_eas.encode("utf-8"), "variograma.geo")
-
-            df_mining = pd.DataFrame({
-                "Lag_m": lags_exp,
-                "Gamma": gammas_exp,
-                "Modelo": [modelo_tipo] * len(lags_exp),
-                "Nugget": [nugget_val] * len(lags_exp),
-                "Sill": [sill_val] * len(lags_exp),
-                "Range_m": [range_val] * len(lags_exp)
-            })
-
-            st.download_button(
-                "📥 Exportar CSV Minero (Leapfrog/Vulcan/Datamine)",
-                df_mining.to_csv(index=False).encode("utf-8"),
-                "variograma_mining.csv"
-            )
-
-            st.session_state["v_parametros"] = dict(
-                modelo=modelo_tipo,
-                nugget=nugget_val,
-                sill=sill_val,
-                range=range_val
-            )
-
-            st.success("Variograma PRO calibrado y guardado correctamente.")
-
+    # ============================================================
+    # 5. GUARDAR PARÁMETROS PARA KRIGING
+    # ============================================================
+    st.session_state["v_parametros"] = dict(
+        modelo=modelo_tipo,
+        nugget=nugget_val,
+        sill=sill_val,
+        range=range_val
+    )
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
