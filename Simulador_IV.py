@@ -965,8 +965,8 @@ with tab8:
     st.markdown("## 📉 Variografía PRO — Geoestadística Avanzada")
     st.caption("Análisis direccional, ajuste teórico interactivo y elipsoide de anisotropía.")
 
-  # ============================================================
-    # 1. CARGA DE DATOS (SIN ASIGNACIONES FORZADAS DE ESTADO)
+    # ============================================================
+    # 1. CARGA DE DATOS & CONTROL DE ESTADO INDEPENDIENTE
     # ============================================================
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     if df_c.empty:
@@ -978,14 +978,23 @@ with tab8:
     leyes_m = df_c[col_ley].values
     varianza_datos = float(np.var(leyes_m))
 
-    # Mantener en memoria solo las estructuras experimentales fijas
+    # Estructuras del variograma experimental (Fijas)
     if "lags_calculados" not in st.session_state:
         st.session_state["lags_calculados"] = []
     if "gammas_calculados" not in st.session_state:
         st.session_state["gammas_calculados"] = []
 
+    # 🛠️ MEMORIA PROTEGIDA PARA EL ALUMNO: Solo se ejecuta una vez al ingresar a la pestaña
+    # Evita que la ecuación matemática machaque la posición elegida por el alumno
+    if "nugget_alumno" not in st.session_state:
+        st.session_state["nugget_alumno"] = float(varianza_datos * 0.15)
+    if "sill_alumno" not in st.session_state:
+        st.session_state["sill_alumno"] = float(varianza_datos)
+    if "range_alumno" not in st.session_state:
+        st.session_state["range_alumno"] = 80.0
+
     # ============================================================
-    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA) — ULTRA REACTIVO
+    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA) — LIBERTAD CONTINUA
     # ============================================================
     col_left, col_right = st.columns([0.38, 0.62])
 
@@ -1007,13 +1016,13 @@ with tab8:
         
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
         
-        # 🔥 SOLUCIÓN DEFINITIVA: Definimos el valor por defecto directamente en el componente
-        # SIN usar la propiedad 'key=' para evitar que Streamlit bloquee la reactividad en bucle.
+        # 🔥 VINCULACIÓN SEGURA SIN BUCLE DE REESCRITURA
+        # El componente lee 'key', pero guarda de forma nativa la posición que el alumno arrastra
         nugget_val = st.slider(
             "Efecto Pepita (Nugget)", 
             min_value=0.00, 
             max_value=float(varianza_datos), 
-            value=float(varianza_datos * 0.15), 
+            key="nugget_alumno", 
             step=0.005
         )
         
@@ -1021,7 +1030,7 @@ with tab8:
             "Meseta (Sill Total)", 
             min_value=0.01, 
             max_value=float(varianza_datos * 2.0), 
-            value=float(varianza_datos), 
+            key="sill_alumno", 
             step=0.005
         )
         
@@ -1030,7 +1039,7 @@ with tab8:
             "Alcance (Range en metros)", 
             min_value=5, 
             max_value=max_alcance_dinamico, 
-            value=int(n_lags * lag_dist * 0.5), 
+            key="range_alumno", 
             step=5
         )
 # 3. PROCESAMIENTO MATRICIAL VECTORIZADO
