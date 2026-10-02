@@ -956,12 +956,16 @@ with tab7:
 
 
 # ====================================================================
-# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Simulador IV — Versión Ordenada y Estable)
+# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Versión Optimizada para Alumnos)
 # ====================================================================
-with tab8:
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from scipy.spatial.distance import pdist
 
+with tab8:
     st.markdown("## 📉 Variografía PRO — Geoestadística Avanzada")
-    st.caption("Análisis direccional, ajuste teórico, elipsoide 3D y exportaciones mineras.")
+    st.caption("Análisis direccional, ajuste teórico interactivo y exportación.")
 
     # ============================================================
     # 1. CARGA DE DATOS
@@ -972,95 +976,93 @@ with tab8:
         st.stop()
 
     coords_m = df_c[["X", "Y", "Z"]].values
-    leyes_m = df_c["Ley"].values
+    
+    # Intentar leer la columna de leyes dinámicamente si no se llama estrictamente 'Ley'
+    col_ley = "Ley" if "Ley" in df_c.columns else df_c.select_dtypes(include=[np.number]).columns[-1]
+    leyes_m = df_c[col_ley].values
     varianza_datos = float(np.var(leyes_m))
 
     # ============================================================
-    # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA)
+    # 2. PANEL DE CONFIGURACIÓN
     # ============================================================
-    st.markdown("### 🎛 Parámetros del Variograma")
-
     col_left, col_right = st.columns([0.40, 0.60])
 
     with col_left:
-
-        st.markdown("#### 📐 Parámetros Experimentales")
+        st.markdown("### 🎛️ Parámetros Experimentales")
         n_lags = st.number_input("Número de lags", 1, 30, 7)
-        lag_dist = st.number_input("Lag separación (m)", 5.0, 200.0, 20.0)
+        lag_dist = st.number_input("Lag separación (m)", 1.0, 200.0, 20.0)
         tolerancia_t = st.number_input("Tolerancia angular (°)", 5.0, 90.0, 30.0)
         omni_3d = st.checkbox("Omnidireccional 3D", value=False)
 
-        st.markdown("#### 🧭 Dirección Principal")
+        st.markdown("### 🧭 Dirección Principal")
         acimut = st.number_input("Acimut (°)", 0, 360, 18)
         buzamiento = st.number_input("Buzamiento (°)", -90, 90, 65)
 
-        st.markdown("#### 🛠️ Ajuste Teórico")
-        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"])
-        nugget_val = st.slider("Nugget", 0.00, varianza_datos, varianza_datos * 0.1, 0.01)
-        sill_val = st.slider("Sill", 0.01, varianza_datos * 2.0, varianza_datos, 0.05)
-        range_val = st.slider("Range (m)", 10, int(n_lags * lag_dist), int(n_lags * lag_dist * 0.5), 10)
+        st.markdown("### 🛠️ Ajuste Teórico (Manual del Alumno)")
+        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0)
+        
+        # Sliders dinámicos basados en la varianza real de las muestras
+        nugget_val = st.slider("Efecto Pepita (Nugget)", 0.00, varianza_datos, varianza_datos * 0.1, step=0.01)
+        sill_val = st.slider("Meseta (Sill Total)", 0.01, varianza_datos * 2.0, varianza_datos, step=0.01)
+        range_val = st.slider("Alcance (Range en metros)", 5, int(n_lags * lag_dist * 1.5), int(n_lags * lag_dist * 0.5), step=5)
 
     # ============================================================
-    # 3. SIEMPRE CALCULAR EL VARIOGRAMA (NO DEPENDE DEL BOTÓN)
+    # 3. CÁLCULO DEL VARIOGRAMA EXPERIMENTAL
     # ============================================================
-
-    # -----------------------------
-    # 3.1 VARIOGRAMA EXPERIMENTAL
-    # -----------------------------
     lags_exp = []
     gammas_exp = []
     max_dist = n_lags * lag_dist
 
-    if omni_3d:
-        from scipy.spatial.distance import pdist
-        matriz_dist = pdist(coords_m)
-        idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
-        matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+    # Spinner para evitar que el alumno piense que el programa se cayó si hay más de 1,000 datos
+    with st.spinner("Calculando pares de puntos geoestadísticos..."):
+        if omni_3d:
+            matriz_dist = pdist(coords_m)
+            idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
+            matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
 
-        for k in range(n_lags):
-            d_min = k * lag_dist
-            d_max = (k + 1) * lag_dist
-            mask = (matriz_dist >= d_min) & (matriz_dist < d_max)
-            if np.sum(mask) > 2:
-                lags_exp.append((d_min + d_max) / 2)
-                gammas_exp.append(np.mean(matriz_semiv[mask]))
+            for k in range(n_lags):
+                d_min = k * lag_dist
+                d_max = (k + 1) * lag_dist
+                mask = (matriz_dist >= d_min) & (matriz_dist < d_max)
+                if np.sum(mask) > 2:
+                    lags_exp.append((d_min + d_max) / 2)
+                    gammas_exp.append(np.mean(matriz_semiv[mask]))
+        else:
+            az_rad = np.radians(acimut)
+            dip_rad = np.radians(buzamiento)
+            v_dir = np.array([
+                np.cos(dip_rad) * np.sin(az_rad),
+                np.cos(dip_rad) * np.cos(az_rad),
+                np.sin(dip_rad)
+            ])
 
-    else:
-        az_rad = np.radians(acimut)
-        dip_rad = np.radians(buzamiento)
-        v_dir = np.array([
-            np.cos(dip_rad) * np.sin(az_rad),
-            np.cos(dip_rad) * np.cos(az_rad),
-            np.sin(dip_rad)
-        ])
+            lags_tmp = [[] for _ in range(n_lags)]
+            gammas_tmp = [[] for _ in range(n_lags)]
 
-        lags_tmp = [[] for _ in range(n_lags)]
-        gammas_tmp = [[] for _ in range(n_lags)]
+            for i in range(len(coords_m)):
+                for j in range(i + 1, len(coords_m)):
+                    vec = coords_m[i] - coords_m[j]
+                    dist = np.linalg.norm(vec)
+                    if 0 < dist <= max_dist:
+                        bin_lag = int(dist // lag_dist)
+                        if bin_lag >= n_lags:
+                            bin_lag = n_lags - 1
 
-        for i in range(len(coords_m)):
-            for j in range(i + 1, len(coords_m)):
-                vec = coords_m[i] - coords_m[j]
-                dist = np.linalg.norm(vec)
-                if 0 < dist <= max_dist:
-                    bin_lag = int(dist // lag_dist)
-                    if bin_lag >= n_lags:
-                        bin_lag = n_lags - 1
+                        cosang = np.abs(np.dot(vec, v_dir)) / (dist + 1e-9)
+                        ang = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
 
-                    cosang = np.abs(np.dot(vec, v_dir)) / (dist + 1e-9)
-                    ang = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
+                        if ang <= tolerancia_t:
+                            semivar = 0.5 * (leyes_m[i] - leyes_m[j]) ** 2
+                            lags_tmp[bin_lag].append(dist)
+                            gammas_tmp[bin_lag].append(semivar)
 
-                    if ang <= tolerancia_t:
-                        semivar = 0.5 * (leyes_m[i] - leyes_m[j]) ** 2
-                        lags_tmp[bin_lag].append(dist)
-                        gammas_tmp[bin_lag].append(semivar)
+            lags_exp = [np.mean(l) for l in lags_tmp if len(l) > 0]
+            gammas_exp = [np.mean(g) for g in gammas_tmp if len(g) > 0]
 
-        lags_exp = [np.mean(l) for l in lags_tmp if len(l) > 0]
-        gammas_exp = [np.mean(g) for g in gammas_tmp if len(g) > 0]
-
-    # -----------------------------
-    # 3.2 MODELO TEÓRICO (CURVA ROJA)
-    # -----------------------------
-    h = np.linspace(0, max_dist, 200)
+    # ============================================================
+    # 4. MODELACIÓN TEÓRICA CURVA CONTINUA
+    # ============================================================
+    h = np.linspace(0, max_dist * 1.2, 200)
     c_struct = sill_val - nugget_val
 
     if modelo_tipo == "spherical":
@@ -1071,45 +1073,64 @@ with tab8:
         ]
     elif modelo_tipo == "exponential":
         gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * h / range_val))
-    else:
+    elif modelo_tipo == "gaussian":
         gamma_teo = nugget_val + c_struct * (1 - np.exp(-3 * (h / range_val)**2))
 
     # ============================================================
-    # 4. PANEL DERECHO — GRÁFICO
+    # 5. PANEL DERECHO — GRÁFICO INTERACTIVO PLOTLY
     # ============================================================
     with col_right:
-
-        st.markdown("### 📈 Variograma Experimental vs Teórico")
+        st.markdown("### 📈 Ajuste de Curvas Geoestadísticas")
 
         fig = go.Figure()
 
-        # Experimental (AZUL)
+        # 1. Variograma Experimental (Puntos Azules)
         fig.add_trace(go.Scatter(
-            x=lags_exp,
-            y=gammas_exp,
+            x=lags_exp, y=gammas_exp,
             mode="markers+lines",
             name="Experimental",
-            line=dict(color="blue", width=2)
+            marker=dict(size=10, color="blue"),
+            line=dict(color="blue", width=1.5, dash="dot")
         ))
 
-        # Teórico (ROJO)
+        # 2. Variograma Teórico Seleccionado (Curva Continua Roja)
         fig.add_trace(go.Scatter(
-            x=h,
-            y=gamma_teo,
+            x=h, y=gamma_teo,
             mode="lines",
-            name=f"Modelo {modelo_tipo}",
-            line=dict(color="red", width=4)   # 🔥 CURVA ROJA
+            name=f"Modelo Teórico ({modelo_tipo})",
+            line=dict(color="red", width=3.5)
         ))
 
+        # 3. Línea de referencia: Varianza Muestral Global
+        fig.add_shape(
+            type="line", x0=0, x1=max_dist * 1.2, y0=varianza_datos, y1=varianza_datos,
+            line=dict(color="gray", width=2, dash="dash"),
+            name="Varianza Global"
+        )
+        
+        # Anotación de texto para la Varianza
+        fig.add_annotation(
+            x=max_dist, y=varianza_datos, text="Varianza de los datos",
+            showarrow=False, ysift=10, font=dict(color="gray")
+        )
+
+        # Diseño estético del gráfico profesional
         fig.update_layout(
-            height=420,
-            margin=dict(l=20, r=20, t=40, b=20)
+            xaxis_title="Distancia de separación o Lag h (m)",
+            yaxis_title="Semivarianza γ(h)",
+            height=500,
+            hovermode="x unified",
+            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+            margin=dict(l=40, r=20, t=20, b=40)
         )
 
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Muestra una pequeña ayuda didáctica para el alumno debajo del gráfico
+        st.info(f"💡 **Consejo didáctico:** El alumno debe mover los deslizadores de la izquierda para lograr que la **curva roja** pase lo más cerca posible de los **puntos azules**.")
 
     # ============================================================
-    # 5. GUARDAR PARÁMETROS PARA KRIGING
+    # 6. GUARDAR PARÁMETROS PARA KRIGING
     # ============================================================
     st.session_state["v_parametros"] = dict(
         modelo=modelo_tipo,
