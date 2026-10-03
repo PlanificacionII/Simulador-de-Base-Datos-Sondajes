@@ -1001,7 +1001,7 @@ with tab8:
 
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"])
 
-        f "v_nugget" not in st.session_state:
+        if "v_nugget" not in st.session_state:
     st.session_state["v_nugget"] = round(varianza_datos * 0.1, 2)
 
 nugget_val = st.slider(
