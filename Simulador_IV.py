@@ -994,7 +994,7 @@ with tab8:
         st.session_state["range_alumno"] = 80.0
 
     
-    # ============================================================
+        # ============================================================
     # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA) — LIBERTAD CONTINUA
     # ============================================================
     col_left, col_right = st.columns([0.38, 0.62])
@@ -1015,36 +1015,45 @@ with tab8:
         st.markdown("---")
         st.markdown("### 🛠️ Ajuste Teórico (Controles Activos)")
         
-        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
-        
-        # Sliders vinculados a session_state y luego leídos
+        modelo_tipo = st.selectbox(
+            "Modelo Matemático:", 
+            ["spherical", "exponential", "gaussian"], 
+            index=0, 
+            key="v_modelo"
+        )
+
+        # -------------------------------
+        # SLIDERS CORREGIDOS (FUNCIONAN)
+        # -------------------------------
         st.slider(
-            "Efecto Pepita (Nugget)", 
-            min_value=0.00, 
-            max_value=float(varianza_datos), 
-            key="nugget_alumno", 
+            "Efecto Pepita (Nugget)",
+            min_value=0.00,
+            max_value=float(varianza_datos),
+            key="nugget_alumno",
             step=0.005
         )
-        nugget_val = st.session_state["nugget_alumno"]
-        
+        nugget_val = float(st.session_state["nugget_alumno"])
+
         st.slider(
-            "Meseta (Sill Total)", 
-            min_value=0.01, 
-            max_value=float(varianza_datos * 2.0), 
-            key="sill_alumno", 
+            "Meseta (Sill Total)",
+            min_value=0.01,
+            max_value=float(varianza_datos * 2.0),
+            key="sill_alumno",
             step=0.005
         )
-        sill_val = st.session_state["sill_alumno"]
-        
+        sill_val = float(st.session_state["sill_alumno"])
+
         max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
+
         st.slider(
-            "Alcance (Range en metros)", 
-            min_value=5, 
-            max_value=max_alcance_dinamico, 
-            key="range_alumno", 
+            "Alcance (Range en metros)",
+            min_value=5,
+            max_value=max_alcance_dinamico,
+            key="range_alumno",
             step=5
         )
-        range_val = st.session_state["range_alumno"]
+        range_val = float(st.session_state["range_alumno"])
+
 
 
 # 3. PROCESAMIENTO MATRICIAL VECTORIZADO
