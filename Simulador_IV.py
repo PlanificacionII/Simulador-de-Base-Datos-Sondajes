@@ -1212,7 +1212,7 @@ with tab8:
         sill=float(sill_val),
         range=float(range_val)
     )
-    )
+   
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
