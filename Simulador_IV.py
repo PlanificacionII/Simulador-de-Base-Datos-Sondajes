@@ -954,7 +954,7 @@ with tab7:
 
     st.plotly_chart(fig, use_container_width=True)
 # ====================================================================
-# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Estilo Software Minero Comercial)
+# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Estilo Software Minero Comercial, motor bueno)
 # ====================================================================
 import numpy as np
 import pandas as pd
@@ -976,7 +976,7 @@ with tab8:
     coords_m = df_c[["X", "Y", "Z"]].values
     col_ley = "Ley" if "Ley" in df_c.columns else df_c.select_dtypes(include=[np.number]).columns[-1]
     leyes_m = df_c[col_ley].values
-    varianza_datos = float(np.var(leyes_m))
+    varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
 
     # Estructuras del variograma experimental (Fijas)
     if "lags_calculados" not in st.session_state:
@@ -984,17 +984,7 @@ with tab8:
     if "gammas_calculados" not in st.session_state:
         st.session_state["gammas_calculados"] = []
 
-    # 🛠️ MEMORIA PROTEGIDA PARA EL ALUMNO: Solo se ejecuta una vez al ingresar a la pestaña
-    # Evita que la ecuación matemática machaque la posición elegida por el alumno
-    if "nugget_alumno" not in st.session_state:
-        st.session_state["nugget_alumno"] = float(varianza_datos * 0.15)
-    if "sill_alumno" not in st.session_state:
-        st.session_state["sill_alumno"] = float(varianza_datos)
-    if "range_alumno" not in st.session_state:
-        st.session_state["range_alumno"] = 80.0
-
-    
-        # ============================================================
+    # ============================================================
     # 2. PANEL DE CONFIGURACIÓN (IZQUIERDA) — LIBERTAD CONTINUA
     # ============================================================
     col_left, col_right = st.columns([0.38, 0.62])
@@ -1015,130 +1005,149 @@ with tab8:
         st.markdown("---")
         st.markdown("### 🛠️ Ajuste Teórico (Controles Activos)")
         
-        modelo_tipo = st.selectbox(
-            "Modelo Matemático:", 
-            ["spherical", "exponential", "gaussian"], 
-            index=0, 
-            key="v_modelo"
+        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], index=0, key="v_modelo")
+        
+        nugget_val = st.slider(
+            "Efecto Pepita (Nugget)", 
+            min_value=0.00, 
+            max_value=float(varianza_datos), 
+            value=float(varianza_datos * 0.1),
+            step=0.005,
+            key="v_nugget"
         )
-
-        # -------------------------------
-        # SLIDERS CORREGIDOS (FUNCIONAN)
-        # -------------------------------
-        st.slider(
-            "Efecto Pepita (Nugget)",
-            min_value=0.00,
-            max_value=float(varianza_datos),
-            key="nugget_alumno",
-            step=0.005
+        
+        sill_val = st.slider(
+            "Meseta (Sill Total)", 
+            min_value=0.01, 
+            max_value=float(varianza_datos * 2.0), 
+            value=float(varianza_datos),
+            step=0.005,
+            key="v_sill"
         )
-        nugget_val = float(st.session_state["nugget_alumno"])
-
-        st.slider(
-            "Meseta (Sill Total)",
-            min_value=0.01,
-            max_value=float(varianza_datos * 2.0),
-            key="sill_alumno",
-            step=0.005
-        )
-        sill_val = float(st.session_state["sill_alumno"])
-
+        
         max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
-
-        st.slider(
-            "Alcance (Range en metros)",
-            min_value=5,
-            max_value=max_alcance_dinamico,
-            key="range_alumno",
-            step=5
+        range_val = st.slider(
+            "Alcance (Range en metros)", 
+            min_value=5, 
+            max_value=max_alcance_dinamico, 
+            value=int(n_lags * lag_dist * 0.5),
+            step=5,
+            key="v_range"
         )
-        range_val = float(st.session_state["range_alumno"])
 
-
-
-# 3. PROCESAMIENTO MATRICIAL VECTORIZADO
-    max_dist = float(n_lags * lag_dist)
+    # ============================================================
+    # 3. MOTOR EXPERIMENTAL (MISMO ENFOQUE DEL CÓDIGO BUENO)
+    # ============================================================
+    max_dist_estudio = float(n_lags * lag_dist)
+    lags_experimentales = []
+    gammas_experimentales = []
 
     if btn_calcular:
         with st.spinner("Calculando pares geoestadísticos..."):
-            lags_tmp_res = []
-            gammas_tmp_res = []
-            
-            matriz_dist = pdist(coords_m)
-            idx_i, idx_j = np.triu_indices(len(coords_m), k=1)
-            matriz_semiv = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
-
             if omni_3d:
-                for k in range(n_lags):
-                    d_min = k * lag_dist
-                    d_max = (k + 1) * lag_dist
-                    mask = (matriz_dist >= d_min) & (matriz_dist < d_max)
-                    if np.sum(mask) > 2:
-                        lags_tmp_res.append((d_min + d_max) / 2)
-                        gammas_tmp_res.append(np.mean(matriz_semiv[mask]))
+                # Omnidireccional 3D tipo original
+                if len(coords_m) > 500:
+                    np.random.seed(42)
+                    idx_m = np.random.choice(len(coords_m), 500, replace=False)
+                    c_f, l_f = coords_m[idx_m], leyes_m[idx_m]
+                else:
+                    c_f, l_f = coords_m, leyes_m
+
+                matriz_dist = pdist(c_f)
+                n_m = len(l_f)
+                idx_i, idx_j = np.triu_indices(n_m, k=1)
+                matriz_semivarianza = 0.5 * ((l_f[idx_i] - l_f[idx_j]) ** 2)
+
+                for step in range(int(n_lags)):
+                    d_min = step * lag_dist
+                    d_max = (step + 1) * lag_dist
+                    filtro_par = (matriz_dist >= d_min) & (matriz_dist < d_max)
+                    if np.sum(filtro_par) > 2:
+                        lags_experimentales.append((d_min + d_max) / 2)
+                        gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
             else:
+                # Direccional, mismo motor que el original
                 az_rad = np.radians(acimut)
                 dip_rad = np.radians(buzamiento)
-                v_dir = np.array([np.cos(dip_rad) * np.sin(az_rad), np.cos(dip_rad) * np.cos(az_rad), np.sin(dip_rad)])
+                v_dir = np.array([
+                    np.cos(dip_rad) * np.sin(az_rad),
+                    np.cos(dip_rad) * np.cos(az_rad),
+                    np.sin(dip_rad)
+                ])
 
-                vectores = coords_m[idx_i] - coords_m[idx_j]
-                mask_dist = (matriz_dist > 0) & (matriz_dist <= max_dist)
-                
-                if np.any(mask_dist):
-                    dist_filtradas = matriz_dist[mask_dist]
-                    vectores_filtrados = vectores[mask_dist]
-                    semiv_filtradas = matriz_semiv[mask_dist]
+                n_muestras = len(coords_m)
+                muestreo_max = 400 if n_muestras > 400 else n_muestras
 
-                    dot_products = np.abs(np.sum(vectores_filtrados * v_dir, axis=1))
-                    cosang = dot_products / (dist_filtradas + 1e-9)
-                    angulos = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
+                np.random.seed(42)
+                indices_estudio = np.random.choice(n_muestras, muestreo_max, replace=False) if n_muestras > 400 else np.arange(n_muestras)
 
-                    mask_angular = angulos <= tolerancia_t
-                    dist_finales = dist_filtradas[mask_angular]
-                    semiv_finales = semiv_filtradas[mask_angular]
+                lags_acum = {s: [] for s in range(int(n_lags))}
+                gammas_acum = {s: [] for s in range(int(n_lags))}
 
-                    for k in range(n_lags):
-                        d_min = k * lag_dist
-                        d_max = (k + 1) * lag_dist
-                        mask_lag = (dist_finales >= d_min) & (dist_finales < d_max)
-                        if np.sum(mask_lag) > 2:
-                            lags_tmp_res.append((d_min + d_max) / 2)
-                            gammas_tmp_res.append(np.mean(semiv_finales[mask_lag]))
+                for i in range(len(indices_estudio)):
+                    for j in range(i + 1, len(indices_estudio)):
+                        idx_i = indices_estudio[i]
+                        idx_j = indices_estudio[j]
 
-            st.session_state["lags_calculados"] = lags_tmp_res
-            st.session_state["gammas_calculados"] = gammas_tmp_res
+                        vector_sep = coords_m[idx_i] - coords_m[idx_j]
+                        dist_real = np.linalg.norm(vector_sep)
+
+                        if 0 < dist_real <= max_dist_estudio:
+                            bin_lag = int(dist_real // lag_dist)
+                            if bin_lag >= n_lags:
+                                bin_lag = int(n_lags - 1)
+
+                            cos_alpha = np.abs(np.dot(vector_sep, v_dir)) / (dist_real * 1.0)
+                            cos_alpha = np.clip(cos_alpha, -1.0, 1.0)
+                            angulo_desviacion = np.degrees(np.arccos(cos_alpha))
+
+                            if angulo_desviacion <= tolerancia_t:
+                                semivarianza_par = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+                                lags_acum[bin_lag].append(dist_real)
+                                gammas_acum[bin_lag].append(semivarianza_par)
+
+                for s in range(int(n_lags)):
+                    if len(lags_acum[s]) > 2:
+                        lags_experimentales.append(np.mean(lags_acum[s]))
+                        gammas_experimentales.append(np.mean(gammas_acum[s]))
+
+            st.session_state["lags_calculados"] = lags_experimentales
+            st.session_state["gammas_calculados"] = gammas_experimentales
             st.rerun()
 
-    lags_exp = st.session_state.get("lags_calculados", [])
-    gammas_exp = st.session_state.get("gammas_calculados", [])
- # 4. MODELACIÓN MATEMÁTICA PURA
-    h = np.linspace(0, max_dist * 1.15, 200)
-    c_struct = float(sill_val - nugget_val)
-    gamma_teo = []
+    lags_experimentales = st.session_state.get("lags_calculados", [])
+    gammas_experimentales = st.session_state.get("gammas_calculados", [])
 
-    for d in h:
-        if modelo_tipo == "spherical":
-            if d <= range_val:
-                valor = nugget_val + c_struct * (1.5 * (d / range_val) - 0.5 * (d / range_val)**3)
+    # ============================================================
+    # 4. CURVA TEÓRICA (MOTOR DEL CÓDIGO BUENO)
+    # ============================================================
+    h_curva = np.linspace(0, max_dist_estudio, 200)
+    gamma_teorico = np.zeros_like(h_curva)
+    c_estructural = sill_val - nugget_val
+
+    if modelo_tipo == "spherical":
+        for idx, h in enumerate(h_curva):
+            if h <= range_val:
+                gamma_teorico[idx] = nugget_val + c_estructural * (1.5 * (h / range_val) - 0.5 * (h / range_val)**3)
             else:
-                valor = sill_val
-            gamma_teo.append(valor)
-        elif modelo_tipo == "exponential":
-            valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * d / range_val))
-            gamma_teo.append(valor)
-        elif modelo_tipo == "gaussian":
-            valor = nugget_val + c_struct * (1.0 - np.exp(-3.0 * (d / range_val)**2))
-            gamma_teo.append(valor)
-# 5. PANEL DERECHO — DISEÑO PROFESIONAL (ESTILO SOFTWARE MINERO)
+                gamma_teorico[idx] = sill_val
+    elif modelo_tipo == "exponential":
+        gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * h_curva / range_val))
+    elif modelo_tipo == "gaussian":
+        gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * (h_curva / range_val)**2))
+
+    # ============================================================
+    # 5. PANEL DERECHO — DISEÑO PROFESIONAL (GRÁFICO)
+    # ============================================================
     with col_right:
         st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
 
         fig = go.Figure()
 
-        # 1. Variograma Experimental Estilizado (Puntos de Control Técnicos)
-        if len(lags_exp) > 0:
+        # Experimental
+        if len(lags_experimentales) > 0:
             fig.add_trace(go.Scatter(
-                x=lags_exp, y=gammas_exp,
+                x=lags_experimentales, y=gammas_experimentales,
                 mode="markers+lines",
                 name="Experimental",
                 marker=dict(size=8, color="#0A2540", line=dict(width=1, color="white")),
@@ -1150,27 +1159,26 @@ with tab8:
                 xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False, font=dict(size=13, color="#DE7A22")
             )
 
-        # 2. Curva Teórica Continua Imponente
+        # Teórica
         fig.add_trace(go.Scatter(
-            x=h, y=gamma_teo,
+            x=h_curva, y=gamma_teorico,
             mode="lines",
             name=f"Modelo {modelo_tipo.capitalize()}",
             line=dict(color="#E63946", width=3)
         ))
 
-        # 3. Línea de Referencia de la Varianza Global
+        # Varianza global
         fig.add_shape(
-            type="line", x0=0, x1=max_dist * 1.15, y0=varianza_datos, y1=varianza_datos,
+            type="line", x0=0, x1=max_dist_estudio, y0=varianza_datos, y1=varianza_datos,
             line=dict(color="#8D99AE", width=1.5, dash="longdash"),
         )
         fig.add_annotation(
-            x=max_dist * 0.85, y=varianza_datos, text="Varianza Global Muestral",
+            x=max_dist_estudio * 0.85, y=varianza_datos, text="Varianza Global Muestral",
             showarrow=False, yshift=10, font=dict(color="#5C677D", size=11)
         )
 
-        # Configuración de escala fija y cuadrícula limpia tipo software comercial
-        max_y_limite = float(varianza_datos * 1.4)
-        
+        max_y_limite = float(varianza_datos * 1.8)
+
         fig.update_layout(
             xaxis_title=dict(text="Distancia de Separación o Lag h (m)", font=dict(size=12, color="#2B2D42")),
             yaxis_title=dict(text="Semivarianza γ(h)", font=dict(size=12, color="#2B2D42")),
@@ -1185,22 +1193,25 @@ with tab8:
             ),
             xaxis=dict(
                 showgrid=True, gridcolor="#E5E5E5", showline=True, linecolor="#2B2D42", 
-                linewidth=1.5, mirror=True, ticks="inside"
+                linewidth=1.5, mirror=True, ticks="inside", range=[0, max_dist_estudio]
             ),
             yaxis=dict(
                 showgrid=True, gridcolor="#E5E5E5", showline=True, linecolor="#2B2D42", 
-                linewidth=1.5, mirror=True, ticks="inside", autorange=True     #range=[0.0, max_y_limite]
+                linewidth=1.5, mirror=True, ticks="inside", range=[0.0, max_y_limite]
             )
         )
 
         st.plotly_chart(fig, use_container_width=True)
-        st.info("💡 **Ajuste Geológico:** Mueva el deslizador del **Nugget** a la izquierda. Verá de inmediato cómo el origen vertical de la **línea roja** sube y baja de manera estable sobre la cuadrícula.")
- # 6. GUARDAR PARÁMETROS PARA KRIGING
+
+    # ============================================================
+    # 6. GUARDAR PARÁMETROS PARA KRIGING
+    # ============================================================
     st.session_state["v_parametros"] = dict(
         modelo=modelo_tipo,
         nugget=float(nugget_val),
         sill=float(sill_val),
         range=float(range_val)
+    )
     )
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
