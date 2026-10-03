@@ -1002,8 +1002,8 @@ with tab8:
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"])
 
    #--- CONTROL SEGURO DEL NUGGET ---
-with c_mod1:
-    nugget_val = st.slider(
+    with c_mod1:
+        nugget_val = st.slider(
         "Pepita (Nugget - C0):",
         min_value=0.00,
         max_value=round(varianza_datos, 2),
@@ -1011,13 +1011,13 @@ with c_mod1:
         step=0.01,
         key="v_nugget"
     )
-    sill_val = st.slider(
-        "Meseta (Sill - C):",
-        min_value=0.01,
-        max_value=round(varianza_datos * 2.0, 2),
-        value=round(varianza_datos, 2),
-        step=0.05,
-        key="v_sill"
+        sill_val = st.slider(
+            "Meseta (Sill - C):",
+            min_value=0.01,
+            max_value=round(varianza_datos * 2.0, 2),
+            value=round(varianza_datos, 2),
+            step=0.05,
+            key="v_sill"
     )
         sill_val = st.slider(
             "Meseta (Sill Total)",
