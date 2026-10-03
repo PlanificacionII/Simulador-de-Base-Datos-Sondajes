@@ -1001,13 +1001,17 @@ with tab8:
 
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"])
 
-        nugget_val = st.slider(
-            "Efecto Pepita (Nugget)",
-            min_value=0.00,
-            max_value=float(varianza_datos),
-            value=float(varianza_datos * 0.1),
-            step=0.005
-        )
+        f "v_nugget" not in st.session_state:
+    st.session_state["v_nugget"] = round(varianza_datos * 0.1, 2)
+
+nugget_val = st.slider(
+    "Pepita (Nugget - C0):",
+    min_value=0.00,
+    max_value=round(varianza_datos, 2),
+    value=st.session_state["v_nugget"],
+    step=0.01,
+    key="v_nugget"
+)
 
         sill_val = st.slider(
             "Meseta (Sill Total)",
