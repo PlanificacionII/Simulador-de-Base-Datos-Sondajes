@@ -1001,7 +1001,8 @@ with tab8:
 
         modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"])
 
-        if "v_nugget" not in st.session_state:
+   --- CONTROL SEGURO DEL NUGGET ---
+if "v_nugget" not in st.session_state:
     st.session_state["v_nugget"] = round(varianza_datos * 0.1, 2)
 
 nugget_val = st.slider(
@@ -1012,7 +1013,6 @@ nugget_val = st.slider(
     step=0.01,
     key="v_nugget"
 )
-
         sill_val = st.slider(
             "Meseta (Sill Total)",
             min_value=0.01,
