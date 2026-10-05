@@ -1235,8 +1235,8 @@ fig.update_layout(
 
 fig.update_xaxes(range=[0, float(max_dist_estudio)])
 if varianza_datos is not None:
-    fig.update_yaxes(range=[0, float(varianza_datos) * 1.8])
-
+    #fig.update_yaxes(range=[0, float(varianza_datos) * 1.8])
+     fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.2])
 st.plotly_chart(fig, use_container_width=True)
 
 
