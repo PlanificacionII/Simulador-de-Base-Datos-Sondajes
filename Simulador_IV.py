@@ -1199,7 +1199,7 @@ with col_right:
             line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
         )
 
-     fig.update_layout(
+    fig.update_layout(
         title_text="Variograma Experimental vs Teórico",
         title_x=0.5,
         title_font=dict(size=24, family="sans-serif"), # Usamos "sans-serif" que es universal en Linux/Streamlit Cloud
