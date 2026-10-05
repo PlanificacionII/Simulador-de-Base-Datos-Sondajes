@@ -954,7 +954,7 @@ with tab7:
 
     st.plotly_chart(fig, use_container_width=True)
 # ====================================================================
-# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Estilo Software Minero Comercial)
+# 📉 PESTAÑA 8 — VARIOGRAFÍA PRO (Estilo Leapfrog Profesional)
 # ====================================================================
 import numpy as np
 import pandas as pd
@@ -963,7 +963,7 @@ from scipy.spatial.distance import pdist
 
 with tab8:
     st.markdown("## 📉 Variografía PRO — Geoestadística Avanzada")
-    st.caption("Análisis direccional, ajuste teórico interactivo y elipsoide de anisotropía.")
+    st.caption("Análisis direccional, ajuste teórico interactivo y visualización profesional estilo Leapfrog.")
 
     # ============================================================
     # 1. CARGA DE DATOS
@@ -996,7 +996,10 @@ with tab8:
 
         btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
 
-        st.markdown("#### 🛠️ 3. Ajuste Teórico (Estructuras)")
+        # ============================================================
+        # 3. AJUSTE TEÓRICO — SLIDERS LEAPFROG
+        # ============================================================
+        st.markdown("#### 🛠️ Ajuste Teórico (Estructuras)")
         modelo_tipo = st.selectbox(
             "Modelo Matemático:",
             ["spherical", "exponential", "gaussian"],
@@ -1113,9 +1116,8 @@ with tab8:
                         lags_experimentales.append(np.mean(lags_acum[s]))
                         gammas_experimentales.append(np.mean(gammas_acum[s]))
 
-            st.session_state["lags_calculados"] = lags_experimentales
-            st.session_state["gammas_calculados"] = gammas_experimentales
-            #st.rerun()
+        st.session_state["lags_calculados"] = lags_experimentales
+        st.session_state["gammas_calculados"] = gammas_experimentales
 
     lags_experimentales = st.session_state.get("lags_calculados", [])
     gammas_experimentales = st.session_state.get("gammas_calculados", [])
@@ -1146,93 +1148,90 @@ with tab8:
             1.0 - np.exp(-3.0 * (h_curva / range_val)**2)
         )
 
-# ============================================================
-# 5. PANEL DERECHO — GRÁFICO (ESTILO LEAPFROG)
-# ============================================================
-with col_right:
-    st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
+    # ============================================================
+    # 5. PANEL DERECHO — GRÁFICO LEAPFROG
+    # ============================================================
+    with col_right:
+        st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
 
-    fig = go.Figure()
+        fig = go.Figure()
 
-    # Experimental — puntos + línea suave
-    if len(lags_experimentales) > 0:
+        # Experimental — puntos + línea suave
+        if len(lags_experimentales) > 0:
+            fig.add_trace(go.Scatter(
+                x=lags_experimentales,
+                y=gammas_experimentales,
+                mode="markers",
+                name="Experimental",
+                marker=dict(
+                    size=9,
+                    color="#4C78A8",
+                    line=dict(width=1.5, color="white"),
+                    opacity=0.95
+                )
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=lags_experimentales,
+                y=gammas_experimentales,
+                mode="lines",
+                name="Tendencia Experimental",
+                line=dict(color="#4C78A8", width=2),
+                opacity=0.55
+            ))
+
+        # Teórico — línea gruesa
         fig.add_trace(go.Scatter(
-            x=lags_experimentales,
-            y=gammas_experimentales,
-            mode="markers",
-            name="Experimental",
-            marker=dict(
-                size=9,
-                color="#4C78A8",              # Azul Leapfrog
-                line=dict(width=1.5, color="white"),
-                opacity=0.95
-            )
-        ))
-
-        fig.add_trace(go.Scatter(
-            x=lags_experimentales,
-            y=gammas_experimentales,
+            x=h_curva,
+            y=gamma_teorico,
             mode="lines",
-            name="Tendencia Experimental",
-            line=dict(color="#4C78A8", width=2),
-            opacity=0.55
+            name=f"Modelo {modelo_tipo.capitalize()}",
+            line=dict(color="#F58518", width=4)
         ))
 
-    # Teórico — línea gruesa y limpia
-    fig.add_trace(go.Scatter(
-        x=h_curva,
-        y=gamma_teorico,
-        mode="lines",
-        name=f"Modelo {modelo_tipo.capitalize()}",
-        line=dict(color="#F58518", width=4)   # Naranja Leapfrog
-    ))
-
-    # Varianza global — línea tenue
-    fig.add_shape(
-        type="line",
-        x0=0, x1=max_dist_estudio,
-        y0=varianza_datos, y1=varianza_datos,
-        line=dict(color="rgba(120,120,120,0.35)", width=2, dash="dash")
-    )
-
-    # Estilo Leapfrog
-    fig.update_layout(
-        title=dict(
-            text="Variograma Experimental vs Teórico",
-            font=dict(size=22, family="Segoe UI Semibold"),
-            x=0.5
-        ),
-        xaxis=dict(
-            title="Distancia de Separación (h) [m]",
-            gridcolor="rgba(220,220,220,0.35)",
-            zeroline=False,
-            tickfont=dict(size=13)
-        ),
-        yaxis=dict(
-            title="Semivarianza γ(h)",
-            gridcolor="rgba(220,220,220,0.35)",
-            zeroline=False,
-            tickfont=dict(size=13)
-        ),
-        plot_bgcolor="rgba(245,245,245,1)",   # Gris claro Leapfrog
-        paper_bgcolor="white",
-        height=510,
-        hovermode="closest",
-        margin=dict(l=55, r=25, t=15, b=50),
-        legend=dict(
-            bgcolor="rgba(255,255,255,0.7)",
-            bordercolor="rgba(0,0,0,0.15)",
-            borderwidth=1,
-            font=dict(size=13)
+        # Varianza global
+        fig.add_shape(
+            type="line",
+            x0=0, x1=max_dist_estudio,
+            y0=varianza_datos, y1=varianza_datos,
+            line=dict(color="rgba(120,120,120,0.35)", width=2, dash="dash")
         )
-    )
 
-    fig.update_xaxes(range=[0, max_dist_estudio])
-    fig.update_yaxes(range=[0, varianza_datos * 1.8])
+        fig.update_layout(
+            title=dict(
+                text="Variograma Experimental vs Teórico",
+                font=dict(size=22, family="Segoe UI Semibold"),
+                x=0.5
+            ),
+            xaxis=dict(
+                title="Distancia de Separación (h) [m]",
+                gridcolor="rgba(220,220,220,0.35)",
+                zeroline=False,
+                tickfont=dict(size=13)
+            ),
+            yaxis=dict(
+                title="Semivarianza γ(h)",
+                gridcolor="rgba(220,220,220,0.35)",
+                zeroline=False,
+                tickfont=dict(size=13)
+            ),
+            plot_bgcolor="rgba(245,245,245,1)",
+            paper_bgcolor="white",
+            height=510,
+            hovermode="closest",
+            margin=dict(l=55, r=25, t=15, b=50),
+            legend=dict(
+                bgcolor="rgba(255,255,255,0.7)",
+                bordercolor="rgba(0,0,0,0.15)",
+                borderwidth=1,
+                font=dict(size=13)
+            )
+        )
 
-    st.plotly_chart(fig, use_container_width=True)
+        fig.update_xaxes(range=[0, max_dist_estudio])
+        fig.update_yaxes(range=[0, varianza_datos * 1.8])
 
-
+        st.plotly_chart(fig, use_container_width=True)
 
     # ============================================================
     # 6. GUARDAR PARÁMETROS
