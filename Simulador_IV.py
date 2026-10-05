@@ -1131,23 +1131,26 @@ with col_right:
     gamma_teorico = np.zeros_like(h_curva)
     c_estructural = float(sill_val) - float(nugget_val)
 
+    # EVITAR DIVISIÓN POR CERO: Si range_val es 0, usamos un valor mínimo casi invisible
+    r_val = float(range_val) if float(range_val) > 0 else 1e-9
+
     if modelo_tipo == "spherical":
         for idx, h in enumerate(h_curva):
-            if h <= range_val:
+            if h <= r_val:
                 gamma_teorico[idx] = float(nugget_val) + c_estructural * (
-                    1.5 * (h / range_val) - 0.5 * (h / range_val)**3
+                    1.5 * (h / r_val) - 0.5 * (h / r_val)**3
                 )
             else:
                 gamma_teorico[idx] = float(sill_val)
 
     elif modelo_tipo == "exponential":
         gamma_teorico = float(nugget_val) + c_estructural * (
-            1.0 - np.exp(-3.0 * h_curva / range_val)
+            1.0 - np.exp(-3.0 * h_curva / r_val)
         )
 
     elif modelo_tipo == "gaussian":
         gamma_teorico = float(nugget_val) + c_estructural * (
-            1.0 - np.exp(-3.0 * (h_curva / range_val)**2)
+            1.0 - np.exp(-3.0 * (h_curva / r_val)**2)
         )
 
     # --- Gráfico ---
@@ -1233,6 +1236,7 @@ with col_right:
     if varianza_datos is not None:
         fig.update_yaxes(range=[0, float(varianza_datos) * 1.8])
 
+    # Se mantiene la visualización limpia en el contenedor de Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
 # ============================================================
