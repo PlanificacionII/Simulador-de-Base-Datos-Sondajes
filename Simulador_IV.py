@@ -996,14 +996,13 @@ with tab8:
 
         btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
 
-        st.markdown("---")
-        st.markdown("### 🛠️ Ajuste Teórico (Controles Activos)")
+        st.markdown("#### 🛠️ 3. Ajuste Teórico (Estructuras)")
+modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], key="v_model_type")
 
-        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"])
+c_mod1, c_mod2 = st.columns(2)
 
-   #--- CONTROL SEGURO DEL NUGGET ---
-    with c_mod1:
-        nugget_val = st.slider(
+with c_mod1:
+    nugget_val = st.slider(
         "Pepita (Nugget - C0):",
         min_value=0.00,
         max_value=round(varianza_datos, 2),
@@ -1011,30 +1010,25 @@ with tab8:
         step=0.01,
         key="v_nugget"
     )
-        sill_val = st.slider(
-            "Meseta (Sill - C):",
-            min_value=0.01,
-            max_value=round(varianza_datos * 2.0, 2),
-            value=round(varianza_datos, 2),
-            step=0.05,
-            key="v_sill"
-    )
-        sill_val = st.slider(
-            "Meseta (Sill Total)",
-            min_value=0.01,
-            max_value=float(varianza_datos * 2.0),
-            value=float(varianza_datos),
-            step=0.005
-        )
 
-        max_alcance_dinamico = int(n_lags * lag_dist * 1.5)
-        range_val = st.slider(
-            "Alcance (Range en metros)",
-            min_value=5,
-            max_value=max_alcance_dinamico,
-            value=int(n_lags * lag_dist * 0.5),
-            step=5
-        )
+    sill_val = st.slider(
+        "Meseta (Sill - C):",
+        min_value=0.01,
+        max_value=round(varianza_datos * 2.0, 2),
+        value=round(varianza_datos, 2),
+        step=0.05,
+        key="v_sill"
+    )
+
+with c_mod2:
+    range_val = st.slider(
+        "Alcance (Range - m):",
+        min_value=10,
+        max_value=int(n_lags * lag_dist),
+        value=int(n_lags * lag_dist * 0.5),
+        step=10,
+        key="v_range"
+    )
 
     # ============================================================
     # 3. MOTOR EXPERIMENTAL (BUENO)
