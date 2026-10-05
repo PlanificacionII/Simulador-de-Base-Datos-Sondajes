@@ -1163,7 +1163,7 @@ with tab8:
                     size=10,
                     color="#2C6EAF", 
                     line=dict(width=2, color="white"),
-                    opacity=0.95
+                    opacity=0.95,
 		    symbol="circle"
                 )
             ))
