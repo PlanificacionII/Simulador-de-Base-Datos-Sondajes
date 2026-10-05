@@ -1146,7 +1146,7 @@ with tab8:
             1.0 - np.exp(-3.0 * (h_curva / range_val)**2)
         )
 
-    # ============================================================
+# ============================================================
 # 5. PANEL DERECHO — GRÁFICO (ESTILO LEAPFROG)
 # ============================================================
 with col_right:
@@ -1154,11 +1154,8 @@ with col_right:
 
     fig = go.Figure()
 
-    # ------------------------------------------------------------
-    # EXPERIMENTAL — PUNTOS + LÍNEA SUAVE (AZUL LEAPFROG)
-    # ------------------------------------------------------------
+    # Experimental — puntos + línea suave
     if len(lags_experimentales) > 0:
-        # Puntos
         fig.add_trace(go.Scatter(
             x=lags_experimentales,
             y=gammas_experimentales,
@@ -1172,7 +1169,6 @@ with col_right:
             )
         ))
 
-        # Línea suavizada
         fig.add_trace(go.Scatter(
             x=lags_experimentales,
             y=gammas_experimentales,
@@ -1182,9 +1178,7 @@ with col_right:
             opacity=0.55
         ))
 
-    # ------------------------------------------------------------
-    # TEÓRICO — LÍNEA GRUESA Y LIMPIA (NARANJA LEAPFROG)
-    # ------------------------------------------------------------
+    # Teórico — línea gruesa y limpia
     fig.add_trace(go.Scatter(
         x=h_curva,
         y=gamma_teorico,
@@ -1193,9 +1187,7 @@ with col_right:
         line=dict(color="#F58518", width=4)   # Naranja Leapfrog
     ))
 
-    # ------------------------------------------------------------
-    # VARIANZA GLOBAL — LÍNEA TENUE
-    # ------------------------------------------------------------
+    # Varianza global — línea tenue
     fig.add_shape(
         type="line",
         x0=0, x1=max_dist_estudio,
@@ -1203,9 +1195,7 @@ with col_right:
         line=dict(color="rgba(120,120,120,0.35)", width=2, dash="dash")
     )
 
-    # ------------------------------------------------------------
-    # ESTILO LEAPFROG — LIMPIO, MINIMALISTA, PROFESIONAL
-    # ------------------------------------------------------------
+    # Estilo Leapfrog
     fig.update_layout(
         title=dict(
             text="Variograma Experimental vs Teórico",
@@ -1241,6 +1231,7 @@ with col_right:
     fig.update_yaxes(range=[0, varianza_datos * 1.8])
 
     st.plotly_chart(fig, use_container_width=True)
+
 
 
     # ============================================================
