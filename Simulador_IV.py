@@ -1126,6 +1126,12 @@ with tab8:
 with col_right:
     st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
 
+# 🔄 ACTUALIZAR VALORES DE LOS SLIDERS (ESTO RESTAURA EL NUGGET)
+    nugget_val = st.session_state["v_nugget"]
+    sill_val = st.session_state["v_sill"]
+    range_val = st.session_state["v_range"]
+    modelo_tipo = st.session_state["v_model_type"]
+
     # --- Cálculo teórico ---
     h_curva = np.linspace(0, max_dist_estudio, 200)
     gamma_teorico = np.zeros_like(h_curva)
