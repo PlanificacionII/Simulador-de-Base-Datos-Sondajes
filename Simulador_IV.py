@@ -1185,53 +1185,52 @@ with tab8:
             line=dict(color="#F28E2B", width=5)
         ))
 
-        fig.add_shape(
-	    type="line",
-            x0=0,
-            x1=max_dist_estudio,
-            y0=varianza_datos,
-            y1=varianza_datos,
-            line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
+fig.add_shape(
+    type="line",
+    x0=0,
+    x1=max_dist_estudio,
+    y0=varianza_datos,
+    y1=varianza_datos,
+    line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
 )
 
+fig.update_layout(
+    title=dict(
+        text="Variograma Experimental vs Teórico",
+        font=dict(size=24, family="Segoe UI Semibold"),
+        x=0.5
+    ),
+    xaxis=dict(
+        title="Distancia de Separación (h) [m]",
+        gridcolor="rgba(210,210,210,0.45)",
+        zeroline=False,
+        tickfont=dict(size=14),
+        titlefont=dict(size=16)
+    ),
+    yaxis=dict(
+        title="Semivarianza γ(h)",
+        gridcolor="rgba(210,210,210,0.45)",
+        zeroline=False,
+        tickfont=dict(size=14),
+        titlefont=dict(size=16)
+    ),
+    plot_bgcolor="rgba(245,245,245,1)",
+    paper_bgcolor="white",
+    height=560,
+    hovermode="closest",
+    margin=dict(l=65, r=35, t=60, b=60),
+    legend=dict(
+        bgcolor="rgba(255,255,255,0.8)",
+        bordercolor="rgba(0,0,0,0.2)",
+        borderwidth=1,
+        font=dict(size=14)
+    )
+)
 
-        fig.update_layout(
-            title=dict(
-                text="Variograma Experimental vs Teórico",
-                font=dict(size=24, family="Segoe UI Semibold"),
-                x=0.5
-            ),
-            xaxis=dict(
-                title="Distancia de Separación (h) [m]",
-                gridcolor="rgba(210,210,210,0.45)",
-                zeroline=False,
-                tickfont=dict(size=14),
-                titlefont=dict(size=16)
-            ),
-            yaxis=dict(
-                title="Semivarianza γ(h)",
-                gridcolor="rgba(210,210,210,0.45)",
-                zeroline=False,
-                tickfont=dict(size=14),
-                titlefont=dict(size=16)
-            ),
-            plot_bgcolor="rgba(245,245,245,1)",
-            paper_bgcolor="white",
-            height=560,
-            hovermode="closest",
-            margin=dict(l=65, r=35, t=60, b=60),
-            legend=dict(
-                bgcolor="rgba(255,255,255,0.8)",
-                bordercolor="rgba(0,0,0,0.2)",
-                borderwidth=1,
-                font=dict(size=14)
-            )
-        )
+fig.update_xaxes(range=[0, max_dist_estudio])
+fig.update_yaxes(range=[0, varianza_datos * 1.8])
 
-        fig.update_xaxes(range=[0, max_dist_estudio])
-        fig.update_yaxes(range=[0, varianza_datos * 1.8])
-
-        st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 
     # ============================================================
     # 6. GUARDAR PARÁMETROS
