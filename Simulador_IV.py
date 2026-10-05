@@ -983,7 +983,7 @@ with tab8:
     # ============================================================
     col_left, col_right = st.columns([0.38, 0.62])
 
-    with col_left:
+        with col_left:
         st.markdown("### 🎛️ Parámetros Experimentales")
         n_lags = st.number_input("Número de lags", 1, 30, 8)
         lag_dist = st.number_input("Lag separación (m)", 1.0, 200.0, 20.0)
@@ -997,38 +997,43 @@ with tab8:
         btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
 
         st.markdown("#### 🛠️ 3. Ajuste Teórico (Estructuras)")
-modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], key="v_model_type")
+        modelo_tipo = st.selectbox(
+            "Modelo Matemático:",
+            ["spherical", "exponential", "gaussian"],
+            key="v_model_type"
+        )
 
-c_mod1, c_mod2 = st.columns(2)
+        c_mod1, c_mod2 = st.columns(2)
 
-with c_mod1:
-    nugget_val = st.slider(
-        "Pepita (Nugget - C0):",
-        min_value=0.00,
-        max_value=round(varianza_datos, 2),
-        value=round(varianza_datos * 0.1, 2),
-        step=0.01,
-        key="v_nugget"
-    )
+        with c_mod1:
+            nugget_val = st.slider(
+                "Pepita (Nugget - C0):",
+                min_value=0.00,
+                max_value=round(varianza_datos, 2),
+                value=round(varianza_datos * 0.1, 2),
+                step=0.01,
+                key="v_nugget"
+            )
 
-    sill_val = st.slider(
-        "Meseta (Sill - C):",
-        min_value=0.01,
-        max_value=round(varianza_datos * 2.0, 2),
-        value=round(varianza_datos, 2),
-        step=0.05,
-        key="v_sill"
-    )
+            sill_val = st.slider(
+                "Meseta (Sill - C):",
+                min_value=0.01,
+                max_value=round(varianza_datos * 2.0, 2),
+                value=round(varianza_datos, 2),
+                step=0.05,
+                key="v_sill"
+            )
 
-with c_mod2:
-    range_val = st.slider(
-        "Alcance (Range - m):",
-        min_value=10,
-        max_value=int(n_lags * lag_dist),
-        value=int(n_lags * lag_dist * 0.5),
-        step=10,
-        key="v_range"
-    )
+        with c_mod2:
+            range_val = st.slider(
+                "Alcance (Range - m):",
+                min_value=10,
+                max_value=int(n_lags * lag_dist),
+                value=int(n_lags * lag_dist * 0.5),
+                step=10,
+                key="v_range"
+            )
+
 
     # ============================================================
     # 3. MOTOR EXPERIMENTAL (BUENO)
@@ -1111,7 +1116,7 @@ with c_mod2:
 
             st.session_state["lags_calculados"] = lags_experimentales
             st.session_state["gammas_calculados"] = gammas_experimentales
-            st.rerun()
+            #st.rerun()
 
     lags_experimentales = st.session_state.get("lags_calculados", [])
     gammas_experimentales = st.session_state.get("gammas_calculados", [])
