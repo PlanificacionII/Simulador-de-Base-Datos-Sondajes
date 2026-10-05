@@ -1200,35 +1200,38 @@ with col_right:
         )
 
     fig.update_layout(
-        title_text="Variograma Experimental vs Teórico",
-        title_x=0.5,
-        title_font=dict(size=24, family="sans-serif"), # Usamos "sans-serif" que es universal en Linux/Streamlit Cloud
-        xaxis=dict(
-            title="Distancia de Separación (h) [m]",
-            gridcolor="rgba(210,210,210,0.45)",
-            zeroline=False,
-            tickfont=dict(size=14),
-            titlefont=dict(size=16)
-        ),
-        yaxis=dict(
-            title="Semivarianza γ(h)",
-            gridcolor="rgba(210,210,210,0.45)",
-            zeroline=False,
-            tickfont=dict(size=14),
-            titlefont=dict(size=16)
-        ),
-        plot_bgcolor="rgba(245,245,245,1)",
-        paper_bgcolor="white",
-        height=560,
-        hovermode="closest",
-        margin=dict(l=65, r=35, t=60, b=60),
-        legend=dict(
-            bgcolor="rgba(255,255,255,0.8)",
-            bordercolor="rgba(0,0,0,0.2)",
-            borderwidth=1,
-            font=dict(size=14)
-        )
+    title=dict(
+        text="Variograma Experimental vs Teórico",
+        font=dict(size=24, family="Segoe UI Semibold"),
+        x=0.5
+    ),
+    xaxis=dict(
+        title="Distancia de Separación (h) [m]",
+        gridcolor="rgba(210,210,210,0.45)",
+        zeroline=False,
+        tickfont=dict(size=14),
+        titlefont=dict(size=16)
+    ),
+    yaxis=dict(
+        title="Semivarianza γ(h)",
+        gridcolor="rgba(210,210,210,0.45)",
+        zeroline=False,
+        tickfont=dict(size=14),
+        titlefont=dict(size=16)
+    ),
+    plot_bgcolor="rgba(245,245,245,1)",
+    paper_bgcolor="white",
+    height=560,
+    hovermode="closest",
+    margin=dict(l=65, r=35, t=60, b=60),
+    legend=dict(
+        bgcolor="rgba(255,255,255,0.8)",
+        bordercolor="rgba(0,0,0,0.2)",
+        borderwidth=1,
+        font=dict(size=14)
     )
+)
+
 
     fig.update_xaxes(range=[0, float(max_dist_estudio)])
     if varianza_datos is not None:
