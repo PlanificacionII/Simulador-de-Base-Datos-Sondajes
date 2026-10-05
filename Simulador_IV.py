@@ -1132,7 +1132,7 @@ with col_right:
     c_estructural = float(sill_val) - float(nugget_val)
 
     # EVITAR DIVISIÓN POR CERO: Si range_val es 0, usamos un valor mínimo casi invisible
-    r_val = float(range_val) if float(range_val) > 0 else 1e-9
+    r_val = float(range_val) if float(range_val) > 0 else max_dist_estudio * 0.05
 
     if modelo_tipo == "spherical":
         for idx, h in enumerate(h_curva):
