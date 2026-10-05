@@ -983,7 +983,7 @@ with tab8:
     # ============================================================
     col_left, col_right = st.columns([0.38, 0.62])
 
-        with col_left:
+    with col_left:
         st.markdown("### 🎛️ Parámetros Experimentales")
         n_lags = st.number_input("Número de lags", 1, 30, 8)
         lag_dist = st.number_input("Lag separación (m)", 1.0, 200.0, 20.0)
@@ -1033,7 +1033,6 @@ with tab8:
                 step=10,
                 key="v_range"
             )
-
 
     # ============================================================
     # 3. MOTOR EXPERIMENTAL (BUENO)
