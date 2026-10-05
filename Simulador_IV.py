@@ -1186,11 +1186,14 @@ with tab8:
         ))
 
         fig.add_shape(
-            type="line",
-            x0=0, x1=max_dist_estudio,
-            y0=varianza_datos, y1=varianza_datos,
+	    type="line",
+            x0=0,
+            x1=max_dist_estudio,
+            y0=varianza_datos,
+            y1=varianza_datos,
             line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
-        )
+)
+
 
         fig.update_layout(
             title=dict(
@@ -1221,7 +1224,7 @@ with tab8:
                 bgcolor="rgba(255,255,255,0.8)",
                 bordercolor="rgba(0,0,0,0.2)",
                 borderwidth=1,
-                font=dict(size=13)
+                font=dict(size=14)
             )
         )
 
