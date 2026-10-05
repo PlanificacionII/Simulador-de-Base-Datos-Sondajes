@@ -1160,10 +1160,11 @@ with tab8:
                 mode="markers",
                 name="Experimental",
                 marker=dict(
-                    size=9,
-                    color="#4C78A8",
-                    line=dict(width=1.5, color="white"),
+                    size=10,
+                    color="#2C6EAF", 
+                    line=dict(width=2 color="white"),
                     opacity=0.95
+		    symbol="circle"
                 )
             ))
 
@@ -1172,8 +1173,8 @@ with tab8:
                 y=gammas_experimentales,
                 mode="lines",
                 name="Tendencia Experimental",
-                line=dict(color="#4C78A8", width=2),
-                opacity=0.55
+                line=dict(color="#2C6EAF", width=2.5, dash="solid"),
+                opacity=0.45
             ))
 
         fig.add_trace(go.Scatter(
@@ -1181,44 +1182,46 @@ with tab8:
             y=gamma_teorico,
             mode="lines",
             name=f"Modelo {modelo_tipo.capitalize()}",
-            line=dict(color="#F58518", width=4)
+            line=dict(color="#F28E2B", width=5)
         ))
 
         fig.add_shape(
             type="line",
             x0=0, x1=max_dist_estudio,
             y0=varianza_datos, y1=varianza_datos,
-            line=dict(color="rgba(120,120,120,0.35)", width=2, dash="dash")
+            line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
         )
 
         fig.update_layout(
             title=dict(
                 text="Variograma Experimental vs Teórico",
-                font=dict(size=22, family="Segoe UI Semibold"),
+                font=dict(size=24, family="Segoe UI Semibold"),
                 x=0.5
             ),
             xaxis=dict(
                 title="Distancia de Separación (h) [m]",
-                gridcolor="rgba(220,220,220,0.35)",
+                gridcolor="rgba(210,210,210,0.45)",
                 zeroline=False,
-                tickfont=dict(size=13)
+                tickfont=dict(size=14),
+                titlefont=dict(size=16)
             ),
             yaxis=dict(
                 title="Semivarianza γ(h)",
-                gridcolor="rgba(220,220,220,0.35)",
+                gridcolor="rgba(210,210,210,0.45)",
                 zeroline=False,
-                tickfont=dict(size=13)
+                tickfont=dict(size=14),
+                titlefont=dict(size=16)
             ),
             plot_bgcolor="rgba(245,245,245,1)",
             paper_bgcolor="white",
-            height=510,
+            height=560,
             hovermode="closest",
-            margin=dict(l=55, r=25, t=15, b=50),
+            margin=dict(l=65, r=35, t=60, b=60),
             legend=dict(
-                bgcolor="rgba(255,255,255,0.7)",
-                bordercolor="rgba(0,0,0,0.15)",
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="rgba(0,0,0,0.2)",
                 borderwidth=1,
-                font=dict(size=13)
+                font=dict(size=14)
             )
         )
 
