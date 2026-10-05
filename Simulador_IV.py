@@ -1120,127 +1120,128 @@ with tab8:
     lags_experimentales = st.session_state.get("lags_calculados", [])
     gammas_experimentales = st.session_state.get("gammas_calculados", [])
 
-    # ============================================================
-    # 4–5. CURVA TEÓRICA + GRÁFICO (UNIDOS PARA QUE FUNCIONE EL AJUSTE)
-    # ============================================================
-    with col_right:
-        st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
+   # ============================================================
+# 4–5. CURVA TEÓRICA + GRÁFICO (UNIDOS PARA QUE FUNCIONE EL AJUSTE)
+# ============================================================
+with col_right:
+    st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
 
-        # --- Cálculo teórico (se ejecuta DESPUÉS de los sliders) ---
-        h_curva = np.linspace(0, max_dist_estudio, 200)
-        gamma_teorico = np.zeros_like(h_curva)
-        c_estructural = sill_val - nugget_val
+    # --- Cálculo teórico ---
+    h_curva = np.linspace(0, max_dist_estudio, 200)
+    gamma_teorico = np.zeros_like(h_curva)
+    c_estructural = sill_val - nugget_val
 
-        if modelo_tipo == "spherical":
-            for idx, h in enumerate(h_curva):
-                if h <= range_val:
-                    gamma_teorico[idx] = nugget_val + c_estructural * (
-                        1.5 * (h / range_val) - 0.5 * (h / range_val)**3
-                    )
-                else:
-                    gamma_teorico[idx] = sill_val
-
-        elif modelo_tipo == "exponential":
-            gamma_teorico = nugget_val + c_estructural * (
-                1.0 - np.exp(-3.0 * h_curva / range_val)
-            )
-
-        elif modelo_tipo == "gaussian":
-            gamma_teorico = nugget_val + c_estructural * (
-                1.0 - np.exp(-3.0 * (h_curva / range_val)**2)
-            )
-
-        # --- Gráfico Leapfrog ---
-        fig = go.Figure()
-
-        if len(lags_experimentales) > 0:
-            fig.add_trace(go.Scatter(
-                x=lags_experimentales,
-                y=gammas_experimentales,
-                mode="markers",
-                name="Experimental",
-                marker=dict(
-                    size=10,
-                    color="#2C6EAF", 
-                    line=dict(width=2, color="white"),
-                    opacity=0.95,
-		    symbol="circle"
+    if modelo_tipo == "spherical":
+        for idx, h in enumerate(h_curva):
+            if h <= range_val:
+                gamma_teorico[idx] = nugget_val + c_estructural * (
+                    1.5 * (h / range_val) - 0.5 * (h / range_val)**3
                 )
-            ))
+            else:
+                gamma_teorico[idx] = sill_val
 
-            fig.add_trace(go.Scatter(
-                x=lags_experimentales,
-                y=gammas_experimentales,
-                mode="lines",
-                name="Tendencia Experimental",
-                line=dict(color="#2C6EAF", width=2.5, dash="solid"),
-                opacity=0.45
-            ))
+    elif modelo_tipo == "exponential":
+        gamma_teorico = nugget_val + c_estructural * (
+            1.0 - np.exp(-3.0 * h_curva / range_val)
+        )
 
+    elif modelo_tipo == "gaussian":
+        gamma_teorico = nugget_val + c_estructural * (
+            1.0 - np.exp(-3.0 * (h_curva / range_val)**2)
+        )
+
+    # --- Gráfico Leapfrog ---
+    fig = go.Figure()
+
+    if len(lags_experimentales) > 0:
         fig.add_trace(go.Scatter(
-            x=h_curva,
-            y=gamma_teorico,
-            mode="lines",
-            name=f"Modelo {modelo_tipo.capitalize()}",
-            line=dict(color="#F28E2B", width=5)
+            x=lags_experimentales,
+            y=gammas_experimentales,
+            mode="markers",
+            name="Experimental",
+            marker=dict(
+                size=10,
+                color="#2C6EAF",
+                line=dict(width=2, color="white"),
+                opacity=0.95,
+                symbol="circle"
+            )
         ))
 
-fig.add_shape(
-    type="line",
-    x0=0,
-    x1=max_dist_estudio,
-    y0=varianza_datos,
-    y1=varianza_datos,
-    line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
+        fig.add_trace(go.Scatter(
+            x=lags_experimentales,
+            y=gammas_experimentales,
+            mode="lines",
+            name="Tendencia Experimental",
+            line=dict(color="#2C6EAF", width=2.5, dash="solid"),
+            opacity=0.45
+        ))
+
+    fig.add_trace(go.Scatter(
+        x=h_curva,
+        y=gamma_teorico,
+        mode="lines",
+        name=f"Modelo {modelo_tipo.capitalize()}",
+        line=dict(color="#F28E2B", width=5)
+    ))
+
+    fig.add_shape(
+        type="line",
+        x0=0,
+        x1=max_dist_estudio,
+        y0=varianza_datos,
+        y1=varianza_datos,
+        line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
+    )
+
+    fig.update_layout(
+        title=dict(
+            text="Variograma Experimental vs Teórico",
+            font=dict(size=24, family="Segoe UI Semibold"),
+            x=0.5
+        ),
+        xaxis=dict(
+            title="Distancia de Separación (h) [m]",
+            gridcolor="rgba(210,210,210,0.45)",
+            zeroline=False,
+            tickfont=dict(size=14),
+            titlefont=dict(size=16)
+        ),
+        yaxis=dict(
+            title="Semivarianza γ(h)",
+            gridcolor="rgba(210,210,210,0.45)",
+            zeroline=False,
+            tickfont=dict(size=14),
+            titlefont=dict(size=16)
+        ),
+        plot_bgcolor="rgba(245,245,245,1)",
+        paper_bgcolor="white",
+        height=560,
+        hovermode="closest",
+        margin=dict(l=65, r=35, t=60, b=60),
+        legend=dict(
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="rgba(0,0,0,0.2)",
+            borderwidth=1,
+            font=dict(size=14)
+        )
+    )
+
+    fig.update_xaxes(range=[0, max_dist_estudio])
+    fig.update_yaxes(range=[0, varianza_datos * 1.8])
+
+    st.plotly_chart(fig, use_container_width=True)
+
+# ============================================================
+# 6. GUARDAR PARÁMETROS
+# ============================================================
+st.session_state["v_parametros"] = dict(
+    modelo=modelo_tipo,
+    nugget=float(nugget_val),
+    sill=float(sill_val),
+    range=float(range_val)
 )
 
-fig.update_layout(
-    title=dict(
-        text="Variograma Experimental vs Teórico",
-        font=dict(size=24, family="Segoe UI Semibold"),
-        x=0.5
-    ),
-    xaxis=dict(
-        title="Distancia de Separación (h) [m]",
-        gridcolor="rgba(210,210,210,0.45)",
-        zeroline=False,
-        tickfont=dict(size=14),
-        titlefont=dict(size=16)
-    ),
-    yaxis=dict(
-        title="Semivarianza γ(h)",
-        gridcolor="rgba(210,210,210,0.45)",
-        zeroline=False,
-        tickfont=dict(size=14),
-        titlefont=dict(size=16)
-    ),
-    plot_bgcolor="rgba(245,245,245,1)",
-    paper_bgcolor="white",
-    height=560,
-    hovermode="closest",
-    margin=dict(l=65, r=35, t=60, b=60),
-    legend=dict(
-        bgcolor="rgba(255,255,255,0.8)",
-        bordercolor="rgba(0,0,0,0.2)",
-        borderwidth=1,
-        font=dict(size=14)
-    )
-)
-
-fig.update_xaxes(range=[0, max_dist_estudio])
-fig.update_yaxes(range=[0, varianza_datos * 1.8])
-
-st.plotly_chart(fig, use_container_width=True)
-
-    # ============================================================
-    # 6. GUARDAR PARÁMETROS
-    # ============================================================
-    st.session_state["v_parametros"] = dict(
-        modelo=modelo_tipo,
-        nugget=float(nugget_val),
-        sill=float(sill_val),
-        range=float(range_val)
-    )
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
