@@ -1056,6 +1056,186 @@ with tab8:
                     c_f, l_f = coords_m, leyes_m
 
                 matriz_dist = pdist(c_f)
+                n_m = len(l_f)
+                idx_i, idx_j = np.triu_indices(n_m, k=1)
+                matriz_semivarianza = 0.5 * ((l_f[idx_i] - l_f[idx_j]) ** 2)
+
+                for step in range(int(n_lags)):
+                    d_min = step * lag_dist
+                    d_max = (step + 1) * lag_dist
+                    filtro_par = (matriz_dist >= d_min) & (matriz_dist < d_max)
+                    if np.sum(filtro_par) > 2:
+                        lags_experimentales.append((d_min + d_max) / 2)
+                        gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
+
+            else:
+                az_rad = np.radians(acimut)
+                dip_rad = np.radians(buzamiento)
+
+                v_dir = np.array([
+                    np.cos(dip_rad) * np.sin(az_rad),
+                    np.cos(dip_rad) * np.cos(az_rad),
+                    np.sin(dip_rad)
+                ])
+
+                n_muestras = len(coords_m)
+                muestreo_max = 400 if n_muestras > 400 else n_muestras
+
+                np.random.seed(42)
+                indices_estudio = np.random.choice(n_muestras, muestreo_max, replace=False)
+
+                lags_acum = {s: [] for s in range(int(n_lags))}
+                gammas_acum = {s: [] for s in range(int(n_lags))}
+
+                for i in range(len(indices_estudio)):
+                    for j in range(i + 1, len(indices_estudio)):
+                        idx_i = indices_estudio[i]
+                        idx_j = indices_estudio[j]
+
+                        vector_sep = coords_m[idx_i] - coords_m[idx_j]
+                        dist_real = np.linalg.norm(vector_sep)
+
+                        if 0 < dist_real <= max_dist_estudio:
+                            bin_lag = int(dist_real // lag_dist)
+                            if bin_lag >= n_lags:
+                                bin_lag = int(n_lags - 1)
+
+                            cos_alpha = np.abs(np.dot(vector_sep, v_dir)) / (dist_real)
+                            cos_alpha = np.clip(cos_alpha, -1.0, 1.0)
+                            angulo_desviacion = np.degrees(np.arccos(cos_alpha))
+
+                            if angulo_desviacion <= tolerancia_t:
+                                semivarianza_par = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+                                lags_acum[bin_lag].append(dist_real)
+                                gammas_acum[bin_lag].append(semivarianza_par)
+
+                for s in range(int(n_lags)):
+                    if len(lags_acum[s]) > 2:
+                        lags_experimentales.append(np.mean(lags_acum[s]))
+                        gammas_experimentales.append(np.mean(gammas_acum[s]))
+
+        st.session_state["lags_calculados"] = lags_experimentales
+        st.session_state["gammas_calculados"] = gammas_experimentales
+
+    lags_experimentales = st.session_state.get("lags_calculados", [])
+    gammas_experimentales = st.session_state.get("gammas_calculados", [])
+
+    # ============================================================
+    # 4–5. CURVA TEÓRICA + GRÁFICO (UNIDOS PARA QUE FUNCIONE EL AJUSTE)
+    # ============================================================
+    with col_right:
+        st.markdown("### 📈 Ajuste de Estructuras Geoestadísticas")
+
+        # --- Cálculo teórico (se ejecuta DESPUÉS de los sliders) ---
+        h_curva = np.linspace(0, max_dist_estudio, 200)
+        gamma_teorico = np.zeros_like(h_curva)
+        c_estructural = sill_val - nugget_val
+
+        if modelo_tipo == "spherical":
+            for idx, h in enumerate(h_curva):
+                if h <= range_val:
+                    gamma_teorico[idx] = nugget_val + c_estructural * (
+                        1.5 * (h / range_val) - 0.5 * (h / range_val)**3
+                    )
+                else:
+                    gamma_teorico[idx] = sill_val
+
+        elif modelo_tipo == "exponential":
+            gamma_teorico = nugget_val + c_estructural * (
+                1.0 - np.exp(-3.0 * h_curva / range_val)
+            )
+
+        elif modelo_tipo == "gaussian":
+            gamma_teorico = nugget_val + c_estructural * (
+                1.0 - np.exp(-3.0 * (h_curva / range_val)**2)
+            )
+
+        # --- Gráfico Leapfrog ---
+        fig = go.Figure()
+
+        if len(lags_experimentales) > 0:
+            fig.add_trace(go.Scatter(
+                x=lags_experimentales,
+                y=gammas_experimentales,
+                mode="markers",
+                name="Experimental",
+                marker=dict(
+                    size=9,
+                    color="#4C78A8",
+                    line=dict(width=1.5, color="white"),
+                    opacity=0.95
+                )
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=lags_experimentales,
+                y=gammas_experimentales,
+                mode="lines",
+                name="Tendencia Experimental",
+                line=dict(color="#4C78A8", width=2),
+                opacity=0.55
+            ))
+
+        fig.add_trace(go.Scatter(
+            x=h_curva,
+            y=gamma_teorico,
+            mode="lines",
+            name=f"Modelo {modelo_tipo.capitalize()}",
+            line=dict(color="#F58518", width=4)
+        ))
+
+        fig.add_shape(
+            type="line",
+            x0=0, x1=max_dist_estudio,
+            y0=varianza_datos, y1=varianza_datos,
+            line=dict(color="rgba(120,120,120,0.35)", width=2, dash="dash")
+        )
+
+        fig.update_layout(
+            title=dict(
+                text="Variograma Experimental vs Teórico",
+                font=dict(size=22, family="Segoe UI Semibold"),
+                x=0.5
+            ),
+            xaxis=dict(
+                title="Distancia de Separación (h) [m]",
+                gridcolor="rgba(220,220,220,0.35)",
+                zeroline=False,
+                tickfont=dict(size=13)
+            ),
+            yaxis=dict(
+                title="Semivarianza γ(h)",
+                gridcolor="rgba(220,220,220,0.35)",
+                zeroline=False,
+                tickfont=dict(size=13)
+            ),
+            plot_bgcolor="rgba(245,245,245,1)",
+            paper_bgcolor="white",
+            height=510,
+            hovermode="closest",
+            margin=dict(l=55, r=25, t=15, b=50),
+            legend=dict(
+                bgcolor="rgba(255,255,255,0.7)",
+                bordercolor="rgba(0,0,0,0.15)",
+                borderwidth=1,
+                font=dict(size=13)
+            )
+        )
+
+        fig.update_xaxes(range=[0, max_dist_estudio])
+        fig.update_yaxes(range=[0, varianza_datos * 1.8])
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    # ============================================================
+    # 6. GUARDAR PARÁMETROS
+    # ============================================================
+    st.session_state["v_parametros"] = dict(
+        modelo=modelo_tipo,
+        nugget=float(nugget_val),
+        sill=float(sill_val),
+        range=float(range_val)
+    )
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
