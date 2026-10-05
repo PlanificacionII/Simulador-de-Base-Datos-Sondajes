@@ -1120,7 +1120,7 @@ with tab8:
     lags_experimentales = st.session_state.get("lags_calculados", [])
     gammas_experimentales = st.session_state.get("gammas_calculados", [])
 
-  # ============================================================
+# ============================================================
 # 4–5. CURVA TEÓRICA + GRÁFICO (UNIDOS PARA QUE FUNCIONE EL AJUSTE)
 # ============================================================
 with col_right:
@@ -1129,31 +1129,30 @@ with col_right:
     # --- Cálculo teórico ---
     h_curva = np.linspace(0, max_dist_estudio, 200)
     gamma_teorico = np.zeros_like(h_curva)
-    c_estructural = sill_val - nugget_val
+    c_estructural = float(sill_val) - float(nugget_val)
 
     if modelo_tipo == "spherical":
         for idx, h in enumerate(h_curva):
             if h <= range_val:
-                gamma_teorico[idx] = nugget_val + c_estructural * (
+                gamma_teorico[idx] = float(nugget_val) + c_estructural * (
                     1.5 * (h / range_val) - 0.5 * (h / range_val)**3
                 )
             else:
-                gamma_teorico[idx] = sill_val
+                gamma_teorico[idx] = float(sill_val)
 
     elif modelo_tipo == "exponential":
-        gamma_teorico = nugget_val + c_estructural * (
+        gamma_teorico = float(nugget_val) + c_estructural * (
             1.0 - np.exp(-3.0 * h_curva / range_val)
         )
 
     elif modelo_tipo == "gaussian":
-        gamma_teorico = nugget_val + c_estructural * (
+        gamma_teorico = float(nugget_val) + c_estructural * (
             1.0 - np.exp(-3.0 * (h_curva / range_val)**2)
         )
 
-    # --- Gráfico Leapfrog ---
+    # --- Gráfico ---
     fig = go.Figure()
 
-    # Puntos experimentales (solo si existen)
     if len(lags_experimentales) > 0:
         fig.add_trace(go.Scatter(
             x=lags_experimentales,
@@ -1174,34 +1173,33 @@ with col_right:
             y=gammas_experimentales,
             mode="lines",
             name="Tendencia Experimental",
-            line=dict(color="#2C6EAF", width=2.5, dash="solid"),
+            line=dict(color="#2C6EAF", width=2.5),
             opacity=0.45
         ))
 
-    # Curva teórica SIEMPRE se dibuja
     fig.add_trace(go.Scatter(
         x=h_curva,
         y=gamma_teorico,
         mode="lines",
-        name=f"Modelo {modelo_tipo.capitalize()}",
+        name=f"Modelo {str(modelo_tipo).capitalize()}",
         line=dict(color="#F28E2B", width=5)
     ))
 
-    # Línea de varianza global
-    fig.add_shape(
-        type="line",
-        x0=0,
-        x1=max_dist_estudio,
-        y0=varianza_datos,
-        y1=varianza_datos,
-        line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
-    )
+    # Línea de varianza (solo si está definida y es numérica)
+    if varianza_datos is not None:
+        fig.add_shape(
+            type="line",
+            x0=0,
+            x1=float(max_dist_estudio),
+            y0=float(varianza_datos),
+            y1=float(varianza_datos),
+            line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
+        )
 
-    # Layout profesional
     fig.update_layout(
         title=dict(
             text="Variograma Experimental vs Teórico",
-            font=dict(size=24, family="Segoe UI Semibold"),
+            font=dict(size=24, family="Segoe UI"),
             x=0.5
         ),
         xaxis=dict(
@@ -1231,8 +1229,9 @@ with col_right:
         )
     )
 
-    fig.update_xaxes(range=[0, max_dist_estudio])
-    fig.update_yaxes(range=[0, varianza_datos * 1.8])
+    fig.update_xaxes(range=[0, float(max_dist_estudio)])
+    if varianza_datos is not None:
+        fig.update_yaxes(range=[0, float(varianza_datos) * 1.8])
 
     st.plotly_chart(fig, use_container_width=True)
 
@@ -1240,13 +1239,11 @@ with col_right:
 # 6. GUARDAR PARÁMETROS
 # ============================================================
 st.session_state["v_parametros"] = dict(
-    modelo=modelo_tipo,
+    modelo=str(modelo_tipo),
     nugget=float(nugget_val),
     sill=float(sill_val),
     range=float(range_val)
 )
-
-
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
