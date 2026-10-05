@@ -1162,7 +1162,7 @@ with tab8:
                 marker=dict(
                     size=10,
                     color="#2C6EAF", 
-                    line=dict(width=2 color="white"),
+                    line=dict(width=2, color="white"),
                     opacity=0.95
 		    symbol="circle"
                 )
@@ -1221,7 +1221,7 @@ with tab8:
                 bgcolor="rgba(255,255,255,0.8)",
                 bordercolor="rgba(0,0,0,0.2)",
                 borderwidth=1,
-                font=dict(size=14)
+                font=dict(size=13)
             )
         )
 
