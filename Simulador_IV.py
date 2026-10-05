@@ -1120,7 +1120,7 @@ with tab8:
     lags_experimentales = st.session_state.get("lags_calculados", [])
     gammas_experimentales = st.session_state.get("gammas_calculados", [])
 
-   # ============================================================
+  # ============================================================
 # 4–5. CURVA TEÓRICA + GRÁFICO (UNIDOS PARA QUE FUNCIONE EL AJUSTE)
 # ============================================================
 with col_right:
@@ -1153,6 +1153,7 @@ with col_right:
     # --- Gráfico Leapfrog ---
     fig = go.Figure()
 
+    # Puntos experimentales (solo si existen)
     if len(lags_experimentales) > 0:
         fig.add_trace(go.Scatter(
             x=lags_experimentales,
@@ -1177,6 +1178,7 @@ with col_right:
             opacity=0.45
         ))
 
+    # Curva teórica SIEMPRE se dibuja
     fig.add_trace(go.Scatter(
         x=h_curva,
         y=gamma_teorico,
@@ -1185,6 +1187,7 @@ with col_right:
         line=dict(color="#F28E2B", width=5)
     ))
 
+    # Línea de varianza global
     fig.add_shape(
         type="line",
         x0=0,
@@ -1194,6 +1197,7 @@ with col_right:
         line=dict(color="rgba(100,100,100,0.35)", width=2, dash="dash")
     )
 
+    # Layout profesional
     fig.update_layout(
         title=dict(
             text="Variograma Experimental vs Teórico",
@@ -1241,6 +1245,7 @@ st.session_state["v_parametros"] = dict(
     sill=float(sill_val),
     range=float(range_val)
 )
+
 
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
