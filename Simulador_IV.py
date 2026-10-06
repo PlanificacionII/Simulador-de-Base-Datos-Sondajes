@@ -1217,17 +1217,27 @@ fig.update_layout(
     ),
     xaxis=dict(
         title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
-        showgrid=True,
-	gridcolor="rgba(180,180,180,0.55)",
-       	zeroline=False,
-        tickfont=dict(size=14),
+    	showgrid=True,
+   	 gridcolor="rgba(180,180,180,0.55)",
+    	zeroline=True,                       # ← Marca el eje X
+    	zerolinecolor="rgba(0,0,0,0.65)",    # ← Línea del eje más visible
+   	 zerolinewidth=2,                     # ← Grosor del eje
+    	tickfont=dict(size=14),
+    	linecolor="rgba(0,0,0,0.65)",        # ← Borde del eje X
+    	linewidth=2,
+    	mirror=True                          # ← Estilo técnico (borde en ambos lados)
     ),
     yaxis=dict(
         title=dict(text="Semivarianza γ(h)", font=dict(size=16)),
-        showgrid=True,
-        gridcolor="rgba(180,180,180,0.55)",   # Más visible
-        zeroline=False,
-        tickfont=dict(size=14),
+    	showgrid=True,
+    	gridcolor="rgba(180,180,180,0.55)",
+    	zeroline=True,                       # ← Marca el eje Y
+    	zerolinecolor="rgba(0,0,0,0.65)",    # ← Línea del eje más visible
+    	zerolinewidth=2,                     # ← Grosor del eje
+    	tickfont=dict(size=14),
+    	linecolor="rgba(0,0,0,0.65)",        # ← Borde del eje Y
+    	linewidth=2,
+    	mirror=True                          # ← Estilo técnico (borde en ambos lados)
     ),
     plot_bgcolor="rgba(250,250,250,1)",
     paper_bgcolor="white",
