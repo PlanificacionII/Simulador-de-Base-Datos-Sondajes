@@ -1217,7 +1217,7 @@ fig.update_layout(
     ),
     xaxis=dict(
         title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
-        showgrid=true,
+        showgrid=True,
 	gridcolor="rgba(180,180,180,0.55)",
         gridwidth=1.2,
 	zeroline=False,
