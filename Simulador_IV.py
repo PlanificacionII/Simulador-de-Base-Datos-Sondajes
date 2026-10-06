@@ -1373,8 +1373,8 @@ with tab8:
         st.plotly_chart(fig, use_container_width=True)
 
         with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
-        st.write("Visualización conceptual del variograma en 3D por dirección.")
-        st.write("Este módulo puede conectarse a Plotly 3D si deseas una versión interactiva real.")
+            st.write("Visualización conceptual del variograma en 3D por dirección.")
+            st.write("Este módulo puede conectarse a Plotly 3D si deseas una versión interactiva real.")
         st.markdown("</div>", unsafe_allow_html=True)
     # ============================================================
     # BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
