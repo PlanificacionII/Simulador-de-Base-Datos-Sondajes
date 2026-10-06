@@ -962,546 +962,465 @@ import plotly.graph_objects as go
 from scipy.spatial.distance import pdist
 
 with tab8:
-# ============================================================
-# BLOQUE 1 — Encabezado, Menú, Modo Oscuro y Estilos Globales
-# ============================================================
 
-# ---- MODO OSCURO / TEMA CORPORATIVO ----
-modo_oscuro = st.toggle("🌓 Modo oscuro / tema corporativo", value=False)
+    # ============================================================
+    # BLOQUE 1 — Encabezado, Menú, Modo Oscuro y Estilos Globales
+    # ============================================================
 
-if modo_oscuro:
+    modo_oscuro = st.toggle("🌓 Modo oscuro / tema corporativo", value=False)
+
+    if modo_oscuro:
+        st.markdown("""
+        <style>
+            body { background-color: #1E1E1E; }
+            .panel { background-color: #2B2B2B; border-color: #3A3A3A; }
+            h2, h3, .subtitulo { color: #F0F0F0 !important; }
+            .sidebar { background-color: #3A3A3A !important; border-color: #555 !important; }
+            .menu { background-color: #2E2E2E !important; border-color: #555 !important; color: #EEE !important; }
+        </style>
+        """, unsafe_allow_html=True)
+
     st.markdown("""
     <style>
-        body { background-color: #1E1E1E; }
-        .panel { background-color: #2B2B2B; border-color: #3A3A3A; }
-        h2, h3, .subtitulo { color: #F0F0F0 !important; }
-        .sidebar { background-color: #3A3A3A !important; border-color: #555 !important; }
-        .menu { background-color: #2E2E2E !important; border-color: #555 !important; color: #EEE !important; }
+
+        .panel {
+            padding: 18px 22px;
+            border: 1px solid #C8C8C8;
+            border-radius: 8px;
+            background-color: #F7F7F7;
+            box-shadow: 0px 1px 4px rgba(0,0,0,0.10);
+            margin-bottom: 18px;
+        }
+
+        h2, h3 {
+            font-family: 'Segoe UI Semibold';
+            color: #333333;
+            margin-bottom: 8px;
+        }
+
+        .subtitulo {
+            font-family: 'Segoe UI';
+            font-size: 16px;
+            font-weight: 600;
+            color: #444444;
+            margin-top: 10px;
+            margin-bottom: 4px;
+        }
+
+        .menu {
+            background-color: #ECECEC;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #C8C8C8;
+            margin-bottom: 15px;
+            font-family: 'Segoe UI';
+            font-size: 15px;
+        }
+
+        .sidebar {
+            padding: 12px;
+            border: 1px solid #D0D0D0;
+            border-radius: 6px;
+            background-color: #F2F2F2;
+            margin-bottom: 15px;
+        }
+
     </style>
     """, unsafe_allow_html=True)
 
-# ---- ESTILO GLOBAL PROFESIONAL ----
-st.markdown("""
-<style>
+    st.markdown("""
+    <div class="menu">
+        🗂 <b>Archivo</b> &nbsp; | &nbsp;
+        📈 <b>Variogramas</b> &nbsp; | &nbsp;
+        🧮 <b>Modelos</b> &nbsp; | &nbsp;
+        🧭 <b>Direcciones</b> &nbsp; | &nbsp;
+        📤 <b>Exportar</b>
+    </div>
+    """, unsafe_allow_html=True)
 
-    /* Paneles con borde y sombra */
-    .panel {
-        padding: 18px 22px;
-        border: 1px solid #C8C8C8;
-        border-radius: 8px;
-        background-color: #F7F7F7;
-        box-shadow: 0px 1px 4px rgba(0,0,0,0.10);
-        margin-bottom: 18px;
-    }
+    st.markdown("<h2>📊 Variografía PRO — Geoestadística Avanzada</h2>", unsafe_allow_html=True)
+    st.caption("Suite profesional estilo Leapfrog / Datamine con análisis direccional, isotropía y ajuste teórico interactivo.")
 
-    /* Títulos principales */
-    h2, h3 {
-        font-family: 'Segoe UI Semibold';
-        color: #333333;
-        margin-bottom: 8px;
-    }
+    # ============================================================
+    # BLOQUE 2 — Carga de Datos + Layout Profesional (3 Columnas)
+    # ============================================================
 
-    /* Subtítulos */
-    .subtitulo {
-        font-family: 'Segoe UI';
-        font-size: 16px;
-        font-weight: 600;
-        color: #444444;
-        margin-top: 10px;
-        margin-bottom: 4px;
-    }
+    df_c = st.session_state.get("df_comp_final", pd.DataFrame())
+    if df_c.empty:
+        st.warning("⚠ No hay compositos disponibles. Genere la base en la Pestaña 7.")
+        st.stop()
 
-    /* Menú superior */
-    .menu {
-        background-color: #ECECEC;
-        padding: 10px 15px;
-        border-radius: 6px;
-        border: 1px solid #C8C8C8;
-        margin-bottom: 15px;
-        font-family: 'Segoe UI';
-        font-size: 15px;
-    }
+    coords_m = df_c[["X", "Y", "Z"]].values
+    col_ley = "Ley" if "Ley" in df_c.columns else df_c.select_dtypes(include=[np.number]).columns[-1]
+    leyes_m = df_c[col_ley].values
+    varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
 
-    /* Sidebar técnico */
-    .sidebar {
-        padding: 12px;
-        border: 1px solid #D0D0D0;
-        border-radius: 6px;
-        background-color: #F2F2F2;
-        margin-bottom: 15px;
-    }
+    col_left, col_center, col_right = st.columns([0.30, 0.30, 0.40])
 
-</style>
-""", unsafe_allow_html=True)
+    # ============================================================
+    # BLOQUE 3 — Panel Izquierdo (Parámetros Experimentales + Teóricos)
+    # ============================================================
 
-# ---- MENÚ SUPERIOR CORPORATIVO ----
-st.markdown("""
-<div class="menu">
-    🗂 <b>Archivo</b> &nbsp; | &nbsp;
-    📈 <b>Variogramas</b> &nbsp; | &nbsp;
-    🧮 <b>Modelos</b> &nbsp; | &nbsp;
-    🧭 <b>Direcciones</b> &nbsp; | &nbsp;
-    📤 <b>Exportar</b>
-</div>
-""", unsafe_allow_html=True)
+    with col_left:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.markdown("<h3>🎛️ Parámetros Experimentales</h3>", unsafe_allow_html=True)
 
-# ---- TÍTULO PRINCIPAL ----
-st.markdown("<h2>📊 Variografía PRO — Geoestadística Avanzada</h2>", unsafe_allow_html=True)
-st.caption("Suite profesional estilo Leapfrog / Datamine con análisis direccional, isotropía y ajuste teórico interactivo.")
-# ============================================================
-# BLOQUE 2 — Carga de Datos + Layout Profesional (3 Columnas)
-# ============================================================
+        with st.expander("📌 Configuración de Lags"):
+            n_lags = st.number_input("Número de lags", 1, 30, 8)
+            lag_dist = st.number_input("Lag separación (m)", 1.0, 200.0, 20.0)
+            tolerancia_t = st.number_input("Tolerancia angular (°)", 5.0, 90.0, 30.0)
+            omni_3d = st.checkbox("Omnidireccional 3D", value=False)
 
-# ---- CARGA DE DATOS ----
-df_c = st.session_state.get("df_comp_final", pd.DataFrame())
-if df_c.empty:
-    st.warning("⚠ No hay compositos disponibles. Genere la base en la Pestaña 7.")
-    st.stop()
+        with st.expander("🧭 Dirección Principal"):
+            acimut = st.number_input("Acimut (°)", 0, 360, 18)
+            buzamiento = st.number_input("Buzamiento (°)", -90, 90, 65)
 
-# Coordenadas y leyes
-coords_m = df_c[["X", "Y", "Z"]].values
+        btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
 
-# Detectar columna de ley automáticamente
-col_ley = "Ley" if "Ley" in df_c.columns else df_c.select_dtypes(include=[np.number]).columns[-1]
-leyes_m = df_c[col_ley].values
+        st.markdown("<h3>🛠️ Ajuste Teórico (Estructuras)</h3>", unsafe_allow_html=True)
 
-# Varianza de los datos
-varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
-
-# ---- LAYOUT PROFESIONAL (3 COLUMNAS) ----
-col_left, col_center, col_right = st.columns([0.30, 0.30, 0.40])
-
-# ============================================================
-# BLOQUE 3 — Panel Izquierdo (Parámetros Experimentales + Teóricos)
-# ============================================================
-
-with col_left:
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown("<h3>🎛️ Parámetros Experimentales</h3>", unsafe_allow_html=True)
-
-    # -------------------------
-    # CONFIGURACIÓN DE LAGS
-    # -------------------------
-    with st.expander("📌 Configuración de Lags"):
-        n_lags = st.number_input("Número de lags", 1, 30, 8)
-        lag_dist = st.number_input("Lag separación (m)", 1.0, 200.0, 20.0)
-        tolerancia_t = st.number_input("Tolerancia angular (°)", 5.0, 90.0, 30.0)
-        omni_3d = st.checkbox("Omnidireccional 3D", value=False)
-
-    # -------------------------
-    # DIRECCIÓN PRINCIPAL
-    # -------------------------
-    with st.expander("🧭 Dirección Principal"):
-        acimut = st.number_input("Acimut (°)", 0, 360, 18)
-        buzamiento = st.number_input("Buzamiento (°)", -90, 90, 65)
-
-    # -------------------------
-    # BOTÓN PARA CALCULAR VARIOGRAMA EXPERIMENTAL
-    # -------------------------
-    btn_calcular = st.button("🚀 Calcular Variograma Experimental", use_container_width=True)
-
-    # -------------------------
-    # AJUSTE TEÓRICO — MODELO
-    # -------------------------
-    st.markdown("<h3>🛠️ Ajuste Teórico (Estructuras)</h3>", unsafe_allow_html=True)
-
-    modelo_tipo = st.selectbox(
-        "Modelo Matemático:",
-        ["spherical", "exponential", "gaussian"],
-        key="v_model_type"
-    )
-
-    # Sliders estilo Leapfrog
-    c_mod1, c_mod2 = st.columns(2)
-
-    with c_mod1:
-        nugget_val = st.slider(
-            "Pepita (Nugget - C0):",
-            min_value=0.00,
-            max_value=round(varianza_datos, 2),
-            value=round(varianza_datos * 0.1, 2),
-            step=0.01,
-            key="v_nugget"
+        modelo_tipo = st.selectbox(
+            "Modelo Matemático:",
+            ["spherical", "exponential", "gaussian"],
+            key="v_model_type"
         )
 
-        sill_val = st.slider(
-            "Meseta (Sill - C):",
-            min_value=0.01,
-            max_value=round(varianza_datos * 2.0, 2),
-            value=round(varianza_datos, 2),
-            step=0.05,
-            key="v_sill"
-        )
+        c_mod1, c_mod2 = st.columns(2)
 
-    with c_mod2:
-        range_val = st.slider(
-            "Alcance (Range - m):",
-            min_value=10,
-            max_value=int(n_lags * lag_dist),
-            value=int(n_lags * lag_dist * 0.5),
-            step=10,
-            key="v_range"
-        )
-
-    st.markdown("</div>", unsafe_allow_html=True)
-# ============================================================
-# BLOQUE 4 — Motor Experimental (Tu código intacto)
-# ============================================================
-
-# Distancia máxima de estudio
-max_dist_estudio = float(n_lags * lag_dist)
-
-lags_experimentales = []
-gammas_experimentales = []
-
-if btn_calcular:
-    with st.spinner("Calculando pares geoestadísticos..."):
-
-        # --------------------------------------------------------
-        # MODO OMNIDIRECCIONAL 3D
-        # --------------------------------------------------------
-        if omni_3d:
-            if len(coords_m) > 500:
-                np.random.seed(42)
-                idx_m = np.random.choice(len(coords_m), 500, replace=False)
-                c_f, l_f = coords_m[idx_m], leyes_m[idx_m]
-            else:
-                c_f, l_f = coords_m, leyes_m
-
-            matriz_dist = pdist(c_f)
-            n_m = len(l_f)
-            idx_i, idx_j = np.triu_indices(n_m, k=1)
-            matriz_semivarianza = 0.5 * ((l_f[idx_i] - l_f[idx_j]) ** 2)
-
-            for step in range(int(n_lags)):
-                d_min = step * lag_dist
-                d_max = (step + 1) * lag_dist
-                filtro_par = (matriz_dist >= d_min) & (matriz_dist < d_max)
-                if np.sum(filtro_par) > 2:
-                    lags_experimentales.append((d_min + d_max) / 2)
-                    gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
-
-        # --------------------------------------------------------
-        # MODO DIRECCIONAL (ACIMUT + BUZAMIENTO)
-        # --------------------------------------------------------
-        else:
-            az_rad = np.radians(acimut)
-            dip_rad = np.radians(buzamiento)
-
-            # Vector direccional
-            v_dir = np.array([
-                np.cos(dip_rad) * np.sin(az_rad),
-                np.cos(dip_rad) * np.cos(az_rad),
-                np.sin(dip_rad)
-            ])
-
-            n_muestras = len(coords_m)
-            muestreo_max = 400 if n_muestras > 400 else n_muestras
-
-            np.random.seed(42)
-            indices_estudio = np.random.choice(n_muestras, muestreo_max, replace=False)
-
-            lags_acum = {s: [] for s in range(int(n_lags))}
-            gammas_acum = {s: [] for s in range(int(n_lags))}
-
-            for i in range(len(indices_estudio)):
-                for j in range(i + 1, len(indices_estudio)):
-                    idx_i = indices_estudio[i]
-                    idx_j = indices_estudio[j]
-
-                    vector_sep = coords_m[idx_i] - coords_m[idx_j]
-                    dist_real = np.linalg.norm(vector_sep)
-
-                    if 0 < dist_real <= max_dist_estudio:
-                        bin_lag = int(dist_real // lag_dist)
-                        if bin_lag >= n_lags:
-                            bin_lag = int(n_lags - 1)
-
-                        cos_alpha = np.abs(np.dot(vector_sep, v_dir)) / (dist_real)
-                        cos_alpha = np.clip(cos_alpha, -1.0, 1.0)
-                        angulo_desviacion = np.degrees(np.arccos(cos_alpha))
-
-                        if angulo_desviacion <= tolerancia_t:
-                            semivarianza_par = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
-                            lags_acum[bin_lag].append(dist_real)
-                            gammas_acum[bin_lag].append(semivarianza_par)
-
-            for s in range(int(n_lags)):
-                if len(lags_acum[s]) > 2:
-                    lags_experimentales.append(np.mean(lags_acum[s]))
-                    gammas_experimentales.append(np.mean(gammas_acum[s]))
-
-    # Guardar resultados en sesión
-    st.session_state["lags_calculados"] = lags_experimentales
-    st.session_state["gammas_calculados"] = gammas_experimentales
-
-# Recuperar resultados si existen
-lags_experimentales = st.session_state.get("lags_calculados", [])
-gammas_experimentales = st.session_state.get("gammas_calculados", [])
-# ============================================================
-# BLOQUE 5 — Panel Central (Diagnóstico + Anisotropía + Validación)
-# ============================================================
-
-with col_center:
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown("<h3>🔍 Diagnóstico Geoestadístico</h3>", unsafe_allow_html=True)
-
-    # -------------------------
-    # PANEL DE DIAGNÓSTICO
-    # -------------------------
-    st.markdown('<div class="sidebar">', unsafe_allow_html=True)
-    st.write("• Varianza de los datos:", varianza_datos)
-    st.write("• Máxima distancia de estudio:", max_dist_estudio)
-    st.write("• Lags efectivos:", n_lags)
-    st.write("• Modelo seleccionado:", modelo_tipo)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # -------------------------
-    # PANEL DE ESTRUCTURA TEÓRICA
-    # -------------------------
-    st.markdown('<div class="sidebar">', unsafe_allow_html=True)
-    st.write("• Sill estructural:", sill_val - nugget_val)
-    st.write("• Nugget:", nugget_val)
-    st.write("• Range:", range_val)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # -------------------------
-    # PANEL DE ANISOTROPÍA
-    # -------------------------
-    with st.expander("🧭 Anisotropía y Elipsoide"):
-        ratio_h = st.slider("Relación horizontal (X/Y)", 0.1, 3.0, 1.0)
-        ratio_v = st.slider("Relación vertical (Z)", 0.1, 3.0, 1.0)
-        st.write("Elipsoide:", f"X:Y:Z = 1 : {ratio_h:.2f} : {ratio_v:.2f}")
-
-    # -------------------------
-    # PANEL DE VALIDACIÓN GEOESTADÍSTICA
-    # -------------------------
-    with st.expander("✅ Validación Geoestadística"):
-        # Validación del sill vs varianza
-        if abs((sill_val - nugget_val) - varianza_datos) < 0.05:
-            st.success("✔ El modelo reproduce razonablemente la varianza de los datos.")
-        else:
-            st.warning("⚠ El sill estructural difiere de la varianza. Revisar ajuste.")
-
-        st.write("• Revisar número de lags y distancia máxima.")
-        st.write("• Revisar anisotropía según dirección dominante.")
-        st.write("• Verificar que el modelo matemático represente la estructura espacial.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-# ============================================================
-# BLOQUE 6 — Panel Derecho (Gráfico Profesional + Vista 3D Conceptual)
-# ============================================================
-
-with col_right:
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown("<h3>📈 Variograma Experimental vs Teórico</h3>", unsafe_allow_html=True)
-
-    # --------------------------------------------------------
-    # RESTAURAR VALORES DE SLIDERS (mantener ajuste interactivo)
-    # --------------------------------------------------------
-    nugget_val = st.session_state["v_nugget"]
-    sill_val = st.session_state["v_sill"]
-    range_val = st.session_state["v_range"]
-    modelo_tipo = st.session_state["v_model_type"]
-
-    # --------------------------------------------------------
-    # CURVA TEÓRICA
-    # --------------------------------------------------------
-    h_curva = np.linspace(0, max_dist_estudio, 200)
-    gamma_teorico = np.zeros_like(h_curva)
-    c_estructural = float(sill_val) - float(nugget_val)
-
-    # Evitar división por cero
-    r_val = float(range_val) if float(range_val) > 0 else 1e-6
-
-    if modelo_tipo == "spherical":
-        for idx, h in enumerate(h_curva):
-            if h <= r_val:
-                gamma_teorico[idx] = float(nugget_val) + c_estructural * (
-                    1.5 * (h / r_val) - 0.5 * (h / r_val)**3
-                )
-            else:
-                gamma_teorico[idx] = float(sill_val)
-
-    elif modelo_tipo == "exponential":
-        gamma_teorico = float(nugget_val) + c_estructural * (
-            1.0 - np.exp(-3.0 * h_curva / r_val)
-        )
-
-    elif modelo_tipo == "gaussian":
-        gamma_teorico = float(nugget_val) + c_estructural * (
-            1.0 - np.exp(-3.0 * (h_curva / r_val)**2)
-        )
-
-    # --------------------------------------------------------
-    # GRÁFICO PROFESIONAL
-    # --------------------------------------------------------
-    fig = go.Figure()
-
-    # Puntos experimentales
-    if len(lags_experimentales) > 0:
-        fig.add_trace(go.Scatter(
-            x=lags_experimentales,
-            y=gammas_experimentales,
-            mode="markers",
-            name="Experimental",
-            marker=dict(
-                size=11,
-                color="#1F77B4",
-                line=dict(width=2, color="white"),
-                opacity=0.95,
-                symbol="circle"
+        with c_mod1:
+            nugget_val = st.slider(
+                "Pepita (Nugget - C0):",
+                min_value=0.00,
+                max_value=round(varianza_datos, 2),
+                value=round(varianza_datos * 0.1, 2),
+                step=0.01,
+                key="v_nugget"
             )
-        ))
+
+            sill_val = st.slider(
+                "Meseta (Sill - C):",
+                min_value=0.01,
+                max_value=round(varianza_datos * 2.0, 2),
+                value=round(varianza_datos, 2),
+                step=0.05,
+                key="v_sill"
+            )
+
+        with c_mod2:
+            range_val = st.slider(
+                "Alcance (Range - m):",
+                min_value=10,
+                max_value=int(n_lags * lag_dist),
+                value=int(n_lags * lag_dist * 0.5),
+                step=10,
+                key="v_range"
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ============================================================
+    # BLOQUE 4 — Motor Experimental (Tu código intacto)
+    # ============================================================
+
+    max_dist_estudio = float(n_lags * lag_dist)
+    lags_experimentales = []
+    gammas_experimentales = []
+
+    if btn_calcular:
+        with st.spinner("Calculando pares geoestadísticos..."):
+
+            if omni_3d:
+                if len(coords_m) > 500:
+                    np.random.seed(42)
+                    idx_m = np.random.choice(len(coords_m), 500, replace=False)
+                    c_f, l_f = coords_m[idx_m], leyes_m[idx_m]
+                else:
+                    c_f, l_f = coords_m, leyes_m
+
+                matriz_dist = pdist(c_f)
+                n_m = len(l_f)
+                idx_i, idx_j = np.triu_indices(n_m, k=1)
+                matriz_semivarianza = 0.5 * ((l_f[idx_i] - l_f[idx_j]) ** 2)
+
+                for step in range(int(n_lags)):
+                    d_min = step * lag_dist
+                    d_max = (step + 1) * lag_dist
+                    filtro_par = (matriz_dist >= d_min) & (matriz_dist < d_max)
+                    if np.sum(filtro_par) > 2:
+                        lags_experimentales.append((d_min + d_max) / 2)
+                        gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
+
+            else:
+                az_rad = np.radians(acimut)
+                dip_rad = np.radians(buzamiento)
+
+                v_dir = np.array([
+                    np.cos(dip_rad) * np.sin(az_rad),
+                    np.cos(dip_rad) * np.cos(az_rad),
+                    np.sin(dip_rad)
+                ])
+
+                n_muestras = len(coords_m)
+                muestreo_max = 400 if n_muestras > 400 else n_muestras
+
+                np.random.seed(42)
+                indices_estudio = np.random.choice(n_muestras, muestreo_max, replace=False)
+
+                lags_acum = {s: [] for s in range(int(n_lags))}
+                gammas_acum = {s: [] for s in range(int(n_lags))}
+
+                for i in range(len(indices_estudio)):
+                    for j in range(i + 1, len(indices_estudio)):
+                        idx_i = indices_estudio[i]
+                        idx_j = indices_estudio[j]
+
+                        vector_sep = coords_m[idx_i] - coords_m[idx_j]
+                        dist_real = np.linalg.norm(vector_sep)
+
+                        if 0 < dist_real <= max_dist_estudio:
+                            bin_lag = int(dist_real // lag_dist)
+                            if bin_lag >= n_lags:
+                                bin_lag = int(n_lags - 1)
+
+                            cos_alpha = np.abs(np.dot(vector_sep, v_dir)) / (dist_real)
+                            cos_alpha = np.clip(cos_alpha, -1.0, 1.0)
+                            angulo_desviacion = np.degrees(np.arccos(cos_alpha))
+
+                            if angulo_desviacion <= tolerancia_t:
+                                semivarianza_par = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+                                lags_acum[bin_lag].append(dist_real)
+                                gammas_acum[bin_lag].append(semivarianza_par)
+
+                for s in range(int(n_lags)):
+                    if len(lags_acum[s]) > 2:
+                        lags_experimentales.append(np.mean(lags_acum[s]))
+                        gammas_experimentales.append(np.mean(gammas_acum[s]))
+
+        st.session_state["lags_calculados"] = lags_experimentales
+        st.session_state["gammas_calculados"] = gammas_experimentales
+
+    lags_experimentales = st.session_state.get("lags_calculados", [])
+    gammas_experimentales = st.session_state.get("gammas_calculados", [])
+
+    # ============================================================
+    # BLOQUE 5 — Panel Central (Diagnóstico + Anisotropía + Validación)
+    # ============================================================
+
+    with col_center:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.markdown("<h3>🔍 Diagnóstico Geoestadístico</h3>", unsafe_allow_html=True)
+
+        st.markdown('<div class="sidebar">', unsafe_allow_html=True)
+        st.write("• Varianza de los datos:", varianza_datos)
+        st.write("• Máxima distancia de estudio:", max_dist_estudio)
+        st.write("• Lags efectivos:", n_lags)
+        st.write("• Modelo seleccionado:", modelo_tipo)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown('<div class="sidebar">', unsafe_allow_html=True)
+        st.write("• Sill estructural:", sill_val - nugget_val)
+        st.write("• Nugget:", nugget_val)
+        st.write("• Range:", range_val)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        with st.expander("🧭 Anisotropía y Elipsoide"):
+            ratio_h = st.slider("Relación horizontal (X/Y)", 0.1, 3.0, 1.0)
+            ratio_v = st.slider("Relación vertical (Z)", 0.1, 3.0, 1.0)
+            st.write("Elipsoide:", f"X:Y:Z = 1 : {ratio_h:.2f} : {ratio_v:.2f}")
+
+        with st.expander("✅ Validación Geoestadística"):
+            if abs((sill_val - nugget_val) - varianza_datos) < 0.05:
+                st.success("✔ El modelo reproduce razonablemente la varianza de los datos.")
+            else:
+                st.warning("⚠ El sill estructural difiere de la varianza. Revisar ajuste.")
+
+            st.write("• Revisar número de lags y distancia máxima.")
+            st.write("• Revisar anisotropía según dirección dominante.")
+            st.write("• Verificar que el modelo matemático represente la estructura espacial.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ============================================================
+    # BLOQUE 6 — Panel Derecho (Gráfico Profesional + Vista 3D Conceptual)
+    # ============================================================
+
+    with col_right:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.markdown("<h3>📈 Variograma Experimental vs Teórico</h3>", unsafe_allow_html=True)
+
+        nugget_val = st.session_state["v_nugget"]
+        sill_val = st.session_state["v_sill"]
+        range_val = st.session_state["v_range"]
+        modelo_tipo = st.session_state["v_model_type"]
+
+        h_curva = np.linspace(0, max_dist_estudio, 200)
+        gamma_teorico = np.zeros_like(h_curva)
+        c_estructural = float(sill_val) - float(nugget_val)
+        r_val = float(range_val) if float(range_val) > 0 else 1e-6
+
+        if modelo_tipo == "spherical":
+            for idx, h in enumerate(h_curva):
+                if h <= r_val:
+                    gamma_teorico[idx] = float(nugget_val) + c_estructural * (
+                        1.5 * (h / r_val) - 0.5 * (h / r_val)**3
+                    )
+                else:
+                    gamma_teorico[idx] = float(sill_val)
+
+        elif modelo_tipo == "exponential":
+            gamma_teorico = float(nugget_val) + c_estructural * (
+                1.0 - np.exp(-3.0 * h_curva / r_val)
+            )
+
+        elif modelo_tipo == "gaussian":
+            gamma_teorico = float(nugget_val) + c_estructural * (
+                1.0 - np.exp(-3.0 * (h_curva / r_val)**2)
+            )
+
+        fig = go.Figure()
+
+        if len(lags_experimentales) > 0:
+            fig.add_trace(go.Scatter(
+                x=lags_experimentales,
+                y=gammas_experimentales,
+                mode="markers",
+                name="Experimental",
+                marker=dict(
+                    size=11,
+                    color="#1F77B4",
+                    line=dict(width=2, color="white"),
+                    opacity=0.95,
+                    symbol="circle"
+                )
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=lags_experimentales,
+                y=gammas_experimentales,
+                mode="lines",
+                name="Tendencia Experimental",
+                line=dict(color="#1F77B4", width=2, dash="solid"),
+                opacity=0.35
+            ))
 
         fig.add_trace(go.Scatter(
-            x=lags_experimentales,
-            y=gammas_experimentales,
+            x=h_curva,
+            y=gamma_teorico,
             mode="lines",
-            name="Tendencia Experimental",
-            line=dict(color="#1F77B4", width=2, dash="solid"),
-            opacity=0.35
+            name=f"Modelo {str(modelo_tipo).capitalize()}",
+            line=dict(color="#F28E2B", width=4.5)
         ))
 
-    # Curva teórica
-    fig.add_trace(go.Scatter(
-        x=h_curva,
-        y=gamma_teorico,
-        mode="lines",
-        name=f"Modelo {str(modelo_tipo).capitalize()}",
-        line=dict(color="#F28E2B", width=4.5)
-    ))
+        if varianza_datos is not None:
+            fig.add_shape(
+                type="line",
+                x0=0,
+                x1=float(max_dist_estudio),
+                y0=float(varianza_datos),
+                y1=float(varianza_datos),
+                line=dict(color="rgba(80,80,80,0.35)", width=2, dash="dash")
+            )
 
-    # Línea de varianza global
-    if varianza_datos is not None:
-        fig.add_shape(
-            type="line",
-            x0=0,
-            x1=float(max_dist_estudio),
-            y0=float(varianza_datos),
-            y1=float(varianza_datos),
-            line=dict(color="rgba(80,80,80,0.35)", width=2, dash="dash")
+        fig.update_layout(
+            title=dict(
+                text="Variograma Experimental vs Teórico",
+                font=dict(size=26, family="Segoe UI Semibold"),
+                x=0.5,
+                xanchor="center",
+                y=0.95,
+                yanchor="top"
+            ),
+            xaxis=dict(
+                title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
+                showgrid=True,
+                gridcolor="rgba(180,180,180,0.55)",
+                zeroline=True,
+                zerolinecolor="rgba(0,0,0,0.65)",
+                zerolinewidth=2,
+                tickfont=dict(size=14),
+                linecolor="rgba(0,0,0,0.65)",
+                linewidth=2,
+                mirror=True
+            ),
+            yaxis=dict(
+                title=dict(text="Semivarianza γ(h)", font=dict(size=16)),
+                showgrid=True,
+                gridcolor="rgba(180,180,180,0.55)",
+                zeroline=True,
+                zerolinecolor="rgba(0,0,0,0.65)",
+                zerolinewidth=2,
+                tickfont=dict(size=14),
+                linecolor="rgba(0,0,0,0.65)",
+                linewidth=2,
+                mirror=True
+            ),
+            plot_bgcolor="rgba(250,250,250,1)",
+            paper_bgcolor="white",
+            height=580,
+            hovermode="closest",
+            margin=dict(l=65, r=35, t=70, b=60),
+            legend=dict(
+                bgcolor="rgba(255,255,255,0.85)",
+                bordercolor="rgba(0,0,0,0.15)",
+                borderwidth=1,
+                font=dict(size=14)
+            )
         )
 
-    # Layout profesional estilo Leapfrog
-    fig.update_layout(
-        title=dict(
-            text="Variograma Experimental vs Teórico",
-            font=dict(size=26, family="Segoe UI Semibold"),
-            x=0.5,
-            xanchor="center",
-            y=0.95,
-            yanchor="top"
-        ),
-        xaxis=dict(
-            title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
-            showgrid=True,
-            gridcolor="rgba(180,180,180,0.55)",
-            zeroline=True,
-            zerolinecolor="rgba(0,0,0,0.65)",
-            zerolinewidth=2,
-            tickfont=dict(size=14),
-            linecolor="rgba(0,0,0,0.65)",
-            linewidth=2,
-            mirror=True
-        ),
-        yaxis=dict(
-            title=dict(text="Semivarianza γ(h)", font=dict(size=16)),
-            showgrid=True,
-            gridcolor="rgba(180,180,180,0.55)",
-            zeroline=True,
-            zerolinecolor="rgba(0,0,0,0.65)",
-            zerolinewidth=2,
-            tickfont=dict(size=14),
-            linecolor="rgba(0,0,0,0.65)",
-            linewidth=2,
-            mirror=True
-        ),
-        plot_bgcolor="rgba(250,250,250,1)",
-        paper_bgcolor="white",
-        height=580,
-        hovermode="closest",
-        margin=dict(l=65, r=35, t=70, b=60),
-        legend=dict(
-            bgcolor="rgba(255,255,255,0.85)",
-            bordercolor="rgba(0,0,0,0.15)",
-            borderwidth=1,
-            font=dict(size=14)
-        )
-    )
+        fig.update_xaxes(range=[0, float(max_dist_estudio)])
+        fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.2])
 
-    fig.update_xaxes(range=[0, float(max_dist_estudio)])
-    fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.2])
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Mostrar gráfico
-    st.plotly_chart(fig, use_container_width=True)
-
-    # --------------------------------------------------------
-    # VISTA 3D CONCEPTUAL
-    # --------------------------------------------------------
-    with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
+        with st.expander("🌐 Vista 3D del Variograma (
         st.write("Visualización conceptual del variograma en 3D por dirección.")
         st.write("Este módulo puede conectarse a Plotly 3D si deseas una versión interactiva real.")
-    
+        st.markdown("</div>", unsafe_allow_html=True)
+    # ============================================================
+    # BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
+    # ============================================================
+
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown("<h3>⚙️ Acciones del Variograma</h3>", unsafe_allow_html=True)
+
+    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+
+    with col_b1:
+        if st.button("📈 Generar Variograma"):
+            st.info("Variograma regenerado con los parámetros actuales.")
+
+    with col_b2:
+        if st.button("💾 Guardar Configuración"):
+            st.success("Configuración guardada correctamente (placeholder).")
+
+    with col_b3:
+        if st.button("📤 Exportar a GSlib"):
+            st.success("Archivo GSlib generado correctamente (placeholder).")
+
+    with col_b4:
+        if st.button("📤 Exportar CSV"):
+            st.success("Archivo CSV exportado correctamente (placeholder).")
+
     st.markdown("</div>", unsafe_allow_html=True)
-# ============================================================
-# BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
-# ============================================================
+    # ============================================================
+    # BLOQUE 8 — Guardar Parámetros en Sesión
+    # ============================================================
 
-st.markdown('<div class="panel">', unsafe_allow_html=True)
-st.markdown("<h3>⚙️ Acciones del Variograma</h3>", unsafe_allow_html=True)
+    st.session_state["v_parametros"] = dict(
+        modelo=str(modelo_tipo),
+        nugget=float(nugget_val),
+        sill=float(sill_val),
+        range=float(range_val),
+        n_lags=int(n_lags),
+        lag_dist=float(lag_dist),
+        tolerancia=float(tolerancia_t),
+        acimut=float(acimut),
+        buzamiento=float(buzamiento),
+        omni_3d=bool(omni_3d)
+    )
 
-col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+    st.success("✔ Parámetros del variograma almacenados correctamente.")
 
-# -------------------------
-# BOTÓN: GENERAR VARIOGRAMA
-# -------------------------
-with col_b1:
-    if st.button("📈 Generar Variograma"):
-        st.info("Variograma regenerado con los parámetros actuales.")
-
-# -------------------------
-# BOTÓN: GUARDAR CONFIGURACIÓN
-# -------------------------
-with col_b2:
-    if st.button("💾 Guardar Configuración"):
-        st.success("Configuración guardada correctamente (placeholder).")
-
-# -------------------------
-# BOTÓN: EXPORTAR GSlib
-# -------------------------
-with col_b3:
-    if st.button("📤 Exportar a GSlib"):
-        # Placeholder de exportación
-        st.success("Archivo GSlib generado correctamente (placeholder).")
-
-# -------------------------
-# BOTÓN: EXPORTAR CSV
-# -------------------------
-with col_b4:
-    if st.button("📤 Exportar CSV"):
-        # Placeholder de exportación
-        st.success("Archivo CSV exportado correctamente (placeholder).")
-
-st.markdown("</div>", unsafe_allow_html=True)
-# ============================================================
-# BLOQUE 8 — Guardar Parámetros en Sesión
-# ============================================================
-
-st.session_state["v_parametros"] = dict(
-    modelo=str(modelo_tipo),
-    nugget=float(nugget_val),
-    sill=float(sill_val),
-    range=float(range_val),
-    n_lags=int(n_lags),
-    lag_dist=float(lag_dist),
-    tolerancia=float(tolerancia_t),
-    acimut=float(acimut),
-    buzamiento=float(buzamiento),
-    omni_3d=bool(omni_3d)
-)
-
-st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
