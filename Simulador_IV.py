@@ -1213,21 +1213,19 @@ fig.update_layout(
         text="Variograma Experimental vs Teórico",
         font=dict(size=26, family="Segoe UI Semibold"),
         x=0.5,
-	xancho="center"
+	
     ),
     xaxis=dict(
         title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
         showgrid=True,
 	gridcolor="rgba(180,180,180,0.55)",
-        gridwidth=1.2,
-	zeroline=False,
+       	zeroline=False,
         tickfont=dict(size=14),
     ),
     yaxis=dict(
         title=dict(text="Semivarianza γ(h)", font=dict(size=16)),
         showgrid=True,
         gridcolor="rgba(180,180,180,0.55)",   # Más visible
-        gridwidth=1.2,                        # Más gruesa
         zeroline=False,
         tickfont=dict(size=14),
     ),
