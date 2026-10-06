@@ -1341,8 +1341,8 @@ with tab8:
                 #xanchor="center",
                 #y=0.95,
                 #yanchor="top"
-             )
-            )
+             ),
+            #)
             xaxis=dict(
                 title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
                 showgrid=True,
