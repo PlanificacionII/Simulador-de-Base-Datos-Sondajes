@@ -1342,7 +1342,7 @@ with tab8:
                 #y=0.95,
                 #yanchor="top"
              ),
-            #)
+            
             xaxis=dict(
                 title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
                 showgrid=True,
@@ -1366,17 +1366,8 @@ with tab8:
                 linecolor="rgba(0,0,0,0.65)",
                 linewidth=2,
                 mirror=True
-            ),
-            plot_bgcolor="rgba(250,250,250,1)",
-            paper_bgcolor="white",
-            height=750,
-            hovermode="closest",
-            margin=dict(l=65, r=35, t=70, b=60),
-            legend=dict(
-                bgcolor="rgba(255,255,255,0.85)",
-                bordercolor="rgba(0,0,0,0.15)",
-                borderwidth=1,
-                font=dict(size=14)
+           
+            
             )
         )
 
