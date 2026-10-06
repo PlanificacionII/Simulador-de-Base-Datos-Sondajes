@@ -1212,7 +1212,7 @@ fig.update_layout(
     title=dict(
         text="Variograma Experimental vs Teórico",
         font=dict(size=26, family="Segoe UI Semibold"),
-        x=0.5
+        x=0.5,
 	xancho="center"
     ),
     xaxis=dict(
