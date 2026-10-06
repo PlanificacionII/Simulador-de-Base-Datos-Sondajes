@@ -1286,7 +1286,7 @@ with tab8:
                 mode="markers",
                 name="Experimental",
                 marker=dict(
-                    size=11,
+                    size=10,
                     color="#1F77B4",
                     line=dict(width=2, color="white"),
                     opacity=0.95,
@@ -1322,14 +1322,27 @@ with tab8:
             )
 
         fig.update_layout(
+            width=950,        # ← MÁS ANCHO
+            height=750,       # ← MÁS ALTO
+            margin=dict(l=65, r=35, t=120, b=80),
+            plot_bgcolor="rgba(250,250,250,1)",
+            paper_bgcolor="white",
+            hovermode="closest",
+	    legend=dict(
+                bgcolor="rgba(255,255,255,0.85)",
+                bordercolor="rgba(0,0,0,0.15)",
+                borderwidth=1,
+                font=dict(size=14)
+            ),
             title=dict(
                 text="Variograma Experimental vs Teórico",
                 font=dict(size=26, family="Segoe UI Semibold"),
                 x=0.5,
-                xanchor="center",
-                y=0.95,
-                yanchor="top"
-            ),
+                #xanchor="center",
+                #y=0.95,
+                #yanchor="top"
+             )
+            )
             xaxis=dict(
                 title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
                 showgrid=True,
@@ -1368,9 +1381,9 @@ with tab8:
         )
 
         fig.update_xaxes(range=[0, float(max_dist_estudio)])
-        fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.2])
+        fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.8])
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=False)
 
         with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
             st.write("Visualización conceptual del variograma en 3D por dirección.")
