@@ -1337,7 +1337,7 @@ with tab8:
             title=dict(
                 text="Variograma Experimental vs Teórico",
                 font=dict(size=26, family="Segoe UI Semibold"),
-                x=0.5,
+                x=0.5
                 #xanchor="center",
                 #y=0.95,
                 #yanchor="top"
@@ -1369,7 +1369,7 @@ with tab8:
             ),
             plot_bgcolor="rgba(250,250,250,1)",
             paper_bgcolor="white",
-            height=580,
+            height=750,
             hovermode="closest",
             margin=dict(l=65, r=35, t=70, b=60),
             legend=dict(
