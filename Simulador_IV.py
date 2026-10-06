@@ -964,7 +964,7 @@ from scipy.spatial.distance import pdist
 with tab8:
 
     # ============================================================
-    # BLOQUE 1 — Encabezado, Menú, Modo Oscuro y Estilos Globales
+    # BLOQUE 1 — Encabezado, Modo Oscuro y Estilos Globales
     # ============================================================
 
     modo_oscuro = st.toggle("🌓 Modo oscuro / tema corporativo", value=False)
@@ -1119,7 +1119,7 @@ with tab8:
         st.markdown("</div>", unsafe_allow_html=True)
 
     # ============================================================
-    # BLOQUE 4 — Motor Experimental (Tu código intacto)
+    # BLOQUE 4 — Motor Experimental
     # ============================================================
 
     max_dist_estudio = float(n_lags * lag_dist)
@@ -1241,145 +1241,138 @@ with tab8:
         st.markdown("</div>", unsafe_allow_html=True)
 
     # ============================================================
-    # BLOQUE 6 — Panel Derecho (Gráfico Profesional + Vista 3D Conceptual)
+    # BLOQUE 6 — CURVA TEÓRICA + GRÁFICO FULL-WIDTH
     # ============================================================
 
-    with col_right:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.markdown("<h3>📈 Variograma Experimental vs Teórico</h3>", unsafe_allow_html=True)
+    # Recuperar parámetros desde sesión (por consistencia con tus claves)
+    nugget_val = st.session_state["v_nugget"]
+    sill_val = st.session_state["v_sill"]
+    range_val = st.session_state["v_range"]
+    modelo_tipo = st.session_state["v_model_type"]
 
-        nugget_val = st.session_state["v_nugget"]
-        sill_val = st.session_state["v_sill"]
-        range_val = st.session_state["v_range"]
-        modelo_tipo = st.session_state["v_model_type"]
+    h_curva = np.linspace(0, max_dist_estudio, 200)
+    gamma_teorico = np.zeros_like(h_curva)
+    c_estructural = float(sill_val) - float(nugget_val)
+    r_val = float(range_val) if float(range_val) > 0 else 1e-6
 
-        h_curva = np.linspace(0, max_dist_estudio, 200)
-        gamma_teorico = np.zeros_like(h_curva)
-        c_estructural = float(sill_val) - float(nugget_val)
-        r_val = float(range_val) if float(range_val) > 0 else 1e-6
-
-        if modelo_tipo == "spherical":
-            for idx, h in enumerate(h_curva):
-                if h <= r_val:
-                    gamma_teorico[idx] = float(nugget_val) + c_estructural * (
-                        1.5 * (h / r_val) - 0.5 * (h / r_val)**3
-                    )
-                else:
-                    gamma_teorico[idx] = float(sill_val)
-
-        elif modelo_tipo == "exponential":
-            gamma_teorico = float(nugget_val) + c_estructural * (
-                1.0 - np.exp(-3.0 * h_curva / r_val)
-            )
-
-        elif modelo_tipo == "gaussian":
-            gamma_teorico = float(nugget_val) + c_estructural * (
-                1.0 - np.exp(-3.0 * (h_curva / r_val)**2)
-            )
-
-        fig = go.Figure()
-
-        if len(lags_experimentales) > 0:
-            fig.add_trace(go.Scatter(
-                x=lags_experimentales,
-                y=gammas_experimentales,
-                mode="markers",
-                name="Experimental",
-                marker=dict(
-                    size=10,
-                    color="#1F77B4",
-                    line=dict(width=2, color="white"),
-                    opacity=0.95,
-                    symbol="circle"
+    if modelo_tipo == "spherical":
+        for idx, h in enumerate(h_curva):
+            if h <= r_val:
+                gamma_teorico[idx] = float(nugget_val) + c_estructural * (
+                    1.5 * (h / r_val) - 0.5 * (h / r_val)**3
                 )
-            ))
+            else:
+                gamma_teorico[idx] = float(sill_val)
 
-            fig.add_trace(go.Scatter(
-                x=lags_experimentales,
-                y=gammas_experimentales,
-                mode="lines",
-                name="Tendencia Experimental",
-                line=dict(color="#1F77B4", width=2, dash="solid"),
-                opacity=0.35
-            ))
-
-        fig.add_trace(go.Scatter(
-            x=h_curva,
-            y=gamma_teorico,
-            mode="lines",
-            name=f"Modelo {str(modelo_tipo).capitalize()}",
-            line=dict(color="#F28E2B", width=4.5)
-        ))
-
-        if varianza_datos is not None:
-            fig.add_shape(
-                type="line",
-                x0=0,
-                x1=float(max_dist_estudio),
-                y0=float(varianza_datos),
-                y1=float(varianza_datos),
-                line=dict(color="rgba(80,80,80,0.35)", width=2, dash="dash")
-            )
-
-        fig.update_layout(
-            width=None,        # ← MÁS ANCHO
-            height=750,       # ← MÁS ALTO
-            margin=dict(l=40, r=40, t=120, b=80),
-            plot_bgcolor="rgba(250,250,250,1)",
-            paper_bgcolor="white",
-            hovermode="closest",
-	    legend=dict(
-                bgcolor="rgba(255,255,255,0.85)",
-                bordercolor="rgba(0,0,0,0.15)",
-                borderwidth=1,
-                font=dict(size=14)
-            ),
-            title=dict(
-                text="Variograma Experimental vs Teórico",
-                font=dict(size=26, family="Segoe UI Semibold"),
-                x=0.5
-                #xanchor="center",
-                #y=0.95,
-                #yanchor="top"
-             ),
-            
-            xaxis=dict(
-                title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
-                showgrid=True,
-                gridcolor="rgba(180,180,180,0.55)",
-                zeroline=True,
-                zerolinecolor="rgba(0,0,0,0.65)",
-                zerolinewidth=2,
-                tickfont=dict(size=14),
-                linecolor="rgba(0,0,0,0.65)",
-                linewidth=2,
-                mirror=True
-            ),
-            yaxis=dict(
-                title=dict(text="Semivarianza γ(h)", font=dict(size=16)),
-                showgrid=True,
-                gridcolor="rgba(180,180,180,0.55)",
-                zeroline=True,
-                zerolinecolor="rgba(0,0,0,0.65)",
-                zerolinewidth=2,
-                tickfont=dict(size=14),
-                linecolor="rgba(0,0,0,0.65)",
-                linewidth=2,
-                mirror=True
-           
-            
-            )
+    elif modelo_tipo == "exponential":
+        gamma_teorico = float(nugget_val) + c_estructural * (
+            1.0 - np.exp(-3.0 * h_curva / r_val)
         )
 
-        fig.update_xaxes(range=[0, float(max_dist_estudio)])
-        fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.8])
+    elif modelo_tipo == "gaussian":
+        gamma_teorico = float(nugget_val) + c_estructural * (
+            1.0 - np.exp(-3.0 * (h_curva / r_val)**2)
+        )
 
-        st.plotly_chart(fig, use_container_width=True)
+    st.markdown("<h3>📈 Variograma Experimental vs Teórico</h3>", unsafe_allow_html=True)
 
-        with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
-            st.write("Visualización conceptual del variograma en 3D por dirección.")
-            st.write("Este módulo puede conectarse a Plotly 3D si deseas una versión interactiva real.")
-        st.markdown("</div>", unsafe_allow_html=True)
+    fig = go.Figure()
+
+    if len(lags_experimentales) > 0:
+        fig.add_trace(go.Scatter(
+            x=lags_experimentales,
+            y=gammas_experimentales,
+            mode="markers",
+            name="Experimental",
+            marker=dict(
+                size=10,
+                color="#1F77B4",
+                line=dict(width=2, color="white"),
+                opacity=0.95,
+                symbol="circle"
+            )
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=lags_experimentales,
+            y=gammas_experimentales,
+            mode="lines",
+            name="Tendencia Experimental",
+            line=dict(color="#1F77B4", width=2, dash="solid"),
+            opacity=0.35
+        ))
+
+    fig.add_trace(go.Scatter(
+        x=h_curva,
+        y=gamma_teorico,
+        mode="lines",
+        name=f"Modelo {str(modelo_tipo).capitalize()}",
+        line=dict(color="#F28E2B", width=4.5)
+    ))
+
+    if varianza_datos is not None:
+        fig.add_shape(
+            type="line",
+            x0=0,
+            x1=float(max_dist_estudio),
+            y0=float(varianza_datos),
+            y1=float(varianza_datos),
+            line=dict(color="rgba(80,80,80,0.35)", width=2, dash="dash")
+        )
+
+    fig.update_layout(
+        width=None,
+        height=750,
+        margin=dict(l=40, r=40, t=120, b=80),
+        plot_bgcolor="rgba(250,250,250,1)",
+        paper_bgcolor="white",
+        hovermode="closest",
+        legend=dict(
+            bgcolor="rgba(255,255,255,0.85)",
+            bordercolor="rgba(0,0,0,0.15)",
+            borderwidth=1,
+            font=dict(size=14)
+        ),
+        title=dict(
+            text="Variograma Experimental vs Teórico",
+            font=dict(size=26, family="Segoe UI Semibold"),
+            x=0.5
+        ),
+        xaxis=dict(
+            title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
+            showgrid=True,
+            gridcolor="rgba(180,180,180,0.55)",
+            zeroline=True,
+            zerolinecolor="rgba(0,0,0,0.65)",
+            zerolinewidth=2,
+            tickfont=dict(size=14),
+            linecolor="rgba(0,0,0,0.65)",
+            linewidth=2,
+            mirror=True
+        ),
+        yaxis=dict(
+            title=dict(text="Semivarianza γ(h)", font=dict(size=16)),
+            showgrid=True,
+            gridcolor="rgba(180,180,180,0.55)",
+            zeroline=True,
+            zerolinecolor="rgba(0,0,0,0.65)",
+            zerolinewidth=2,
+            tickfont=dict(size=14),
+            linecolor="rgba(0,0,0,0.65)",
+            linewidth=2,
+            mirror=True
+        )
+    )
+
+    fig.update_xaxes(range=[0, float(max_dist_estudio)])
+    fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.8])
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
+        st.write("Visualización conceptual del variograma en 3D por dirección.")
+        st.write("Este módulo puede conectarse a Plotly 3D si deseas una versión interactiva real.")
+
     # ============================================================
     # BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
     # ============================================================
@@ -1403,9 +1396,10 @@ with tab8:
 
     with col_b4:
         if st.button("📤 Exportar CSV"):
-            st.success("Archivo CSV exportado correctamente (placeholder).")
+            st.success("Archivo CSV generado correctamente (placeholder).")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
     # ============================================================
     # BLOQUE 8 — Guardar Parámetros en Sesión
     # ============================================================
@@ -1424,7 +1418,6 @@ with tab8:
     )
 
     st.success("✔ Parámetros del variograma almacenados correctamente.")
-
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
