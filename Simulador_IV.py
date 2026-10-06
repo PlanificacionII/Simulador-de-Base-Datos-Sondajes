@@ -1322,9 +1322,9 @@ with tab8:
             )
 
         fig.update_layout(
-            width=950,        # ← MÁS ANCHO
+            width=None,        # ← MÁS ANCHO
             height=750,       # ← MÁS ALTO
-            margin=dict(l=65, r=35, t=120, b=80),
+            margin=dict(l=40, r=40, t=120, b=80),
             plot_bgcolor="rgba(250,250,250,1)",
             paper_bgcolor="white",
             hovermode="closest",
@@ -1374,7 +1374,7 @@ with tab8:
         fig.update_xaxes(range=[0, float(max_dist_estudio)])
         fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.8])
 
-        st.plotly_chart(fig, use_container_width=False)
+        st.plotly_chart(fig, use_container_width=True)
 
         with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
             st.write("Visualización conceptual del variograma en 3D por dirección.")
