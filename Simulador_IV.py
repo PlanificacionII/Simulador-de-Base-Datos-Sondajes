@@ -1372,6 +1372,159 @@ with tab8:
     with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
         st.write("Visualización conceptual del variograma en 3D por dirección.")
         st.write("Este módulo puede conectarse a Plotly 3D si deseas una versión interactiva real.")
+# ============================================================
+# BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
+# ============================================================
+
+st.markdown("<h3>🌐 Módulos 3D Avanzados</h3>", unsafe_allow_html=True)
+
+# ------------------------------------------------------------
+# 1️⃣ VISTA 3D DEL VARIOGRAMA (Conceptual)
+# ------------------------------------------------------------
+with st.expander("🔷 Vista 3D del Variograma (Conceptual)"):
+
+    # Vector direccional
+    az_rad = np.radians(acimut)
+    dip_rad = np.radians(buzamiento)
+
+    v_dir = np.array([
+        np.cos(dip_rad) * np.sin(az_rad),
+        np.cos(dip_rad) * np.cos(az_rad),
+        np.sin(dip_rad)
+    ])
+
+    # Nube de puntos (muestras)
+    fig_var3d = go.Figure()
+
+    fig_var3d.add_trace(go.Scatter3d(
+        x=coords_m[:,0],
+        y=coords_m[:,1],
+        z=coords_m[:,2],
+        mode="markers",
+        marker=dict(size=3, color=leyes_m, colorscale="Viridis"),
+        name="Sondajes"
+    ))
+
+    # Flecha direccional
+    fig_var3d.add_trace(go.Scatter3d(
+        x=[0, v_dir[0]*200],
+        y=[0, v_dir[1]*200],
+        z=[0, v_dir[2]*200],
+        mode="lines+markers",
+        line=dict(color="red", width=6),
+        marker=dict(size=4),
+        name="Dirección Variograma"
+    ))
+
+    fig_var3d.update_layout(
+        height=600,
+        title="Vista 3D del Variograma",
+        scene=dict(
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
+            aspectmode="data"
+        )
+    )
+
+    st.plotly_chart(fig_var3d, use_container_width=True)
+
+# ------------------------------------------------------------
+# 2️⃣ ANISOTROPÍA 3D — VECTOR Y ROTACIONES
+# ------------------------------------------------------------
+with st.expander("🧭 Anisotropía 3D — Dirección y Rotación"):
+
+    fig_aniso = go.Figure()
+
+    fig_aniso.add_trace(go.Scatter3d(
+        x=[0, v_dir[0]*300],
+        y=[0, v_dir[1]*300],
+        z=[0, v_dir[2]*300],
+        mode="lines+markers",
+        line=dict(color="orange", width=6),
+        marker=dict(size=4),
+        name="Vector Direccional"
+    ))
+
+    fig_aniso.update_layout(
+        height=600,
+        title=f"Anisotropía 3D — Acimut {acimut}°, Buzamiento {buzamiento}°",
+        scene=dict(
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
+            aspectmode="data"
+        )
+    )
+
+    st.plotly_chart(fig_aniso, use_container_width=True)
+
+# ------------------------------------------------------------
+# 3️⃣ ELIPSOIDE DE BÚSQUEDA 3D (Rotado + Anisotropía)
+# ------------------------------------------------------------
+with st.expander("🟡 Elipsoide de Búsqueda 3D (Rotado)"):
+
+    # Parámetros del elipsoide
+    a = range_val
+    b = range_val * ratio_h
+    c = range_val * ratio_v
+
+    u = np.linspace(0, 2*np.pi, 40)
+    v = np.linspace(0, np.pi, 40)
+
+    x = a * np.outer(np.cos(u), np.sin(v))
+    y = b * np.outer(np.sin(u), np.sin(v))
+    z = c * np.outer(np.ones_like(u), np.cos(v))
+
+    # Rotación 3D
+    def rotar(X, Y, Z, az, dip):
+        pts = np.vstack([X.flatten(), Y.flatten(), Z.flatten()])
+
+        # Rotación por acimut (Z)
+        Rz = np.array([
+            [np.cos(az), -np.sin(az), 0],
+            [np.sin(az),  np.cos(az), 0],
+            [0, 0, 1]
+        ])
+
+        # Rotación por buzamiento (X)
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(dip), -np.sin(dip)],
+            [0, np.sin(dip),  np.cos(dip)]
+        ])
+
+        pts_rot = Rz @ (Rx @ pts)
+
+        return (
+            pts_rot[0].reshape(X.shape),
+            pts_rot[1].reshape(Y.shape),
+            pts_rot[2].reshape(Z.shape)
+        )
+
+    Xr, Yr, Zr = rotar(x, y, z, az_rad, dip_rad)
+
+    fig_elip = go.Figure(data=[
+        go.Surface(
+            x=Xr, y=Yr, z=Zr,
+            colorscale="Viridis",
+            opacity=0.6,
+            showscale=False
+        )
+    ])
+
+    fig_elip.update_layout(
+        height=600,
+        title="Elipsoide de Búsqueda 3D (Rotado + Anisotropía)",
+        scene=dict(
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
+            aspectmode="data"
+        )
+    )
+
+    st.plotly_chart(fig_elip, use_container_width=True)
 
     # ============================================================
     # BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
