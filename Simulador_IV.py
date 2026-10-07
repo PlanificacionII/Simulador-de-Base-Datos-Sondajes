@@ -921,7 +921,7 @@ with tab7:
     # ============================================================
     df_comp_final = pd.DataFrame(compositos)
     st.session_state["df_comp_final"] = df_comp_final
-
+    st.session_state["recargar_variograma"] = True	
     st.markdown("### 📋 Tabla de Compositos")
     st.dataframe(df_comp_final, use_container_width=True, height=250)
 
@@ -1037,7 +1037,12 @@ with tab8:
         📤 <b>Exportar</b>
     </div>
     """, unsafe_allow_html=True)
-
+    # ============================================================
+    # 🔄 RECARGA AUTOMÁTICA DESPUÉS DE GENERAR COMPOSITOS
+    # ============================================================
+    if st.session_state.get("recargar_variograma", False):
+        st.session_state["recargar_variograma"] = False
+        st.rerun()
     st.markdown("<h2>📊 Variografía PRO — Geoestadística Avanzada</h2>", unsafe_allow_html=True)
     st.caption("Suite profesional estilo Leapfrog / Datamine con análisis direccional, isotropía y ajuste teórico interactivo.")
     # ============================================================
