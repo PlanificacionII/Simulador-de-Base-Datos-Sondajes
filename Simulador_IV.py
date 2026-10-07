@@ -1040,9 +1040,9 @@ with tab8:
     # ============================================================
     # 🔄 RECARGA AUTOMÁTICA DESPUÉS DE GENERAR COMPOSITOS
     # ============================================================
-    if st.session_state.get("recargar_variograma", False):
-        st.session_state["recargar_variograma"] = False
-        st.rerun()
+    #if st.session_state.get("recargar_variograma", False):
+        #st.session_state["recargar_variograma"] = False
+        #st.rerun()
     st.markdown("<h2>📊 Variografía PRO — Geoestadística Avanzada</h2>", unsafe_allow_html=True)
     st.caption("Suite profesional estilo Leapfrog / Datamine con análisis direccional, isotropía y ajuste teórico interactivo.")
     # ============================================================
