@@ -1201,47 +1201,8 @@ with tab8:
 
     lags_experimentales = st.session_state.get("lags_calculados", [])
     gammas_experimentales = st.session_state.get("gammas_calculados", [])
-
     # ============================================================
-    # BLOQUE 5 — Panel Central (Diagnóstico + Anisotropía + Validación)
-    # ============================================================
-
-    with col_center:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.markdown("<h3>🔍 Diagnóstico Geoestadístico</h3>", unsafe_allow_html=True)
-
-        st.markdown('<div class="sidebar">', unsafe_allow_html=True)
-        st.write("• Varianza de los datos:", varianza_datos)
-        st.write("• Máxima distancia de estudio:", max_dist_estudio)
-        st.write("• Lags efectivos:", n_lags)
-        st.write("• Modelo seleccionado:", modelo_tipo)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown('<div class="sidebar">', unsafe_allow_html=True)
-        st.write("• Sill estructural:", sill_val - nugget_val)
-        st.write("• Nugget:", nugget_val)
-        st.write("• Range:", range_val)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        with st.expander("🧭 Anisotropía y Elipsoide"):
-            ratio_h = st.slider("Relación horizontal (X/Y)", 0.1, 3.0, 1.0)
-            ratio_v = st.slider("Relación vertical (Z)", 0.1, 3.0, 1.0)
-            st.write("Elipsoide:", f"X:Y:Z = 1 : {ratio_h:.2f} : {ratio_v:.2f}")
-
-        with st.expander("✅ Validación Geoestadística"):
-            if abs((sill_val - nugget_val) - varianza_datos) < 0.05:
-                st.success("✔ El modelo reproduce razonablemente la varianza de los datos.")
-            else:
-                st.warning("⚠ El sill estructural difiere de la varianza. Revisar ajuste.")
-
-            st.write("• Revisar número de lags y distancia máxima.")
-            st.write("• Revisar anisotropía según dirección dominante.")
-            st.write("• Verificar que el modelo matemático represente la estructura espacial.")
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # ============================================================
-    # BLOQUE 6 — CURVA TEÓRICA + GRÁFICO FULL-WIDTH
+    # BLOQUE 6 — CURVA TEÓRICA + GRÁFICO FULL-WIDTH PROFESIONAL
     # ============================================================
 
     # Recuperar parámetros desde sesión (por consistencia con tus claves)
@@ -1250,6 +1211,7 @@ with tab8:
     range_val = st.session_state["v_range"]
     modelo_tipo = st.session_state["v_model_type"]
 
+    # Curva teórica
     h_curva = np.linspace(0, max_dist_estudio, 200)
     gamma_teorico = np.zeros_like(h_curva)
     c_estructural = float(sill_val) - float(nugget_val)
@@ -1274,10 +1236,13 @@ with tab8:
             1.0 - np.exp(-3.0 * (h_curva / r_val)**2)
         )
 
+    # Título del gráfico
     st.markdown("<h3>📈 Variograma Experimental vs Teórico</h3>", unsafe_allow_html=True)
 
+    # Crear figura
     fig = go.Figure()
 
+    # Experimental (puntos)
     if len(lags_experimentales) > 0:
         fig.add_trace(go.Scatter(
             x=lags_experimentales,
@@ -1293,6 +1258,7 @@ with tab8:
             )
         ))
 
+        # Tendencia experimental (línea suave)
         fig.add_trace(go.Scatter(
             x=lags_experimentales,
             y=gammas_experimentales,
@@ -1302,6 +1268,7 @@ with tab8:
             opacity=0.35
         ))
 
+    # Modelo teórico
     fig.add_trace(go.Scatter(
         x=h_curva,
         y=gamma_teorico,
@@ -1310,6 +1277,7 @@ with tab8:
         line=dict(color="#F28E2B", width=4.5)
     ))
 
+    # Línea de varianza
     if varianza_datos is not None:
         fig.add_shape(
             type="line",
@@ -1320,24 +1288,28 @@ with tab8:
             line=dict(color="rgba(80,80,80,0.35)", width=2, dash="dash")
         )
 
+    # Layout profesional
     fig.update_layout(
-        width=None,
+        width=None,        # FULL WIDTH REAL
         height=750,
         margin=dict(l=40, r=40, t=120, b=80),
         plot_bgcolor="rgba(250,250,250,1)",
         paper_bgcolor="white",
         hovermode="closest",
+
         legend=dict(
             bgcolor="rgba(255,255,255,0.85)",
             bordercolor="rgba(0,0,0,0.15)",
             borderwidth=1,
             font=dict(size=14)
         ),
+
         title=dict(
             text="Variograma Experimental vs Teórico",
             font=dict(size=26, family="Segoe UI Semibold"),
             x=0.5
         ),
+
         xaxis=dict(
             title=dict(text="Distancia de Separación (h) [m]", font=dict(size=16)),
             showgrid=True,
@@ -1350,6 +1322,7 @@ with tab8:
             linewidth=2,
             mirror=True
         ),
+
         yaxis=dict(
             title=dict(text="Semivarianza γ(h)", font=dict(size=16)),
             showgrid=True,
@@ -1364,26 +1337,19 @@ with tab8:
         )
     )
 
+    # Rango de ejes
     fig.update_xaxes(range=[0, float(max_dist_estudio)])
     fig.update_yaxes(range=[0, max(sill_val, varianza_datos) * 1.8])
 
+    # Mostrar gráfico FULL WIDTH
     st.plotly_chart(fig, use_container_width=True)
+    # ============================================================
+    # BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
+    # ============================================================
 
-    with st.expander("🌐 Vista 3D del Variograma (Conceptual)"):
-        st.write("Visualización conceptual del variograma en 3D por dirección.")
-        st.write("Este módulo puede conectarse a Plotly 3D si deseas una versión interactiva real.")
-# ============================================================
-# BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
-# ============================================================
+    st.markdown("<h3>🌐 Módulos 3D Avanzados</h3>", unsafe_allow_html=True)
 
-st.markdown("<h3>🌐 Módulos 3D Avanzados</h3>", unsafe_allow_html=True)
-
-# ------------------------------------------------------------
-# 1️⃣ VISTA 3D DEL VARIOGRAMA (Conceptual)
-# ------------------------------------------------------------
-with st.expander("🔷 Vista 3D del Variograma (Conceptual)"):
-
-    # Vector direccional
+    # Vector direccional (siempre recalculado para evitar problemas con omni_3d)
     az_rad = np.radians(acimut)
     dip_rad = np.radians(buzamiento)
 
@@ -1393,138 +1359,142 @@ with st.expander("🔷 Vista 3D del Variograma (Conceptual)"):
         np.sin(dip_rad)
     ])
 
-    # Nube de puntos (muestras)
-    fig_var3d = go.Figure()
+    # ------------------------------------------------------------
+    # 1️⃣ VISTA 3D DEL VARIOGRAMA (Conceptual)
+    # ------------------------------------------------------------
+    with st.expander("🔷 Vista 3D del Variograma (Conceptual)"):
 
-    fig_var3d.add_trace(go.Scatter3d(
-        x=coords_m[:,0],
-        y=coords_m[:,1],
-        z=coords_m[:,2],
-        mode="markers",
-        marker=dict(size=3, color=leyes_m, colorscale="Viridis"),
-        name="Sondajes"
-    ))
+        fig_var3d = go.Figure()
 
-    # Flecha direccional
-    fig_var3d.add_trace(go.Scatter3d(
-        x=[0, v_dir[0]*200],
-        y=[0, v_dir[1]*200],
-        z=[0, v_dir[2]*200],
-        mode="lines+markers",
-        line=dict(color="red", width=6),
-        marker=dict(size=4),
-        name="Dirección Variograma"
-    ))
+        # Nube de sondajes
+        fig_var3d.add_trace(go.Scatter3d(
+            x=coords_m[:, 0],
+            y=coords_m[:, 1],
+            z=coords_m[:, 2],
+            mode="markers",
+            marker=dict(size=3, color=leyes_m, colorscale="Viridis"),
+            name="Sondajes"
+        ))
 
-    fig_var3d.update_layout(
-        height=600,
-        title="Vista 3D del Variograma",
-        scene=dict(
-            xaxis_title="X",
-            yaxis_title="Y",
-            zaxis_title="Z",
-            aspectmode="data"
+        # Flecha direccional
+        fig_var3d.add_trace(go.Scatter3d(
+            x=[0, v_dir[0] * max_dist_estudio],
+            y=[0, v_dir[1] * max_dist_estudio],
+            z=[0, v_dir[2] * max_dist_estudio],
+            mode="lines+markers",
+            line=dict(color="red", width=6),
+            marker=dict(size=4),
+            name="Dirección Variograma"
+        ))
+
+        fig_var3d.update_layout(
+            height=600,
+            title="Vista 3D del Variograma",
+            scene=dict(
+                xaxis_title="X",
+                yaxis_title="Y",
+                zaxis_title="Z",
+                aspectmode="data"
+            )
         )
-    )
 
-    st.plotly_chart(fig_var3d, use_container_width=True)
+        st.plotly_chart(fig_var3d, use_container_width=True)
 
-# ------------------------------------------------------------
-# 2️⃣ ANISOTROPÍA 3D — VECTOR Y ROTACIONES
-# ------------------------------------------------------------
-with st.expander("🧭 Anisotropía 3D — Dirección y Rotación"):
+    # ------------------------------------------------------------
+    # 2️⃣ ANISOTROPÍA 3D — VECTOR Y ROTACIONES
+    # ------------------------------------------------------------
+    with st.expander("🧭 Anisotropía 3D — Dirección y Rotación"):
 
-    fig_aniso = go.Figure()
+        fig_aniso = go.Figure()
 
-    fig_aniso.add_trace(go.Scatter3d(
-        x=[0, v_dir[0]*300],
-        y=[0, v_dir[1]*300],
-        z=[0, v_dir[2]*300],
-        mode="lines+markers",
-        line=dict(color="orange", width=6),
-        marker=dict(size=4),
-        name="Vector Direccional"
-    ))
+        fig_aniso.add_trace(go.Scatter3d(
+            x=[0, v_dir[0] * max_dist_estudio],
+            y=[0, v_dir[1] * max_dist_estudio],
+            z=[0, v_dir[2] * max_dist_estudio],
+            mode="lines+markers",
+            line=dict(color="orange", width=6),
+            marker=dict(size=4),
+            name="Vector Direccional"
+        ))
 
-    fig_aniso.update_layout(
-        height=600,
-        title=f"Anisotropía 3D — Acimut {acimut}°, Buzamiento {buzamiento}°",
-        scene=dict(
-            xaxis_title="X",
-            yaxis_title="Y",
-            zaxis_title="Z",
-            aspectmode="data"
+        fig_aniso.update_layout(
+            height=600,
+            title=f"Anisotropía 3D — Acimut {acimut}°, Buzamiento {buzamiento}°",
+            scene=dict(
+                xaxis_title="X",
+                yaxis_title="Y",
+                zaxis_title="Z",
+                aspectmode="data"
+            )
         )
-    )
 
-    st.plotly_chart(fig_aniso, use_container_width=True)
+        st.plotly_chart(fig_aniso, use_container_width=True)
 
-# ------------------------------------------------------------
-# 3️⃣ ELIPSOIDE DE BÚSQUEDA 3D (Rotado + Anisotropía)
-# ------------------------------------------------------------
-with st.expander("🟡 Elipsoide de Búsqueda 3D (Rotado)"):
+    # ------------------------------------------------------------
+    # 3️⃣ ELIPSOIDE DE BÚSQUEDA 3D (Rotado + Anisotropía)
+    # ------------------------------------------------------------
+    with st.expander("🟡 Elipsoide de Búsqueda 3D (Rotado)"):
 
-    # Parámetros del elipsoide
-    a = range_val
-    b = range_val * ratio_h
-    c = range_val * ratio_v
+        # Parámetros del elipsoide (anisotropía desde ratio_h, ratio_v)
+        a = range_val
+        b = range_val * ratio_h
+        c = range_val * ratio_v
 
-    u = np.linspace(0, 2*np.pi, 40)
-    v = np.linspace(0, np.pi, 40)
+        u = np.linspace(0, 2 * np.pi, 40)
+        v = np.linspace(0, np.pi, 40)
 
-    x = a * np.outer(np.cos(u), np.sin(v))
-    y = b * np.outer(np.sin(u), np.sin(v))
-    z = c * np.outer(np.ones_like(u), np.cos(v))
+        x = a * np.outer(np.cos(u), np.sin(v))
+        y = b * np.outer(np.sin(u), np.sin(v))
+        z = c * np.outer(np.ones_like(u), np.cos(v))
 
-    # Rotación 3D
-    def rotar(X, Y, Z, az, dip):
-        pts = np.vstack([X.flatten(), Y.flatten(), Z.flatten()])
+        def rotar(X, Y, Z, az, dip):
+            pts = np.vstack([X.flatten(), Y.flatten(), Z.flatten()])
 
-        # Rotación por acimut (Z)
-        Rz = np.array([
-            [np.cos(az), -np.sin(az), 0],
-            [np.sin(az),  np.cos(az), 0],
-            [0, 0, 1]
+            # Rotación por acimut (Z)
+            Rz = np.array([
+                [np.cos(az), -np.sin(az), 0],
+                [np.sin(az),  np.cos(az), 0],
+                [0, 0, 1]
+            ])
+
+            # Rotación por buzamiento (X)
+            Rx = np.array([
+                [1, 0, 0],
+                [0, np.cos(dip), -np.sin(dip)],
+                [0, np.sin(dip),  np.cos(dip)]
+            ])
+
+            pts_rot = Rz @ (Rx @ pts)
+
+            return (
+                pts_rot[0].reshape(X.shape),
+                pts_rot[1].reshape(Y.shape),
+                pts_rot[2].reshape(Z.shape)
+            )
+
+        Xr, Yr, Zr = rotar(x, y, z, az_rad, dip_rad)
+
+        fig_elip = go.Figure(data=[
+            go.Surface(
+                x=Xr, y=Yr, z=Zr,
+                colorscale="Viridis",
+                opacity=0.6,
+                showscale=False
+            )
         ])
 
-        # Rotación por buzamiento (X)
-        Rx = np.array([
-            [1, 0, 0],
-            [0, np.cos(dip), -np.sin(dip)],
-            [0, np.sin(dip),  np.cos(dip)]
-        ])
-
-        pts_rot = Rz @ (Rx @ pts)
-
-        return (
-            pts_rot[0].reshape(X.shape),
-            pts_rot[1].reshape(Y.shape),
-            pts_rot[2].reshape(Z.shape)
+        fig_elip.update_layout(
+            height=600,
+            title="Elipsoide de Búsqueda 3D (Rotado + Anisotropía)",
+            scene=dict(
+                xaxis_title="X",
+                yaxis_title="Y",
+                zaxis_title="Z",
+                aspectmode="data"
+            )
         )
 
-    Xr, Yr, Zr = rotar(x, y, z, az_rad, dip_rad)
-
-    fig_elip = go.Figure(data=[
-        go.Surface(
-            x=Xr, y=Yr, z=Zr,
-            colorscale="Viridis",
-            opacity=0.6,
-            showscale=False
-        )
-    ])
-
-    fig_elip.update_layout(
-        height=600,
-        title="Elipsoide de Búsqueda 3D (Rotado + Anisotropía)",
-        scene=dict(
-            xaxis_title="X",
-            yaxis_title="Y",
-            zaxis_title="Z",
-            aspectmode="data"
-        )
-    )
-
-    st.plotly_chart(fig_elip, use_container_width=True)
+        st.plotly_chart(fig_elip, use_container_width=True)
 
     # ============================================================
     # BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
@@ -1549,7 +1519,7 @@ with st.expander("🟡 Elipsoide de Búsqueda 3D (Rotado)"):
 
     with col_b4:
         if st.button("📤 Exportar CSV"):
-            st.success("Archivo CSV generado correctamente (placeholder).")
+            st.success("Archivo CSV exportado correctamente (placeholder).")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1567,10 +1537,13 @@ with st.expander("🟡 Elipsoide de Búsqueda 3D (Rotado)"):
         tolerancia=float(tolerancia_t),
         acimut=float(acimut),
         buzamiento=float(buzamiento),
-        omni_3d=bool(omni_3d)
+        omni_3d=bool(omni_3d),
+        ratio_h=float(ratio_h),
+        ratio_v=float(ratio_v)
     )
 
     st.success("✔ Parámetros del variograma almacenados correctamente.")
+
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
