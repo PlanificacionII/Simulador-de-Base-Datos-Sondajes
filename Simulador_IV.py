@@ -1472,176 +1472,166 @@ with tab8:
         np.sin(dip_rad)
     ])
 
-# ============================================================
-# 🔥 MAPA DE CALOR DE VARIOGRAMAS DIRECCIONALES
-# ============================================================
+        # ============================================================
+    # 🔥 MAPA DE CALOR DE VARIOGRAMAS DIRECCIONALES
+    # ============================================================
 
-st.markdown("### 🔥 Mapa de Calor — Variogramas Direccionales")
+    st.markdown("### 🔥 Mapa de Calor — Variogramas Direccionales")
 
-direcciones = np.arange(0, 360, 45)  # 0°, 45°, 90°, ..., 315°
-heatmap_data = []
+    direcciones = np.arange(0, 360, 45)
+    heatmap_data = []
 
-for ang in direcciones:
+    for ang in direcciones:
 
-    az_rad = np.radians(ang)
-    dip_rad = np.radians(0)  # solo horizontal
+        az_rad = np.radians(ang)
+        dip_rad = 0
 
-    v_dir = np.array([
-        np.cos(dip_rad) * np.sin(az_rad),
-        np.cos(dip_rad) * np.cos(az_rad),
-        np.sin(dip_rad)
-    ])
+        v_dir = np.array([
+            np.cos(dip_rad) * np.sin(az_rad),
+            np.cos(dip_rad) * np.cos(az_rad),
+            np.sin(dip_rad)
+        ])
 
-    lags_tmp = []
-    gammas_tmp = []
+        lags_tmp = []
+        gammas_tmp = []
 
-    # muestreo controlado
-    n_muestras = len(coords_m)
-    muestreo_max = 400 if n_muestras > 400 else n_muestras
+        n_muestras = len(coords_m)
+        muestreo_max = 400 if n_muestras > 400 else n_muestras
 
-    np.random.seed(42)
-    idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
+        np.random.seed(42)
+        idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
 
-    for i in range(len(idxs)):
-        for j in range(i + 1, len(idxs)):
+        for i in range(len(idxs)):
+            for j in range(i + 1, len(idxs)):
 
-            p1 = idxs[i]
-            p2 = idxs[j]
+                p1 = idxs[i]
+                p2 = idxs[j]
 
-            vec = coords_m[p1] - coords_m[p2]
-            dist = np.linalg.norm(vec)
+                vec = coords_m[p1] - coords_m[p2]
+                dist = np.linalg.norm(vec)
 
-            if 0 < dist <= max_dist_estudio:
+                if 0 < dist <= max_dist_estudio:
 
-                bin_lag = int(dist // lag_dist)
-                if bin_lag >= n_lags:
-                    bin_lag = int(n_lags - 1)
+                    bin_lag = int(dist // lag_dist)
+                    if bin_lag >= n_lags:
+                        bin_lag = int(n_lags - 1)
 
-                cos_alpha = np.abs(np.dot(vec, v_dir)) / dist
-                cos_alpha = np.clip(cos_alpha, -1, 1)
-                angulo = np.degrees(np.arccos(cos_alpha))
+                    cos_alpha = np.abs(np.dot(vec, v_dir)) / dist
+                    cos_alpha = np.clip(cos_alpha, -1, 1)
+                    angulo = np.degrees(np.arccos(cos_alpha))
 
-                if angulo <= tolerancia_t:
-                    semivar = 0.5 * ((leyes_m[p1] - leyes_m[p2]) ** 2)
+                    if angulo <= tolerancia_t:
+                        semivar = 0.5 * ((leyes_m[p1] - leyes_m[p2]) ** 2)
 
-                    if len(lags_tmp) <= bin_lag:
-                        lags_tmp.extend([0] * (bin_lag - len(lags_tmp) + 1))
-                        gammas_tmp.extend([0] * (bin_lag - len(gammas_tmp) + 1))
+                        if len(lags_tmp) <= bin_lag:
+                            lags_tmp.extend([0] * (bin_lag - len(lags_tmp) + 1))
+                            gammas_tmp.extend([0] * (bin_lag - len(gammas_tmp) + 1))
 
-                    lags_tmp[bin_lag] += 1
-                    gammas_tmp[bin_lag] += semivar
+                        lags_tmp[bin_lag] += 1
+                        gammas_tmp[bin_lag] += semivar
 
-    # promedio por lag
-    gamma_prom = []
-    for k in range(n_lags):
-        if lags_tmp[k] > 0:
-            gamma_prom.append(gammas_tmp[k] / lags_tmp[k])
-        else:
-            gamma_prom.append(0)
+        gamma_prom = []
+        for k in range(n_lags):
+            if lags_tmp[k] > 0:
+                gamma_prom.append(gammas_tmp[k] / lags_tmp[k])
+            else:
+                gamma_prom.append(0)
 
-    heatmap_data.append(gamma_prom)
+        heatmap_data.append(gamma_prom)
 
-# convertir a matriz
-heatmap_data = np.array(heatmap_data)
+    heatmap_data = np.array(heatmap_data)
 
-# gráfico heatmap
-fig_heat = go.Figure(data=go.Heatmap(
-    z=heatmap_data,
-    x=[f"Lag {i+1}" for i in range(n_lags)],
-    y=[f"{d}°" for d in direcciones],
-    colorscale="Viridis"
-))
+    fig_heat = go.Figure(data=go.Heatmap(
+        z=heatmap_data,
+        x=[f"Lag {i+1}" for i in range(n_lags)],
+        y=[f"{d}°" for d in direcciones],
+        colorscale="Viridis"
+    ))
 
-fig_heat.update_layout(
-    height=600,
-    title="Mapa de Calor de Variogramas Direccionales",
-    xaxis_title="Lags",
-    yaxis_title="Dirección (°)"
-)
+    fig_heat.update_layout(
+        height=600,
+        title="Mapa de Calor de Variogramas Direccionales",
+        xaxis_title="Lags",
+        yaxis_title="Dirección (°)"
+    )
 
-st.plotly_chart(fig_heat, use_container_width=True)
-# ============================================================
-# 🌐 VARIOGRAMA POLAR (ROSE VARIOGRAM)
-# ============================================================
+    st.plotly_chart(fig_heat, use_container_width=True)
 
-st.markdown("### 🌐 Variograma Polar (Rose Plot)")
+    # ============================================================
+    # 🌐 VARIOGRAMA POLAR (ROSE VARIOGRAM)
+    # ============================================================
 
-direcciones = np.arange(0, 360, 45)  # 0°, 45°, ..., 315°
-gamma_dir = []
+    st.markdown("### 🌐 Variograma Polar (Rose Plot)")
 
-for ang in direcciones:
+    gamma_dir = []
 
-    az_rad = np.radians(ang)
-    dip_rad = 0  # horizontal
+    for ang in direcciones:
 
-    v_dir = np.array([
-        np.cos(dip_rad) * np.sin(az_rad),
-        np.cos(dip_rad) * np.cos(az_rad),
-        np.sin(dip_rad)
-    ])
+        az_rad = np.radians(ang)
+        dip_rad = 0
 
-    # acumuladores
-    suma_gamma = 0
-    suma_pairs = 0
+        v_dir = np.array([
+            np.cos(dip_rad) * np.sin(az_rad),
+            np.cos(dip_rad) * np.cos(az_rad),
+            np.sin(dip_rad)
+        ])
 
-    # muestreo controlado
-    n_muestras = len(coords_m)
-    muestreo_max = 400 if n_muestras > 400 else n_muestras
+        suma_gamma = 0
+        suma_pairs = 0
 
-    np.random.seed(42)
-    idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
+        n_muestras = len(coords_m)
+        muestreo_max = 400 if n_muestras > 400 else n_muestras
 
-    for i in range(len(idxs)):
-        for j in range(i + 1, len(idxs)):
+        np.random.seed(42)
+        idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
 
-            p1 = idxs[i]
-            p2 = idxs[j]
+        for i in range(len(idxs)):
+            for j in range(i + 1, len(idxs)):
 
-            vec = coords_m[p1] - coords_m[p2]
-            dist = np.linalg.norm(vec)
+                p1 = idxs[i]
+                p2 = idxs[j]
 
-            if 0 < dist <= max_dist_estudio:
+                vec = coords_m[p1] - coords_m[p2]
+                dist = np.linalg.norm(vec)
 
-                cos_alpha = np.abs(np.dot(vec, v_dir)) / dist
-                cos_alpha = np.clip(cos_alpha, -1, 1)
-                angulo = np.degrees(np.arccos(cos_alpha))
+                if 0 < dist <= max_dist_estudio:
 
-                if angulo <= tolerancia_t:
-                    semivar = 0.5 * ((leyes_m[p1] - leyes_m[p2]) ** 2)
-                    suma_gamma += semivar
-                    suma_pairs += 1
+                    cos_alpha = np.abs(np.dot(vec, v_dir)) / dist
+                    cos_alpha = np.clip(cos_alpha, -1, 1)
+                    angulo = np.degrees(np.arccos(cos_alpha))
 
-    gamma_prom = suma_gamma / suma_pairs if suma_pairs > 0 else 0
-    gamma_dir.append(gamma_prom)
+                    if angulo <= tolerancia_t:
+                        semivar = 0.5 * ((leyes_m[p1] - leyes_m[p2]) ** 2)
+                        suma_gamma += semivar
+                        suma_pairs += 1
 
-# ============================================================
-# GRÁFICO POLAR
-# ============================================================
+        gamma_prom = suma_gamma / suma_pairs if suma_pairs > 0 else 0
+        gamma_dir.append(gamma_prom)
 
-fig_polar = go.Figure()
+    fig_polar = go.Figure()
 
-fig_polar.add_trace(go.Scatterpolar(
-    r=gamma_dir,
-    theta=direcciones,
-    mode="lines+markers",
-    line=dict(color="orange", width=3),
-    marker=dict(size=8, color="blue"),
-    fill="toself",
-    name="Variograma Direccional"
-))
+    fig_polar.add_trace(go.Scatterpolar(
+        r=gamma_dir,
+        theta=direcciones,
+        mode="lines+markers",
+        line=dict(color="orange", width=3),
+        marker=dict(size=8, color="blue"),
+        fill="toself"
+    ))
 
-fig_polar.update_layout(
-    height=600,
-    polar=dict(
-        radialaxis=dict(
-            visible=True,
-            range=[0, max(gamma_dir) * 1.2 if max(gamma_dir) > 0 else 1]
-        )
-    ),
-    title="Variograma Polar (Rose Variogram)"
-)
+    fig_polar.update_layout(
+        height=600,
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, max(gamma_dir) * 1.2 if max(gamma_dir) > 0 else 1]
+            )
+        ),
+        title="Variograma Polar (Rose Variogram)"
+    )
 
-st.plotly_chart(fig_polar, use_container_width=True)
+    st.plotly_chart(fig_polar, use_container_width=True)
+
 
 
     # ------------------------------------------------------------
