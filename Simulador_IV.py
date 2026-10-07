@@ -1472,90 +1472,71 @@ with tab8:
         np.sin(dip_rad)
     ])
 
-        # ============================================================
-    # 🔥 MAPA DE CALOR DE VARIOGRAMAS DIRECCIONALES
+    # ============================================================
+    # 🔵 HEATMAP CIRCULAR — VARIOGRAMA DIRECCIONAL (Polar Heatmap)
     # ============================================================
 
-    st.markdown("### 🔥 Mapa de Calor — Variogramas Direccionales")
+    st.markdown("### 🔵 Mapa de Calor Circular — Variograma Direccional")
 
-    direcciones = np.arange(0, 360, 45)
-    heatmap_data = []
+    direcciones = np.arange(0, 360, 45)  # 8 direcciones
+    n_dir = len(direcciones)
 
-    for ang in direcciones:
+    fig_polar_heat = go.Figure()
 
-        az_rad = np.radians(ang)
-        dip_rad = 0
+    # Para cada lag, dibujamos un “anillo” en coordenadas polares
+    for lag_idx in range(n_lags):
 
-        v_dir = np.array([
-            np.cos(dip_rad) * np.sin(az_rad),
-            np.cos(dip_rad) * np.cos(az_rad),
-            np.sin(dip_rad)
-        ])
+        r_vals = []
+        theta_vals = []
+        color_vals = []
 
-        lags_tmp = []
-        gammas_tmp = []
+        for d_idx, ang in enumerate(direcciones):
+            r_vals.append(lag_idx + 1)              # distancia radial = número de lag
+            theta_vals.append(ang)                 # ángulo
+            color_vals.append(heatmap_data[d_idx][lag_idx])  # γ(h)
 
-        n_muestras = len(coords_m)
-        muestreo_max = 400 if n_muestras > 400 else n_muestras
+        # Cerrar polígono
+        r_vals.append(r_vals[0])
+        theta_vals.append(theta_vals[0])
+        color_vals.append(color_vals[0])
 
-        np.random.seed(42)
-        idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
+        fig_polar_heat.add_trace(go.Scatterpolar(
+            r=r_vals,
+            theta=theta_vals,
+            mode="lines",
+            fill="toself",
+            fillcolor=f"rgba(0, 0, 255, {0.15 + 0.7*(lag_idx/n_lags)})",
+            line=dict(color="rgba(0,0,0,0.3)", width=1),
+            name=f"Lag {lag_idx+1}",
+            hovertext=[
+                f"Dir: {theta_vals[i]}°<br>Lag: {lag_idx+1}<br>γ: {color_vals[i]:.3f}"
+                for i in range(len(r_vals))
+            ],
+            hoverinfo="text"
+        ))
 
-        for i in range(len(idxs)):
-            for j in range(i + 1, len(idxs)):
-
-                p1 = idxs[i]
-                p2 = idxs[j]
-
-                vec = coords_m[p1] - coords_m[p2]
-                dist = np.linalg.norm(vec)
-
-                if 0 < dist <= max_dist_estudio:
-
-                    bin_lag = int(dist // lag_dist)
-                    if bin_lag >= n_lags:
-                        bin_lag = int(n_lags - 1)
-
-                    cos_alpha = np.abs(np.dot(vec, v_dir)) / dist
-                    cos_alpha = np.clip(cos_alpha, -1, 1)
-                    angulo = np.degrees(np.arccos(cos_alpha))
-
-                    if angulo <= tolerancia_t:
-                        semivar = 0.5 * ((leyes_m[p1] - leyes_m[p2]) ** 2)
-
-                        if len(lags_tmp) <= bin_lag:
-                            lags_tmp.extend([0] * (bin_lag - len(lags_tmp) + 1))
-                            gammas_tmp.extend([0] * (bin_lag - len(gammas_tmp) + 1))
-
-                        lags_tmp[bin_lag] += 1
-                        gammas_tmp[bin_lag] += semivar
-
-        gamma_prom = []
-        for k in range(n_lags):
-            if lags_tmp[k] > 0:
-                gamma_prom.append(gammas_tmp[k] / lags_tmp[k])
-            else:
-                gamma_prom.append(0)
-
-        heatmap_data.append(gamma_prom)
-
-    heatmap_data = np.array(heatmap_data)
-
-    fig_heat = go.Figure(data=go.Heatmap(
-        z=heatmap_data,
-        x=[f"Lag {i+1}" for i in range(n_lags)],
-        y=[f"{d}°" for d in direcciones],
-        colorscale="Viridis"
-    ))
-
-    fig_heat.update_layout(
-        height=600,
-        title="Mapa de Calor de Variogramas Direccionales",
-        xaxis_title="Lags",
-        yaxis_title="Dirección (°)"
+    fig_polar_heat.update_layout(
+        height=700,
+        title="Mapa de Calor Circular — Variograma Direccional",
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, n_lags + 1],
+                tickmode="linear",
+                tick0=1,
+                dtick=1
+            ),
+            angularaxis=dict(
+                direction="clockwise",
+                rotation=90
+            )
+        ),
+        showlegend=False
     )
 
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_polar_heat, use_container_width=True)
+
+
 
     # ============================================================
     # 🌐 VARIOGRAMA POLAR (ROSE VARIOGRAM)
