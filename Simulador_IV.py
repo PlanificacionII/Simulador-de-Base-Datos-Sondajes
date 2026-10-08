@@ -1847,6 +1847,12 @@ if len(variomulti) > 0:
     )
 
     st.plotly_chart(fig_vol, use_container_width=True)
+
+
+else:
+    st.info("Calcule primero los variogramas multidireccionales para ver el volumen 3D.")
+
+
 # ============================================================
 # 🧭 ELIPSOIDE VARIOGRÁFICO 3D (ANISOTROPÍA REAL)
 # ============================================================
@@ -1926,13 +1932,6 @@ if len(variomulti) > 0:
 
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
-
-else:
-    st.info("Calcule primero los variogramas multidireccionales para ver el volumen 3D.")
-
-else:
-    st.info("Calcule primero los variogramas multidireccionales para ver el mapa 3D.")
-
 # ============================================================
 # 🌀 MAPA VARIOGRÁFICO HORIZONTAL INTERPOLADO (PRO)
 # ============================================================
