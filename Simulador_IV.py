@@ -2038,34 +2038,34 @@ fig_vert.update_layout(
 )
 
 st.plotly_chart(fig_vert, use_container_width=True)
-    # ============================================================
-    # 🔮 VARIOGRAMA ESFÉRICO 3D (Cloud Variogram)
-    # ============================================================
+# ============================================================
+# 🔮 VARIOGRAMA ESFÉRICO 3D (Cloud Variogram)
+# ============================================================
 
-    st.markdown("### 🔮 Cloud Variogram 3D")
+st.markdown("### 🔮 Cloud Variogram 3D")
 
-    fig_cloud = go.Figure()
+fig_cloud = go.Figure()
 
-    fig_cloud.add_trace(go.Scatter3d(
-        x=coords_m[:,0],
-        y=coords_m[:,1],
-        z=coords_m[:,2],
-        mode="markers",
-        marker=dict(
-            size=3,
-            color=leyes_m,
-            colorscale="Viridis"
-        ),
-        name="Datos"
-    ))
+fig_cloud.add_trace(go.Scatter3d(
+    x=coords_m[:,0],
+    y=coords_m[:,1],
+    z=coords_m[:,2],
+    mode="markers",
+    marker=dict(
+        size=3,
+        color=leyes_m,
+        colorscale="Viridis"
+    ),
+    name="Datos"
+))
 
-    fig_cloud.update_layout(
-        height=600,
-        title="Cloud Variogram 3D",
-        scene=dict(aspectmode="data")
-    )
+fig_cloud.update_layout(
+    height=600,
+    title="Cloud Variogram 3D",
+    scene=dict(aspectmode="data")
+)
 
-    st.plotly_chart(fig_cloud, use_container_width=True)
+st.plotly_chart(fig_cloud, use_container_width=True)
     # ============================================================
     # 🧭 ANISOTROPÍA AUTOMÁTICA — Detección de Dirección Dominante
     # ============================================================
