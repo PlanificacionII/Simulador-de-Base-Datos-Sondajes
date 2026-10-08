@@ -1938,101 +1938,90 @@ else:
 
 st.markdown("### 🌀 Mapa Variográfico Horizontal (Contour PRO)")
 
-# Extraer direcciones y gammas
-dirs = np.array(list(st.session_state["variogramas_multi"].keys()))
-gammas = np.array([st.session_state["variogramas_multi"][d][1] for d in dirs])
+if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
-# Parámetros
-n_theta = 360
-n_r = int(n_lags)
+    dirs = np.array(list(st.session_state["variogramas_multi"].keys()))
+    gammas = np.array([st.session_state["variogramas_multi"][d][1] for d in dirs])
 
-theta_grid = np.linspace(0, 360, n_theta)
-r_grid = np.linspace(0, n_r, n_r)
+    n_theta = 360
+    n_r = int(n_lags)
 
-# Interpolación por dirección más cercana
-gamma_grid = np.zeros((n_r, n_theta))
+    theta_grid = np.linspace(0, 360, n_theta)
+    r_grid = np.linspace(0, n_r, n_r)
 
-for i_r in range(n_r):
-    for i_t in range(n_theta):
-        ang = theta_grid[i_t]
-        idx = np.argmin(np.abs(dirs - ang))
-        gamma_grid[i_r, i_t] = gammas[idx][i_r]
+    gamma_grid = np.zeros((n_r, n_theta))
 
-# Convertir coordenadas polares a cartesianas
-X = np.zeros((n_r, n_theta))
-Y = np.zeros((n_r, n_theta))
+    for i_r in range(n_r):
+        for i_t in range(n_theta):
+            ang = theta_grid[i_t]
+            idx = np.argmin(np.abs(dirs - ang))
+            gamma_grid[i_r, i_t] = gammas[idx][i_r]
 
-for i_r in range(n_r):
-    for i_t in range(n_theta):
-        ang_rad = np.radians(theta_grid[i_t])
-        X[i_r, i_t] = r_grid[i_r] * np.cos(ang_rad)
-        Y[i_r, i_t] = r_grid[i_r] * np.sin(ang_rad)
+    X = np.zeros((n_r, n_theta))
+    Y = np.zeros((n_r, n_theta))
 
-# Crear gráfico tipo contour
-fig_contour = go.Figure(data=
-    go.Contour(
-        x=X.flatten(),
-        y=Y.flatten(),
-        z=gamma_grid.flatten(),
-        colorscale="Jet",
-        contours=dict(
-            coloring="heatmap",
-            showlines=True,
-            linewidth=1.5
-        ),
-        colorbar=dict(
-            title="γ(h)",
-            titleside="right"
+    for i_r in range(n_r):
+        for i_t in range(n_theta):
+            ang_rad = np.radians(theta_grid[i_t])
+            X[i_r, i_t] = r_grid[i_r] * np.cos(ang_rad)
+            Y[i_r, i_t] = r_grid[i_r] * np.sin(ang_rad)
+
+    fig_contour = go.Figure(data=
+        go.Contour(
+            x=X.flatten(),
+            y=Y.flatten(),
+            z=gamma_grid.flatten(),
+            colorscale="Jet",
+            contours=dict(
+                coloring="heatmap",
+                showlines=True,
+                linewidth=1.5
+            ),
+            colorbar=dict(
+                title="γ(h)",
+                titleside="right"
+            )
         )
     )
-)
 
-# Estilo profesional
-fig_contour.update_layout(
-    height=700,
-    title="Mapa Variográfico Horizontal — Contour Interpolado",
-    xaxis=dict(
-        scaleanchor="y",
-        title="X (m)",
-        showgrid=False,
-        zeroline=False
-    ),
-    yaxis=dict(
-        title="Y (m)",
-        showgrid=False,
-        zeroline=False
-    ),
-    plot_bgcolor="white",
-    paper_bgcolor="white"
-)
+    fig_contour.update_layout(
+        height=700,
+        title="Mapa Variográfico Horizontal — Contour Interpolado",
+        xaxis=dict(scaleanchor="y", showgrid=False, zeroline=False),
+        yaxis=dict(showgrid=False, zeroline=False),
+        plot_bgcolor="white",
+        paper_bgcolor="white"
+    )
 
-# Dibujar círculo exterior
-circle_theta = np.linspace(0, 2*np.pi, 360)
-circle_x = n_r * np.cos(circle_theta)
-circle_y = n_r * np.sin(circle_theta)
+    circle_theta = np.linspace(0, 2*np.pi, 360)
+    circle_x = n_r * np.cos(circle_theta)
+    circle_y = n_r * np.sin(circle_theta)
 
-fig_contour.add_trace(go.Scatter(
-    x=circle_x,
-    y=circle_y,
-    mode="lines",
-    line=dict(color="black", width=2),
-    name="Límite"
-))
+    fig_contour.add_trace(go.Scatter(
+        x=circle_x,
+        y=circle_y,
+        mode="lines",
+        line=dict(color="black", width=2),
+        name="Límite"
+    ))
 
-# Flecha de dirección dominante
-dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
-ang_rad = np.radians(dir_dom)
+    dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
+    ang_rad = np.radians(dir_dom)
 
-fig_contour.add_trace(go.Scatter(
-    x=[0, n_r * np.cos(ang_rad)],
-    y=[0, n_r * np.sin(ang_rad)],
-    mode="lines+markers",
-    line=dict(color="magenta", width=4),
-    marker=dict(size=8, color="magenta"),
-    name=f"Dirección {dir_dom}°"
-))
+    fig_contour.add_trace(go.Scatter(
+        x=[0, n_r * np.cos(ang_rad)],
+        y=[0, n_r * np.sin(ang_rad)],
+        mode="lines+markers",
+        line=dict(color="magenta", width=4),
+        marker=dict(size=8, color="magenta"),
+        name=f"Dirección {dir_dom}°"
+    ))
 
-st.plotly_chart(fig_contour, use_container_width=True)
+    st.plotly_chart(fig_contour, use_container_width=True)
+
+else:
+    st.info("Calcule primero los variogramas multidireccionales.")
+
 
 
 
