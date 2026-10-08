@@ -1531,21 +1531,39 @@ with tab8:
 
     # Mostrar gráfico FULL WIDTH
     st.plotly_chart(fig, use_container_width=True)
-    
+# ============================================================
+# 🧭 VARIOGRAFÍA MULTIDIRECCIONAL — NUEVO MÓDULO
+# ============================================================
 
-    # ============================================================
-    # 🔥 MAPA DE CALOR — VARIOGRAMAS DIRECCIONALES (Rectangular)
-    # ============================================================
+st.markdown("### 🧭 Selección de Direcciones")
 
-    st.markdown("### 🔥 Mapa de Calor — Variogramas Direccionales")
+direcciones_usuario = st.multiselect(
+    "Seleccione direcciones (acimut):",
+    options=list(range(0, 360, 15)),
+    default=[0, 45, 90, 135, 180, 225, 270, 315]
+)
 
-    direcciones = np.arange(0, 360, 45)
-    heatmap_data = []
+buzamiento_usuario = st.number_input(
+    "Buzamiento (°)",
+    min_value=-90,
+    max_value=90,
+    value=0
+)
 
-    for ang in direcciones:
+btn_calcular_multi = st.button("🚀 Calcular Variogramas por Dirección")
+
+# ============================================================
+# 📈 CÁLCULO DE VARIOGRAMAS POR DIRECCIÓN
+# ============================================================
+
+if btn_calcular_multi:
+
+    variogramas = {}
+
+    for ang in direcciones_usuario:
 
         az_rad = np.radians(ang)
-        dip_rad = 0
+        dip_rad = np.radians(buzamiento_usuario)
 
         v_dir = np.array([
             np.cos(dip_rad) * np.sin(az_rad),
@@ -1553,11 +1571,11 @@ with tab8:
             np.sin(dip_rad)
         ])
 
-        lags_tmp = []
-        gammas_tmp = []
+        lags_tmp = [0] * int(n_lags)
+        gammas_tmp = [0] * int(n_lags)
 
         n_muestras = len(coords_m)
-        muestreo_max = 400 if n_muestras > 400 else n_muestras
+        muestreo_max = min(n_muestras, 400)
 
         np.random.seed(42)
         idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
@@ -1573,39 +1591,91 @@ with tab8:
 
                 if 0 < dist <= max_dist_estudio:
 
-                    bin_lag = int(dist // lag_dist)
-                    if bin_lag >= n_lags:
-                        bin_lag = int(n_lags - 1)
-
                     cos_alpha = np.abs(np.dot(vec, v_dir)) / dist
-                    cos_alpha = np.clip(cos_alpha, -1, 1)
-                    angulo = np.degrees(np.arccos(cos_alpha))
+                    angulo = np.degrees(np.arccos(np.clip(cos_alpha, -1, 1)))
 
                     if angulo <= tolerancia_t:
+
                         semivar = 0.5 * ((leyes_m[p1] - leyes_m[p2]) ** 2)
 
-                        if len(lags_tmp) <= bin_lag:
-                            lags_tmp.extend([0] * (bin_lag - len(lags_tmp) + 1))
-                            gammas_tmp.extend([0] * (bin_lag - len(gammas_tmp) + 1))
+                        bin_lag = int(dist // lag_dist)
+                        if bin_lag >= n_lags:
+                            bin_lag = int(n_lags - 1)
 
                         lags_tmp[bin_lag] += 1
                         gammas_tmp[bin_lag] += semivar
 
-        gamma_prom = []
-        for k in range(n_lags):
-            if lags_tmp[k] > 0:
-                gamma_prom.append(gammas_tmp[k] / lags_tmp[k])
-            else:
-                gamma_prom.append(0)
+        lag_x = []
+        gamma_y = []
 
-        heatmap_data.append(gamma_prom)
+        for k in range(int(n_lags)):
+            lag_x.append((k + 0.5) * lag_dist)
+            gamma_y.append(gammas_tmp[k] / lags_tmp[k] if lags_tmp[k] > 0 else 0)
 
-    heatmap_data = np.array(heatmap_data)
+        variogramas[ang] = (lag_x, gamma_y)
+
+    st.session_state["variogramas_multi"] = variogramas
+
+# ============================================================
+# 🎯 SELECTOR DE VARIOGRAMA
+# ============================================================
+
+if "variogramas_multi" in st.session_state:
+
+    st.markdown("### 📈 Seleccione variograma a visualizar")
+
+    ang_sel = st.selectbox(
+        "Dirección:",
+        options=list(st.session_state["variogramas_multi"].keys())
+    )
+
+    lag_sel, gamma_sel = st.session_state["variogramas_multi"][ang_sel]
+
+    fig_multi = go.Figure()
+
+    fig_multi.add_trace(go.Scatter(
+        x=lag_sel,
+        y=gamma_sel,
+        mode="markers+lines",
+        name=f"Experimental {ang_sel}°",
+        marker=dict(size=8, color="blue")
+    ))
+
+    fig_multi.add_trace(go.Scatter(
+        x=h_curva,
+        y=gamma_teorico,
+        mode="lines",
+        name="Modelo teórico",
+        line=dict(color="orange", width=4)
+    ))
+
+    fig_multi.update_layout(
+        height=600,
+        title=f"Variograma Direccional — {ang_sel}°",
+        xaxis_title="Distancia (m)",
+        yaxis_title="γ(h)"
+    )
+
+    st.plotly_chart(fig_multi, use_container_width=True)
+
+    # ============================================================
+    # 🔥 MAPA DE CALOR — BASADO EN VARIOGRAMAS CALCULADOS
+    # ============================================================
+
+    st.markdown("### 🔥 Mapa de Calor — Variogramas Calculados")
+
+    heatmap_matrix = []
+    dir_labels = []
+
+    for ang in st.session_state["variogramas_multi"]:
+        _, gamma_vals = st.session_state["variogramas_multi"][ang]
+        heatmap_matrix.append(gamma_vals)
+        dir_labels.append(f"{ang}°")
 
     fig_heat = go.Figure(data=go.Heatmap(
-        z=heatmap_data,
-        x=[f"Lag {i+1}" for i in range(n_lags)],
-        y=[f"{d}°" for d in direcciones],
+        z=heatmap_matrix,
+        x=[f"Lag {i+1}" for i in range(int(n_lags))],
+        y=dir_labels,
         colorscale="Viridis"
     ))
 
@@ -1617,139 +1687,321 @@ with tab8:
     )
 
     st.plotly_chart(fig_heat, use_container_width=True)
-   
-    # ============================================================
-    # 🔵 HEATMAP CIRCULAR — VARIOGRAMA DIRECCIONAL (Polar Heatmap)
-    # ============================================================
-
-    st.markdown("### 🔵 Mapa de Calor Circular — Variograma Direccional")
-
-    fig_polar_heat = go.Figure()
-
-    for lag_idx in range(n_lags):
-
-        r_vals = []
-        theta_vals = []
-        color_vals = []
-
-        for d_idx, ang in enumerate(direcciones):
-            r_vals.append(lag_idx + 1)
-            theta_vals.append(ang)
-            color_vals.append(heatmap_data[d_idx][lag_idx])
-
-        r_vals.append(r_vals[0])
-        theta_vals.append(theta_vals[0])
-        color_vals.append(color_vals[0])
-
-        fig_polar_heat.add_trace(go.Scatterpolar(
-            r=r_vals,
-            theta=theta_vals,
-            mode="lines",
-            fill="toself",
-            fillcolor=f"rgba(0, 0, 255, {0.15 + 0.7*(lag_idx/n_lags)})",
-            line=dict(color="rgba(0,0,0,0.3)", width=1),
-            hovertext=[
-                f"Dir: {theta_vals[i]}°<br>Lag: {lag_idx+1}<br>γ: {color_vals[i]:.3f}"
-                for i in range(len(r_vals))
-            ],
-            hoverinfo="text"
-        ))
-
-    fig_polar_heat.update_layout(
-        height=700,
-        title="Mapa de Calor Circular — Variograma Direccional",
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, n_lags + 1],
-                tickmode="linear",
-                tick0=1,
-                dtick=1
-            ),
-            angularaxis=dict(
-                direction="clockwise",
-                rotation=90
-            )
-        ),
-        showlegend=False
-    )
-
-    st.plotly_chart(fig_polar_heat, use_container_width=True)
 
     # ============================================================
-    # 🌐 VARIOGRAMA POLAR (Rose Variogram)
+    # 🔵 MAPA POLAR — BASADO EN VARIOGRAMAS CALCULADOS
     # ============================================================
 
-    st.markdown("### 🌐 Variograma Polar (Rose Plot)")
-
-    gamma_dir = []
-
-    for ang in direcciones:
-
-        az_rad = np.radians(ang)
-        dip_rad = 0
-
-        v_dir = np.array([
-            np.cos(dip_rad) * np.sin(az_rad),
-            np.cos(dip_rad) * np.cos(az_rad),
-            np.sin(dip_rad)
-        ])
-
-        suma_gamma = 0
-        suma_pairs = 0
-
-        n_muestras = len(coords_m)
-        muestreo_max = 400 if n_muestras > 400 else n_muestras
-
-        np.random.seed(42)
-        idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
-
-        for i in range(len(idxs)):
-            for j in range(i + 1, len(idxs)):
-
-                p1 = idxs[i]
-                p2 = idxs[j]
-
-                vec = coords_m[p1] - coords_m[p2]
-                dist = np.linalg.norm(vec)
-
-                if 0 < dist <= max_dist_estudio:
-
-                    cos_alpha = np.abs(np.dot(vec, v_dir)) / dist
-                    cos_alpha = np.clip(cos_alpha, -1, 1)
-                    angulo = np.degrees(np.arccos(cos_alpha))
-
-                    if angulo <= tolerancia_t:
-                        semivar = 0.5 * ((leyes_m[p1] - leyes_m[p2]) ** 2)
-                        suma_gamma += semivar
-                        suma_pairs += 1
-
-        gamma_prom = suma_gamma / suma_pairs if suma_pairs > 0 else 0
-        gamma_dir.append(gamma_prom)
+    st.markdown("### 🔵 Mapa Polar — Variogramas Direccionales")
 
     fig_polar = go.Figure()
 
-    fig_polar.add_trace(go.Scatterpolar(
-        r=gamma_dir,
-        theta=direcciones,
-        mode="lines+markers",
-        line=dict(color="orange", width=3),
-        marker=dict(size=8, color="blue"),
-        fill="toself"
-    ))
+    for ang in st.session_state["variogramas_multi"]:
+        _, gamma_vals = st.session_state["variogramas_multi"][ang]
+
+        fig_polar.add_trace(go.Scatterpolar(
+            r=gamma_vals,
+            theta=[ang] * len(gamma_vals),
+            mode="lines+markers",
+            name=f"{ang}°"
+        ))
 
     fig_polar.update_layout(
-        height=600,
+        height=700,
+        title="Mapa Polar — Variogramas Direccionales",
         polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, max(gamma_dir) * 1.2 if max(gamma_dir) > 0 else 1]
-            )
-        ),
-        title="Variograma Polar (Rose Variogram)"
+            radialaxis=dict(visible=True),
+            angularaxis=dict(direction="clockwise", rotation=90)
+        )
     )
 
     st.plotly_chart(fig_polar, use_container_width=True)
+# ============================================================
+# 🌐 MAPA 3D — VARIOGRAMAS POR DIRECCIÓN (PRO)
+# ============================================================
+
+st.markdown("### 🌐 Mapa 3D — Variogramas por Dirección")
+
+# Extraer variogramas multidireccionales
+variomulti = st.session_state.get("variogramas_multi", {})
+
+if len(variomulti) > 0:
+
+    fig_vario3d = go.Figure()
+
+    # Para cada dirección, construimos una curva 3D
+    for ang in variomulti:
+
+        lag_vals, gamma_vals = variomulti[ang]
+
+        # Convertir dirección a radianes
+        ang_rad = np.radians(ang)
+
+        # Proyección 3D de cada lag
+        x_vals = np.array(lag_vals) * np.cos(ang_rad)
+        y_vals = np.array(lag_vals) * np.sin(ang_rad)
+        z_vals = np.array(gamma_vals)
+
+        fig_vario3d.add_trace(go.Scatter3d(
+            x=x_vals,
+            y=y_vals,
+            z=z_vals,
+            mode="lines+markers",
+            name=f"{ang}°",
+            line=dict(width=4),
+            marker=dict(size=4)
+        ))
+
+    # Configuración del gráfico 3D
+    fig_vario3d.update_layout(
+        height=700,
+        title="Mapa 3D — Variogramas Direccionales",
+        scene=dict(
+            xaxis_title="X (proyección lag)",
+            yaxis_title="Y (proyección lag)",
+            zaxis_title="γ(h)",
+            aspectmode="cube",
+            xaxis=dict(showgrid=True, gridcolor="lightgray"),
+            yaxis=dict(showgrid=True, gridcolor="lightgray"),
+            zaxis=dict(showgrid=True, gridcolor="lightgray")
+        ),
+        legend=dict(
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="rgba(0,0,0,0.2)",
+            borderwidth=1
+        )
+    )
+
+    st.plotly_chart(fig_vario3d, use_container_width=True)
+# ============================================================
+# 🧊 VOLUMEN VARIOGRÁFICO 3D INTERPOLADO (PRO)
+# ============================================================
+
+st.markdown("### 🧊 Volumen Variográfico 3D Interpolado")
+
+variomulti = st.session_state.get("variogramas_multi", {})
+
+if len(variomulti) > 0:
+
+    # Direcciones y gammas
+    dirs = np.array(list(variomulti.keys()))
+    gammas = np.array([variomulti[d][1] for d in dirs])
+
+    # Resolución del volumen
+    n_theta = 180      # resolución angular
+    n_r = int(n_lags)  # resolución radial
+    n_z = 50           # resolución vertical del volumen
+
+    theta_grid = np.linspace(0, 360, n_theta)
+    r_grid = np.linspace(0, n_r, n_r)
+    z_grid = np.linspace(0, np.max(gammas), n_z)
+
+    # Matriz volumétrica
+    vol = np.zeros((n_r, n_theta))
+
+    # Interpolación por dirección más cercana
+    for i_r in range(n_r):
+        for i_t in range(n_theta):
+
+            ang = theta_grid[i_t]
+            idx = np.argmin(np.abs(dirs - ang))
+            vol[i_r, i_t] = gammas[idx][i_r]
+
+    # Construcción del volumen 3D
+    X = np.zeros((n_r, n_theta))
+    Y = np.zeros((n_r, n_theta))
+    Z = vol.copy()
+
+    for i_r in range(n_r):
+        for i_t in range(n_theta):
+            ang_rad = np.radians(theta_grid[i_t])
+            X[i_r, i_t] = r_grid[i_r] * np.cos(ang_rad)
+            Y[i_r, i_t] = r_grid[i_r] * np.sin(ang_rad)
+
+    # Graficar volumen interpolado
+    fig_vol = go.Figure()
+
+    for i_r in range(n_r):
+
+        fig_vol.add_trace(go.Surface(
+            x=X[i_r:i_r+2],
+            y=Y[i_r:i_r+2],
+            z=Z[i_r:i_r+2],
+            colorscale="Viridis",
+            showscale=False,
+            opacity=0.85
+        ))
+
+    fig_vol.update_layout(
+        height=800,
+        title="Volumen Variográfico 3D Interpolado",
+        scene=dict(
+            xaxis_title="X (proyección lag)",
+            yaxis_title="Y (proyección lag)",
+            zaxis_title="γ(h)",
+            aspectmode="cube",
+            xaxis=dict(showgrid=True, gridcolor="lightgray"),
+            yaxis=dict(showgrid=True, gridcolor="lightgray"),
+            zaxis=dict(showgrid=True, gridcolor="lightgray")
+        )
+    )
+
+    st.plotly_chart(fig_vol, use_container_width=True)
+# ============================================================
+# 🧭 ELIPSOIDE VARIOGRÁFICO 3D (ANISOTROPÍA REAL)
+# ============================================================
+
+st.markdown("### 🧭 Elipsoide Variográfico 3D (Anisotropía Real)")
+
+variomulti = st.session_state.get("variogramas_multi", {})
+
+if len(variomulti) > 0:
+
+    # ---------------------------------------------
+    # 1. Detectar dirección dominante (mínima gamma)
+    # ---------------------------------------------
+    dirs = np.array(list(variomulti.keys()))
+    gamma_means = np.array([np.mean(variomulti[d][1]) for d in dirs])
+
+    dir_dom = dirs[np.argmin(gamma_means)]
+    st.success(f"✔ Dirección dominante detectada: {dir_dom}°")
+
+    # ---------------------------------------------
+    # 2. Construcción del elipsoide variográfico
+    # ---------------------------------------------
+    # Alcance del modelo teórico
+    R = float(range_val)
+
+    # Anisotropía horizontal y vertical
+    a = R
+    b = R * float(ratio_h)
+    c = R * float(ratio_v)
+
+    # Malla del elipsoide
+    u = np.linspace(0, 2 * np.pi, 60)
+    v = np.linspace(0, np.pi, 30)
+
+    X = a * np.outer(np.cos(u), np.sin(v))
+    Y = b * np.outer(np.sin(u), np.sin(v))
+    Z = c * np.outer(np.ones_like(u), np.cos(v))
+
+    # ---------------------------------------------
+    # 3. Rotación del elipsoide según dirección dominante
+    # ---------------------------------------------
+    ang_rad = np.radians(dir_dom)
+
+    X_rot = X * np.cos(ang_rad) - Y * np.sin(ang_rad)
+    Y_rot = X * np.sin(ang_rad) + Y * np.cos(ang_rad)
+    Z_rot = Z
+
+    # ---------------------------------------------
+    # 4. Graficar el elipsoide variográfico
+    # ---------------------------------------------
+    fig_elip = go.Figure()
+
+    fig_elip.add_trace(go.Surface(
+        x=X_rot,
+        y=Y_rot,
+        z=Z_rot,
+        colorscale="Viridis",
+        opacity=0.85,
+        showscale=False
+    ))
+
+    fig_elip.update_layout(
+        height=800,
+        title="Elipsoide Variográfico 3D — Anisotropía Real",
+        scene=dict(
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
+            aspectmode="data",
+            xaxis=dict(showgrid=True, gridcolor="lightgray"),
+            yaxis=dict(showgrid=True, gridcolor="lightgray"),
+            zaxis=dict(showgrid=True, gridcolor="lightgray")
+        )
+    )
+
+    st.plotly_chart(fig_elip, use_container_width=True)
+
+else:
+    st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
+
+else:
+    st.info("Calcule primero los variogramas multidireccionales para ver el volumen 3D.")
+
+else:
+    st.info("Calcule primero los variogramas multidireccionales para ver el mapa 3D.")
+
+# ============================================================
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL INTERPOLADO (PRO)
+# ============================================================
+
+st.markdown("### 🌀 Mapa Variográfico Horizontal Interpolado")
+
+# Extraer direcciones y gammas
+dirs = np.array(list(st.session_state["variogramas_multi"].keys()))
+gammas = np.array([st.session_state["variogramas_multi"][d][1] for d in dirs])
+
+# Crear malla polar para interpolación
+n_theta = 360
+n_r = int(n_lags)
+theta_grid = np.linspace(0, 360, n_theta)
+r_grid = np.arange(1, n_r + 1)
+
+# Interpolación por dirección más cercana
+gamma_grid = np.zeros((n_r, n_theta))
+
+for i_r in range(n_r):
+    for i_t in range(n_theta):
+
+        ang = theta_grid[i_t]
+        idx = np.argmin(np.abs(dirs - ang))
+        gamma_grid[i_r, i_t] = gammas[idx][i_r]
+
+# Construcción del mapa interpolado
+fig_interp = go.Figure()
+
+for i_r in range(n_r):
+
+    fig_interp.add_trace(go.Scatterpolar(
+        r=[i_r + 1] * n_theta,
+        theta=theta_grid,
+        mode="lines",
+        fill="toself",
+        fillcolor=f"rgba(255,0,0,{0.15 + 0.7*(i_r/n_r)})",
+        line=dict(color="rgba(0,0,0,0.3)", width=1),
+        hovertext=[
+            f"Dir: {theta_grid[j]:.1f}°<br>Lag: {i_r+1}<br>γ: {gamma_grid[i_r][j]:.3f}"
+            for j in range(n_theta)
+        ],
+        hoverinfo="text"
+    ))
+
+fig_interp.update_layout(
+    height=700,
+    title="Mapa Variográfico Horizontal Interpolado",
+    polar=dict(
+        radialaxis=dict(
+            visible=True,
+            range=[0, n_r + 1],
+            tickmode="linear",
+            tick0=1,
+            dtick=1
+        ),
+        angularaxis=dict(
+            direction="clockwise",
+            rotation=90
+        )
+    ),
+    showlegend=False
+)
+
+st.plotly_chart(fig_interp, use_container_width=True)
+
+
+
+   
     # ============================================================
     # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
     # ============================================================
