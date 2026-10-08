@@ -2183,7 +2183,7 @@ with tab9:
 
     # Extraer coordenadas y leyes
     coords_assay = df_c[["X", "Y", "Z"]].values
-    valores_assay = df_c["Ley"].values
+    valores_assay = df_c[col_ley].values
 
     # 🔥 Filtrar leyes cero
     mask_ley = valores_assay > 0
