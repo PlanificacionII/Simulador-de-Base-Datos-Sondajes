@@ -2046,7 +2046,7 @@ with tab8:
             )
         )
 
-        st.plotly_chart(fig_elip, use_container_widt h=True)
+        st.plotly_chart(fig_elip, use_container_width=True)
     # ============================================================
     # 🧭 MAPA 3D DE ANISOTROPÍA DETECTADA
     # ============================================================
