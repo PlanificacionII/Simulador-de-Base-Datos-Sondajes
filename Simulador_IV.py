@@ -809,10 +809,31 @@ with tab7:
     st.markdown("---")
 
     # ============================================================
-    # 3. Cálculo del compositaje
+    # 3. Cálculo del compositaje MULTI‑ELEMENTO (Cu + Au)
     # ============================================================
-    compositos = []
 
+    # Elementos disponibles
+    elementos = ["Cu(ppm)", "Au(ppb)"]
+
+    # Selección del elemento para visualizar
+    elemento_visual = st.selectbox(
+        "Seleccione el elemento a visualizar:",
+        elementos,
+        index=0
+    )
+
+    # Diccionarios para guardar compositos por elemento
+    compositos_cobre = []
+    compositos_oro = []
+
+    # Función para obtener el inicio de mineralización
+    def inicio_mineralizacion(df_pozo, elemento):
+        df_mineral = df_pozo[df_pozo[elemento] > 0]
+        if df_mineral.empty:
+            return 0
+        return float(df_mineral["From"].min())
+
+    # Recorrer cada pozo
     for idx, row in df_collar.iterrows():
 
         p_id = row["Nombre"]
@@ -828,6 +849,10 @@ with tab7:
 
         az_rad = np.radians(srv["Azimuth"])
         dp_rad = np.radians(srv["Dip"])
+
+        # Inicio de mineralización por elemento
+        inicio_cu = inicio_mineralizacion(ensayos_pozo, "Cu(ppm)")
+        inicio_au = inicio_mineralizacion(ensayos_pozo, "Au(ppb)")
 
         # ============================================================
         # MÉTODO 1: COLLARÍN (Longitud fija)
@@ -845,7 +870,13 @@ with tab7:
                 if c_len <= 0:
                     continue
 
-                suma_ley_long = 0.0
+                # Solo compositar desde inicio de mineralización
+                if c_to < inicio_cu and c_to < inicio_au:
+                    continue
+
+                # Acumuladores
+                suma_cu = 0.0
+                suma_au = 0.0
                 suma_inter = 0.0
 
                 for _, ensay in ensayos_pozo.iterrows():
@@ -854,24 +885,36 @@ with tab7:
                     inter = overlap_to - overlap_from
 
                     if inter > 0:
-                        suma_ley_long += float(ensay[col_seleccionada]) * inter
+                        suma_cu += float(ensay["Cu(ppm)"]) * inter
+                        suma_au += float(ensay["Au(ppb)"]) * inter
                         suma_inter += inter
 
-                ley_comp = (suma_ley_long / suma_inter) if suma_inter > 0 else 0.0
+                ley_cu = (suma_cu / suma_inter) if suma_inter > 0 else 0.0
+                ley_au = (suma_au / suma_inter) if suma_inter > 0 else 0.0
 
                 pm = c_from + (c_len / 2)
                 xi = x_coll + (pm * np.cos(dp_rad) * np.sin(az_rad))
                 yi = y_coll + (pm * np.cos(dp_rad) * np.cos(az_rad))
                 zi = z_coll + (pm * np.sin(dp_rad))
 
-                compositos.append({
+                compositos_cobre.append({
                     "ID": p_id,
                     "X": round(xi, 2),
                     "Y": round(yi, 2),
                     "Z": round(zi, 2),
                     "Desde": round(c_from, 2),
                     "Hasta": round(c_to, 2),
-                    "Ley": round(ley_comp, 4)
+                    "Cu(ppm)": round(ley_cu, 4)
+                })
+
+                compositos_oro.append({
+                    "ID": p_id,
+                    "X": round(xi, 2),
+                    "Y": round(yi, 2),
+                    "Z": round(zi, 2),
+                    "Desde": round(c_from, 2),
+                    "Hasta": round(c_to, 2),
+                    "Au(ppb)": round(ley_au, 4)
                 })
 
         # ============================================================
@@ -897,29 +940,53 @@ with tab7:
                 if ensayos_banco.empty:
                     continue
 
-                suma_ley = np.sum(ensayos_banco[col_seleccionada] * ensayos_banco["Longitud"])
+                # Solo compositar desde inicio de mineralización
+                if ensayos_banco["From"].max() < inicio_cu and ensayos_banco["From"].max() < inicio_au:
+                    continue
+
+                suma_cu = np.sum(ensayos_banco["Cu(ppm)"] * ensayos_banco["Longitud"])
+                suma_au = np.sum(ensayos_banco["Au(ppb)"] * ensayos_banco["Longitud"])
                 suma_long = np.sum(ensayos_banco["Longitud"])
 
-                ley_comp = suma_ley / suma_long if suma_long > 0 else 0.0
+                ley_cu = suma_cu / suma_long if suma_long > 0 else 0.0
+                ley_au = suma_au / suma_long if suma_long > 0 else 0.0
 
                 xi = ensayos_banco["X"].mean()
                 yi = ensayos_banco["Y"].mean()
                 zi = ensayos_banco["Z"].mean()
 
-                compositos.append({
+                compositos_cobre.append({
                     "ID": p_id,
                     "X": round(xi, 2),
                     "Y": round(yi, 2),
                     "Z": round(zi, 2),
                     "Banco Inferior": round(z_inf, 2),
                     "Banco Superior": round(z_sup, 2),
-                    "Ley": round(ley_comp, 4)
+                    "Cu(ppm)": round(ley_cu, 4)
+                })
+
+                compositos_oro.append({
+                    "ID": p_id,
+                    "X": round(xi, 2),
+                    "Y": round(yi, 2),
+                    "Z": round(zi, 2),
+                    "Banco Inferior": round(z_inf, 2),
+                    "Banco Superior": round(z_sup, 2),
+                    "Au(ppb)": round(ley_au, 4)
                 })
 
     # ============================================================
-    # 4. TABLA FINAL
+    # 4. TABLA FINAL — Selección del elemento a visualizar
     # ============================================================
-    df_comp_final = pd.DataFrame(compositos)
+
+    df_comp_cobre = pd.DataFrame(compositos_cobre)
+    df_comp_oro = pd.DataFrame(compositos_oro)
+
+    if elemento_visual == "Cu(ppm)":
+        df_comp_final = df_comp_cobre
+    else:
+        df_comp_final = df_comp_oro
+
     st.session_state["df_comp_final"] = df_comp_final
     st.session_state["recargar_variograma"] = True	
     st.markdown("### 📋 Tabla de Compositos")
@@ -941,7 +1008,7 @@ with tab7:
         y=df_comp_final["Y"],
         z=df_comp_final["Z"],
         mode="markers",
-        marker=dict(size=4, color=df_comp_final["Ley"], colorscale="Viridis"),
+        marker=dict(size=4, color=df_comp_final[elemento_visual], colorscale="Viridis"),
         text=df_comp_final["ID"],
         hoverinfo="text"
     ))
@@ -1043,10 +1110,11 @@ with tab8:
     #if st.session_state.get("recargar_variograma", False):
         #st.session_state["recargar_variograma"] = False
         #st.rerun()
-    st.markdown("<h2>📊 Variografía PRO — Geoestadística Avanzada</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2>📊 Variografía PRO — {col_ley}</h2>", unsafe_allow_html=True)
     st.caption("Suite profesional estilo Leapfrog / Datamine con análisis direccional, isotropía y ajuste teórico interactivo.")
+        
     # ============================================================
-    # BLOQUE 2 — Carga de Datos + Layout Profesional (3 Columnas)
+    # BLOQUE — Carga de Compositos Multi‑Elemento
     # ============================================================
 
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
@@ -1054,11 +1122,16 @@ with tab8:
         st.warning("⚠ No hay compositos disponibles. Genere la base en la Pestaña 7.")
         st.stop()
 
-    # Coordenadas y leyes
-    coords_m = df_c[["X", "Y", "Z"]].values
+    # Detectar automáticamente si es Cu o Au
+    if "Cu(ppm)" in df_c.columns:
+        col_ley = "Cu(ppm)"
+    elif "Au(ppb)" in df_c.columns:
+        col_ley = "Au(ppb)"
+    else:
+        st.error("❌ No se encontró columna de ley válida (Cu o Au).")
+        st.stop()
 
-    # Selección automática de columna de ley
-    col_ley = "Ley" if "Ley" in df_c.columns else df_c.select_dtypes(include=[np.number]).columns[-1]
+    coords_m = df_c[["X", "Y", "Z"]].values
     leyes_m = df_c[col_ley].values
 
     # Varianza de los datos
@@ -1253,7 +1326,7 @@ with tab8:
         # Diagnóstico general
         # -----------------------------
         st.markdown('<div class="sidebar">', unsafe_allow_html=True)
-        st.write("• Varianza de los datos:", varianza_datos)
+        st.write(f"• Varianza de los datos ({col_ley}):", varianza_datos)
         st.write("• Máxima distancia de estudio:", max_dist_estudio)
         st.write("• Lags efectivos:", n_lags)
         st.write("• Modelo seleccionado:", modelo_tipo)
@@ -1304,7 +1377,8 @@ with tab8:
         # -----------------------------
         with st.expander("✅ Validación Geoestadística"):
             if abs((sill_val - nugget_val) - varianza_datos) < 0.05:
-                st.success("✔ El modelo reproduce razonablemente la varianza de los datos.")
+                st.success(f"✔ El modelo reproduce razonablemente la varianza de {col_ley}.")
+
             else:
                 st.warning("⚠ El sill estructural difiere de la varianza. Revisar ajuste.")
 
@@ -1365,7 +1439,7 @@ with tab8:
             name="Experimental",
             marker=dict(
                 size=10,
-                color="#1F77B4",
+               color="gold" if col_ley == "Au(ppb)" else "#1F77B4",
                 line=dict(width=2, color="white"),
                 opacity=0.95,
                 symbol="circle"
@@ -1388,7 +1462,7 @@ with tab8:
         y=gamma_teorico,
         mode="lines",
         name=f"Modelo {str(modelo_tipo).capitalize()}",
-        line=dict(color="#F28E2B", width=4.5)
+        line=dict(color="gold" if col_ley == "Au(ppb)" else "#F28E2B", width=4.5)
     ))
 
     # Línea de varianza
@@ -1456,23 +1530,9 @@ with tab8:
 
     # Mostrar gráfico FULL WIDTH
     st.plotly_chart(fig, use_container_width=True)
+    
+
     # ============================================================
-    # BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
-    # ============================================================
-
-    st.markdown("<h3>🌐 Módulos 3D Avanzados</h3>", unsafe_allow_html=True)
-
-    # Vector direccional (siempre recalculado)
-    az_rad = np.radians(acimut)
-    dip_rad = np.radians(buzamiento)
-
-    v_dir = np.array([
-        np.cos(dip_rad) * np.sin(az_rad),
-        np.cos(dip_rad) * np.cos(az_rad),
-        np.sin(dip_rad)
-    ])
-
-        # ============================================================
     # 🔥 MAPA DE CALOR — VARIOGRAMAS DIRECCIONALES (Rectangular)
     # ============================================================
 
@@ -1556,7 +1616,7 @@ with tab8:
     )
 
     st.plotly_chart(fig_heat, use_container_width=True)
-
+   
     # ============================================================
     # 🔵 HEATMAP CIRCULAR — VARIOGRAMA DIRECCIONAL (Polar Heatmap)
     # ============================================================
@@ -1689,9 +1749,207 @@ with tab8:
     )
 
     st.plotly_chart(fig_polar, use_container_width=True)
+    # ============================================================
+    # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
+    # ============================================================
 
+    st.markdown("### 📘 Variograma Vertical (Downhole)")
 
+    df_sorted = df_c.sort_values("Z")
+    z_vals = df_sorted["Z"].values
+    ley_vals = df_sorted[col_ley].values
 
+    lags_v = []
+    gamma_v = []
+
+    for i in range(len(z_vals) - 1):
+        dz = abs(z_vals[i+1] - z_vals[i])
+        if dz <= max_dist_estudio:
+            semivar = 0.5 * (ley_vals[i+1] - ley_vals[i])**2
+            lags_v.append(dz)
+            gamma_v.append(semivar)
+
+    fig_vert = go.Figure()
+    fig_vert.add_trace(go.Scatter(
+        x=lags_v,
+        y=gamma_v,
+        mode="markers",
+        marker=dict(size=6, color="purple"),
+        name="Vertical"
+    ))
+
+    fig_vert.update_layout(
+        height=450,
+        title="Variograma Vertical (Downhole)",
+        xaxis_title="ΔZ (m)",
+        yaxis_title="γ(h)"
+    )
+
+    st.plotly_chart(fig_vert, use_container_width=True)
+    # ============================================================
+    # 🔮 VARIOGRAMA ESFÉRICO 3D (Cloud Variogram)
+    # ============================================================
+
+    st.markdown("### 🔮 Cloud Variogram 3D")
+
+    fig_cloud = go.Figure()
+
+    fig_cloud.add_trace(go.Scatter3d(
+        x=coords_m[:,0],
+        y=coords_m[:,1],
+        z=coords_m[:,2],
+        mode="markers",
+        marker=dict(
+            size=3,
+            color=leyes_m,
+            colorscale="Viridis"
+        ),
+        name="Datos"
+    ))
+
+    fig_cloud.update_layout(
+        height=600,
+        title="Cloud Variogram 3D",
+        scene=dict(aspectmode="data")
+    )
+
+    st.plotly_chart(fig_cloud, use_container_width=True)
+    # ============================================================
+    # 🧭 ANISOTROPÍA AUTOMÁTICA — Detección de Dirección Dominante
+    # ============================================================
+
+    st.markdown("### 🧭 Anisotropía Automática — Dirección Dominante")
+
+    direcciones_full = np.arange(0, 360, 10)
+    gamma_dir_full = []
+
+    for ang in direcciones_full:
+
+        az_rad = np.radians(ang)
+        dip_rad = 0
+
+        v_dir_auto = np.array([
+            np.cos(dip_rad) * np.sin(az_rad),
+            np.cos(dip_rad) * np.cos(az_rad),
+            np.sin(dip_rad)
+        ])
+
+        suma_gamma = 0
+        suma_pairs = 0
+
+        for i in range(len(idxs)):
+            for j in range(i+1, len(idxs)):
+
+                p1 = idxs[i]
+                p2 = idxs[j]
+
+                vec = coords_m[p1] - coords_m[p2]
+                dist = np.linalg.norm(vec)
+
+                if 0 < dist <= max_dist_estudio:
+
+                    cos_alpha = np.abs(np.dot(vec, v_dir_auto)) / dist
+                    cos_alpha = np.clip(cos_alpha, -1, 1)
+                    angulo = np.degrees(np.arccos(cos_alpha))
+
+                    if angulo <= tolerancia_t:
+                        semivar = 0.5 * (leyes_m[p1] - leyes_m[p2])**2
+                        suma_gamma += semivar
+                        suma_pairs += 1
+
+        gamma_dir_full.append(suma_gamma / suma_pairs if suma_pairs > 0 else 0)
+
+    dir_dom = direcciones_full[np.argmin(gamma_dir_full)]
+
+    st.success(f"✔ Dirección dominante detectada automáticamente: {dir_dom}°")
+    # ============================================================
+    # 🤖 AJUSTE AUTOMÁTICO DEL MODELO
+    # ============================================================
+
+    st.markdown("### 🤖 Ajuste Automático del Modelo")
+
+    try:
+        from sklearn.metrics import mean_squared_error
+
+        mse = mean_squared_error(gammas_experimentales, gamma_teorico)
+        st.write(f"• Error del modelo {modelo_tipo}: {mse:.4f}")
+
+        if mse < 0.05:
+            st.success("✔ El modelo teórico se ajusta bien a los datos.")
+        else:
+            st.warning("⚠ El modelo teórico no ajusta bien. Ajuste manual recomendado.")
+
+    except:
+        st.info("ℹ sklearn no disponible, ajuste automático limitado.")
+    # ============================================================
+    # 🧪 PANEL DE DIAGNÓSTICO AVANZADO
+    # ============================================================
+
+    st.markdown("### 🧪 Panel de Diagnóstico Avanzado")
+
+    st.write(f"• Varianza ({col_ley}): {varianza_datos:.4f}")
+    st.write(f"• Sill estructural: {(sill_val - nugget_val):.4f}")
+    st.write(f"• Nugget: {nugget_val:.4f}")
+    st.write(f"• Range: {range_val}")
+    st.write(f"• Dirección dominante detectada: {dir_dom}°")
+
+    try:
+        st.write(f"• Error del modelo ({modelo_tipo}): {mse:.4f}")
+    except:
+        st.write("• Error del modelo: No disponible (sklearn no instalado)")
+
+    # ============================================================
+    # 🌐 VARIOGRAMA OMNIDIRECCIONAL 3D
+    # ============================================================
+
+    st.markdown("### 🌐 Variograma Omnidireccional 3D")
+
+    n_muestras = len(coords_m)
+    muestreo_max = 500 if n_muestras > 500 else n_muestras
+
+    np.random.seed(42)
+    idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
+
+    omni_lags = []
+    omni_gamma = []
+
+    for i in range(len(idxs)):
+        for j in range(i+1, len(idxs)):
+
+            p1 = idxs[i]
+            p2 = idxs[j]
+
+            vec = coords_m[p1] - coords_m[p2]
+            dist = np.linalg.norm(vec)
+
+            if 0 < dist <= max_dist_estudio:
+                semivar = 0.5 * (leyes_m[p1] - leyes_m[p2])**2
+                omni_lags.append(dist)
+                omni_gamma.append(semivar)
+
+    fig_omni = go.Figure()
+    fig_omni.add_trace(go.Scatter(
+        x=omni_lags,
+        y=omni_gamma,
+        mode="markers",
+        marker=dict(size=4, color="gray"),
+        name="Omnidireccional"
+    ))
+
+    fig_omni.update_layout(
+        height=450,
+        title="Variograma Omnidireccional 3D",
+        xaxis_title="Distancia (m)",
+        yaxis_title="γ(h)"
+    )
+
+    st.plotly_chart(fig_omni, use_container_width=True)
+
+    # ============================================================
+    # BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
+    # ============================================================
+
+    st.markdown("<h3>🌐 Módulos 3D Avanzados</h3>", unsafe_allow_html=True)
 
     # ------------------------------------------------------------
     # 2️⃣ ANISOTROPÍA 3D — VECTOR Y ROTACIONES
@@ -1788,7 +2046,33 @@ with tab8:
             )
         )
 
-        st.plotly_chart(fig_elip, use_container_width=True)
+        st.plotly_chart(fig_elip, use_container_widt h=True)
+    # ============================================================
+    # 🧭 MAPA 3D DE ANISOTROPÍA DETECTADA
+    # ============================================================
+
+    st.markdown("### 🧭 Mapa 3D de Anisotropía Detectada")
+
+    fig_aniso_map = go.Figure()
+
+    fig_aniso_map.add_trace(go.Scatter3d(
+        x=[0, np.cos(np.radians(dir_dom)) * max_dist_estudio],
+        y=[0, np.sin(np.radians(dir_dom)) * max_dist_estudio],
+        z=[0, 0],
+        mode="lines+markers",
+        line=dict(color="red", width=6),
+        marker=dict(size=4),
+        name="Dirección dominante"
+    ))
+
+    fig_aniso_map.update_layout(
+        height=600,
+        title=f"Anisotropía Detectada — Dirección {dir_dom}°",
+        scene=dict(aspectmode="data")
+    )
+
+    st.plotly_chart(fig_aniso_map, use_container_width=True)
+
     # ============================================================
     # BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
     # ============================================================
@@ -1817,7 +2101,11 @@ with tab8:
     # -----------------------------
     with col_b3:
         if st.button("📤 Exportar a GSlib"):
-            st.success("Archivo GSlib generado correctamente (placeholder).")
+    	    df_export = df_c.copy()
+            df_export.rename(columns={col_ley: "value"}, inplace=True)
+            df_export[["X", "Y", "Z", "value"]].to_csv("variograma.gs", sep=" ", index=False)
+            st.success(f"Archivo GSlib generado para {col_ley}.")
+
 
     # -----------------------------
     # Botón: exportar CSV
