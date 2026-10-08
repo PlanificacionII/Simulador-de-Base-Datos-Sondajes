@@ -1933,21 +1933,22 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — CONTOUR POLAR PRO
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — CONTOUR POLAR (ESTABLE)
 # ============================================================
 
-st.markdown("### 🌀 Mapa Variográfico Horizontal (Contour PRO)")
+st.markdown("### 🌀 Mapa Variográfico Horizontal (Contour Estable)")
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
     dirs = np.array(list(st.session_state["variogramas_multi"].keys()))
     gammas = np.array([st.session_state["variogramas_multi"][d][1] for d in dirs])
 
+    # Número real de lags por dirección (mínimo común)
+    n_r = min([len(g) for g in gammas])
     n_theta = 360
-    n_r = int(n_lags)
 
     theta_grid = np.linspace(0, 360, n_theta)
-    r_grid = np.linspace(0, n_r, n_r)
+    r_grid = np.arange(1, n_r + 1)
 
     gamma_grid = np.zeros((n_r, n_theta))
 
@@ -1957,54 +1958,35 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
             idx = np.argmin(np.abs(dirs - ang))
             gamma_grid[i_r, i_t] = gammas[idx][i_r]
 
-    X = np.zeros((n_r, n_theta))
-    Y = np.zeros((n_r, n_theta))
+    # Matrices 2D para Contour
+    Theta, R = np.meshgrid(theta_grid, r_grid)
+    X = R * np.cos(np.radians(Theta))
+    Y = R * np.sin(np.radians(Theta))
 
-    for i_r in range(n_r):
-        for i_t in range(n_theta):
-            ang_rad = np.radians(theta_grid[i_t])
-            X[i_r, i_t] = r_grid[i_r] * np.cos(ang_rad)
-            Y[i_r, i_t] = r_grid[i_r] * np.sin(ang_rad)
+    fig_contour = go.Figure()
 
-    fig_contour = go.Figure(data=
-        go.Contour(
-            x=X.flatten(),
-            y=Y.flatten(),
-            z=gamma_grid.flatten(),
-            colorscale="Jet",
-            contours=dict(
-                coloring="heatmap",
-                showlines=True,
-                linewidth=1.5
-            ),
-            colorbar=dict(
-                title="γ(h)",
-                titleside="right"
-            )
+    fig_contour.add_trace(go.Contour(
+        x=X,
+        y=Y,
+        z=gamma_grid,
+        colorscale="Jet",
+        contours=dict(
+            coloring="heatmap",
+            showlines=True
         )
-    )
+    ))
 
-    fig_contour.update_layout(
-        height=700,
-        title="Mapa Variográfico Horizontal — Contour Interpolado",
-        xaxis=dict(scaleanchor="y", showgrid=False, zeroline=False),
-        yaxis=dict(showgrid=False, zeroline=False),
-        plot_bgcolor="white",
-        paper_bgcolor="white"
-    )
-
+    # Círculo exterior
     circle_theta = np.linspace(0, 2*np.pi, 360)
-    circle_x = n_r * np.cos(circle_theta)
-    circle_y = n_r * np.sin(circle_theta)
-
     fig_contour.add_trace(go.Scatter(
-        x=circle_x,
-        y=circle_y,
+        x=n_r * np.cos(circle_theta),
+        y=n_r * np.sin(circle_theta),
         mode="lines",
         line=dict(color="black", width=2),
         name="Límite"
     ))
 
+    # Flecha dirección dominante
     dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
     ang_rad = np.radians(dir_dom)
 
@@ -2016,6 +1998,15 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
         marker=dict(size=8, color="magenta"),
         name=f"Dirección {dir_dom}°"
     ))
+
+    fig_contour.update_layout(
+        height=700,
+        title="Mapa Variográfico Horizontal — Contour Estable",
+        xaxis=dict(scaleanchor="y", showgrid=False, zeroline=False),
+        yaxis=dict(showgrid=False, zeroline=False),
+        plot_bgcolor="white",
+        paper_bgcolor="white"
+    )
 
     st.plotly_chart(fig_contour, use_container_width=True)
 
