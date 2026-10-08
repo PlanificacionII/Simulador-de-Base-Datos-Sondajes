@@ -1110,8 +1110,7 @@ with tab8:
     #if st.session_state.get("recargar_variograma", False):
         #st.session_state["recargar_variograma"] = False
         #st.rerun()
-    st.markdown(f"<h2>📊 Variografía PRO — {col_ley}</h2>", unsafe_allow_html=True)
-    st.caption("Suite profesional estilo Leapfrog / Datamine con análisis direccional, isotropía y ajuste teórico interactivo.")
+   
         
     # ============================================================
     # BLOQUE — Carga de Compositos Multi‑Elemento
@@ -1130,7 +1129,9 @@ with tab8:
     else:
         st.error("❌ No se encontró columna de ley válida (Cu o Au).")
         st.stop()
-
+    st.markdown(f"<h2>📊 Variografía PRO — {col_ley}</h2>", unsafe_allow_html=True)
+    st.caption("Suite profesional estilo Leapfrog / Datamine con análisis direccional, isotropía y ajuste teórico interactivo.")
+    
     coords_m = df_c[["X", "Y", "Z"]].values
     leyes_m = df_c[col_ley].values
 
