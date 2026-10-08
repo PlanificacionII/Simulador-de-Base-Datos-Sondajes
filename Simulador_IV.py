@@ -178,8 +178,8 @@ for i in range(1, cant_sondajes + 1):
             "ID": pozo_id,
             "From": from_m,
             "To": to_m,
-            "Cu_pct": cu,
-            "Au_gpt": au
+            "Cu(%)": cu,
+            "Au(grs/t)": au
         })
 
 # Convertir a DataFrames
@@ -227,7 +227,7 @@ for c in range(1, num_curvas + 1):
 # ====================================================================
 # 2. TRAZAS DE SONDAJES CON COLOREO POR LEY
 # ====================================================================
-columna_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+columna_ley = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
 unidad_ley = "%" if elemento_render == "Cobre (Cu %)" else "g/t"
 
 x_total, y_total, z_total = [], [], []
@@ -258,7 +258,7 @@ for idx, row in df_collar.iterrows():
         val_ley = float(ens[columna_ley])
 
         # Clasificación por rangos
-        if columna_ley == "Cu_pct":
+        if columna_ley == "Cu(%)":
             if val_ley < 0.30: codigo = 0.0
             elif val_ley < 1.00: codigo = 1.0
             elif val_ley < 1.80: codigo = 2.0
@@ -315,10 +315,10 @@ fig.add_trace(go.Scatter3d(
             x=0.98,
             tickvals=[0.375, 1.125, 1.875, 2.625],
             ticktext=[
-                "Estéril (<0.30%)" if columna_ley=="Cu_pct" else "Estéril (<0.9 g/t)",
-                "Baja-Media (0.30-1.0%)" if columna_ley=="Cu_pct" else "Baja (0.9-4.0 g/t)",
-                "Alta Ley (1.0-1.8%)" if columna_ley=="Cu_pct" else "Alta Ley (4.0-8.0 g/t)",
-                "Excelente (>1.80%)" if columna_ley=="Cu_pct" else "Excelente (>8.0 g/t)"
+                "Estéril (<0.30%)" if columna_ley=="Cu(%)" else "Estéril (<0.9 g/t)",
+                "Baja-Media (0.30-1.0%)" if columna_ley=="Cu(%)" else "Baja (0.9-4.0 g/t)",
+                "Alta Ley (1.0-1.8%)" if columna_ley=="Cu(%)" else "Alta Ley (4.0-8.0 g/t)",
+                "Excelente (>1.80%)" if columna_ley=="Cu(%)" else "Excelente (>8.0 g/t)"
             ]
         )
     ),
@@ -566,8 +566,8 @@ with tab6:
     st.caption("Evaluación estadística completa de las leyes simuladas, incluyendo prueba K‑S y análisis descriptivo.")
 
     # Selección de columna según metal
-    col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-    unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
+    col_seleccionada = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
+    unidad = "%" if col_seleccionada == "Cu(%)" else "g/t"
 
     # Filtrar solo tramos mineralizados
     leyes_utiles = df_assays[df_assays[col_seleccionada] > 0.0][col_seleccionada].values
@@ -813,7 +813,7 @@ with tab7:
     # ============================================================
 
     # Elementos disponibles
-    elementos = ["Cu(ppm)", "Au(ppb)"]
+    elementos = ["Cu(%)", "Au(grs/t)"]
 
     # Selección del elemento para visualizar
     elemento_visual = st.selectbox(
@@ -851,8 +851,8 @@ with tab7:
         dp_rad = np.radians(srv["Dip"])
 
         # Inicio de mineralización por elemento
-        inicio_cu = inicio_mineralizacion(ensayos_pozo, "Cu(ppm)")
-        inicio_au = inicio_mineralizacion(ensayos_pozo, "Au(ppb)")
+        inicio_cu = inicio_mineralizacion(ensayos_pozo, "Cu(%)")
+        inicio_au = inicio_mineralizacion(ensayos_pozo, "Au(grs/t)")
 
         # ============================================================
         # MÉTODO 1: COLLARÍN (Longitud fija)
@@ -885,8 +885,8 @@ with tab7:
                     inter = overlap_to - overlap_from
 
                     if inter > 0:
-                        suma_cu += float(ensay["Cu(ppm)"]) * inter
-                        suma_au += float(ensay["Au(ppb)"]) * inter
+                        suma_cu += float(ensay["Cu(%)"]) * inter
+                        suma_au += float(ensay["Au(grs/t)"]) * inter
                         suma_inter += inter
 
                 ley_cu = (suma_cu / suma_inter) if suma_inter > 0 else 0.0
@@ -904,7 +904,7 @@ with tab7:
                     "Z": round(zi, 2),
                     "Desde": round(c_from, 2),
                     "Hasta": round(c_to, 2),
-                    "Cu(ppm)": round(ley_cu, 4)
+                    "Cu(%)": round(ley_cu, 4)
                 })
 
                 compositos_oro.append({
@@ -914,7 +914,7 @@ with tab7:
                     "Z": round(zi, 2),
                     "Desde": round(c_from, 2),
                     "Hasta": round(c_to, 2),
-                    "Au(ppb)": round(ley_au, 4)
+                    "Au(grs/t)": round(ley_au, 4)
                 })
 
         # ============================================================
@@ -944,8 +944,8 @@ with tab7:
                 if ensayos_banco["From"].max() < inicio_cu and ensayos_banco["From"].max() < inicio_au:
                     continue
 
-                suma_cu = np.sum(ensayos_banco["Cu(ppm)"] * ensayos_banco["Longitud"])
-                suma_au = np.sum(ensayos_banco["Au(ppb)"] * ensayos_banco["Longitud"])
+                suma_cu = np.sum(ensayos_banco["Cu(%)"] * ensayos_banco["Longitud"])
+                suma_au = np.sum(ensayos_banco["Au(grs/t)"] * ensayos_banco["Longitud"])
                 suma_long = np.sum(ensayos_banco["Longitud"])
 
                 ley_cu = suma_cu / suma_long if suma_long > 0 else 0.0
@@ -962,7 +962,7 @@ with tab7:
                     "Z": round(zi, 2),
                     "Banco Inferior": round(z_inf, 2),
                     "Banco Superior": round(z_sup, 2),
-                    "Cu(ppm)": round(ley_cu, 4)
+                    "Cu(%)": round(ley_cu, 4)
                 })
 
                 compositos_oro.append({
@@ -972,7 +972,7 @@ with tab7:
                     "Z": round(zi, 2),
                     "Banco Inferior": round(z_inf, 2),
                     "Banco Superior": round(z_sup, 2),
-                    "Au(ppb)": round(ley_au, 4)
+                    "Au(grs/t)": round(ley_au, 4)
                 })
 
     # ============================================================
@@ -982,7 +982,7 @@ with tab7:
     df_comp_cobre = pd.DataFrame(compositos_cobre)
     df_comp_oro = pd.DataFrame(compositos_oro)
 
-    if elemento_visual == "Cu(ppm)":
+    if elemento_visual == "Cu(%)":
         df_comp_final = df_comp_cobre
     else:
         df_comp_final = df_comp_oro
@@ -1123,10 +1123,10 @@ with tab8:
         st.stop()
 
     # Detectar automáticamente si es Cu o Au
-    if "Cu(ppm)" in df_c.columns:
-        col_ley = "Cu(ppm)"
-    elif "Au(ppb)" in df_c.columns:
-        col_ley = "Au(ppb)"
+    if "Cu(%)" in df_c.columns:
+        col_ley = "Cu(%)"
+    elif "Au(grs/t)" in df_c.columns:
+        col_ley = "Au(grs/t)"
     else:
         st.error("❌ No se encontró columna de ley válida (Cu o Au).")
         st.stop()
@@ -1439,7 +1439,7 @@ with tab8:
             name="Experimental",
             marker=dict(
                 size=10,
-               color="gold" if col_ley == "Au(ppb)" else "#1F77B4",
+               color="gold" if col_ley == "Au(grs/t)" else "#1F77B4",
                 line=dict(width=2, color="white"),
                 opacity=0.95,
                 symbol="circle"
@@ -1462,7 +1462,7 @@ with tab8:
         y=gamma_teorico,
         mode="lines",
         name=f"Modelo {str(modelo_tipo).capitalize()}",
-        line=dict(color="gold" if col_ley == "Au(ppb)" else "#F28E2B", width=4.5)
+        line=dict(color="gold" if col_ley == "Au(grs/t)" else "#F28E2B", width=4.5)
     ))
 
     # Línea de varianza
@@ -2170,8 +2170,8 @@ with tab9:
     z_centros = np.arange(min_z_b, max_z_b, bz)
 
     # Selección de ley
-    col_ley_b = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-    unidad_b = "%" if col_ley_b == "Cu_pct" else "g/t"
+    col_ley_b = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
+    unidad_b = "%" if col_ley_b == "Cu(%)" else "g/t"
 
     # Recuperar compositos
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
@@ -2275,8 +2275,8 @@ with tab10:
     st.caption("Curvas de tonelaje acumulado y ley media ponderada en función de la ley de corte.")
 
     # Selección de ley
-    col_ley = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
-    unidad = "%" if col_ley == "Cu_pct" else "g/t"
+    col_ley = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
+    unidad = "%" if col_ley == "Cu(%)" else "g/t"
 
     # Construcción de tabla base desde los ensayos
     df_curvas = df_assays.copy()
