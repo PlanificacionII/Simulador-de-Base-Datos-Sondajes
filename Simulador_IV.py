@@ -2096,15 +2096,17 @@ with tab8:
         if st.button("💾 Guardar Configuración"):
             st.success("Configuración guardada correctamente.")
 
-    # -----------------------------
-    # Botón: exportar GSlib
-    # -----------------------------
-    with col_b3:
-        if st.button("📤 Exportar a GSlib"):
-    	    df_export = df_c.copy()
-            df_export.rename(columns={col_ley: "value"}, inplace=True)
-            df_export[["X", "Y", "Z", "value"]].to_csv("variograma.gs", sep=" ", index=False)
-            st.success(f"Archivo GSlib generado para {col_ley}.")
+    # ============================================================
+    # 📤 EXPORTACIÓN GSlib MULTI‑ELEMENTO
+    # ============================================================
+
+    st.markdown("### 📤 Exportación GSlib")
+
+    if st.button("Exportar GSlib"):
+        df_export = df_c.copy()
+        df_export.rename(columns={col_ley: "value"}, inplace=True)
+        df_export[["X", "Y", "Z", "value"]].to_csv("variograma.gs", sep=" ", index=False)
+        st.success(f"Archivo GSlib generado correctamente para {col_ley}.")
 
 
     # -----------------------------
