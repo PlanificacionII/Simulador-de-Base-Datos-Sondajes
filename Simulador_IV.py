@@ -2001,43 +2001,43 @@ st.plotly_chart(fig_interp, use_container_width=True)
 
 
    
-    # ============================================================
-    # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
-    # ============================================================
+# ============================================================
+# 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
+# ============================================================
 
-    st.markdown("### 📘 Variograma Vertical (Downhole)")
+st.markdown("### 📘 Variograma Vertical (Downhole)")
 
-    df_sorted = df_c.sort_values("Z")
-    z_vals = df_sorted["Z"].values
-    ley_vals = df_sorted[col_ley].values
+df_sorted = df_c.sort_values("Z")
+z_vals = df_sorted["Z"].values
+ley_vals = df_sorted[col_ley].values
 
-    lags_v = []
-    gamma_v = []
+lags_v = []
+gamma_v = []
 
-    for i in range(len(z_vals) - 1):
-        dz = abs(z_vals[i+1] - z_vals[i])
-        if dz <= max_dist_estudio:
-            semivar = 0.5 * (ley_vals[i+1] - ley_vals[i])**2
-            lags_v.append(dz)
-            gamma_v.append(semivar)
+for i in range(len(z_vals) - 1):
+    dz = abs(z_vals[i+1] - z_vals[i])
+    if dz <= max_dist_estudio:
+        semivar = 0.5 * (ley_vals[i+1] - ley_vals[i])**2
+        lags_v.append(dz)
+        gamma_v.append(semivar)
 
-    fig_vert = go.Figure()
-    fig_vert.add_trace(go.Scatter(
-        x=lags_v,
-        y=gamma_v,
-        mode="markers",
-        marker=dict(size=6, color="purple"),
-        name="Vertical"
-    ))
+fig_vert = go.Figure()
+fig_vert.add_trace(go.Scatter(
+    x=lags_v,
+    y=gamma_v,
+    mode="markers",
+    marker=dict(size=6, color="purple"),
+    name="Vertical"
+))
 
-    fig_vert.update_layout(
-        height=450,
-        title="Variograma Vertical (Downhole)",
-        xaxis_title="ΔZ (m)",
-        yaxis_title="γ(h)"
-    )
+fig_vert.update_layout(
+    height=450,
+    title="Variograma Vertical (Downhole)",
+    xaxis_title="ΔZ (m)",
+    yaxis_title="γ(h)"
+)
 
-    st.plotly_chart(fig_vert, use_container_width=True)
+st.plotly_chart(fig_vert, use_container_width=True)
     # ============================================================
     # 🔮 VARIOGRAMA ESFÉRICO 3D (Cloud Variogram)
     # ============================================================
