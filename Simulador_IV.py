@@ -2066,104 +2066,28 @@ fig_cloud.update_layout(
 )
 
 st.plotly_chart(fig_cloud, use_container_width=True)
-    # ============================================================
-    # 🧭 ANISOTROPÍA AUTOMÁTICA — Detección de Dirección Dominante
-    # ============================================================
+# ============================================================
+# 🧭 ANISOTROPÍA AUTOMÁTICA — Detección de Dirección Dominante
+# ============================================================
 
-    st.markdown("### 🧭 Anisotropía Automática — Dirección Dominante")
+st.markdown("### 🧭 Anisotropía Automática — Dirección Dominante")
 
-    direcciones_full = np.arange(0, 360, 10)
-    gamma_dir_full = []
+direcciones_full = np.arange(0, 360, 10)
+gamma_dir_full = []
 
-    for ang in direcciones_full:
+for ang in direcciones_full:
 
-        az_rad = np.radians(ang)
-        dip_rad = 0
+    az_rad = np.radians(ang)
+    dip_rad = 0
 
-        v_dir_auto = np.array([
-            np.cos(dip_rad) * np.sin(az_rad),
-            np.cos(dip_rad) * np.cos(az_rad),
-            np.sin(dip_rad)
-        ])
+    v_dir_auto = np.array([
+        np.cos(dip_rad) * np.sin(az_rad),
+        np.cos(dip_rad) * np.cos(az_rad),
+        np.sin(dip_rad)
+    ])
 
-        suma_gamma = 0
-        suma_pairs = 0
-
-        for i in range(len(idxs)):
-            for j in range(i+1, len(idxs)):
-
-                p1 = idxs[i]
-                p2 = idxs[j]
-
-                vec = coords_m[p1] - coords_m[p2]
-                dist = np.linalg.norm(vec)
-
-                if 0 < dist <= max_dist_estudio:
-
-                    cos_alpha = np.abs(np.dot(vec, v_dir_auto)) / dist
-                    cos_alpha = np.clip(cos_alpha, -1, 1)
-                    angulo = np.degrees(np.arccos(cos_alpha))
-
-                    if angulo <= tolerancia_t:
-                        semivar = 0.5 * (leyes_m[p1] - leyes_m[p2])**2
-                        suma_gamma += semivar
-                        suma_pairs += 1
-
-        gamma_dir_full.append(suma_gamma / suma_pairs if suma_pairs > 0 else 0)
-
-    dir_dom = direcciones_full[np.argmin(gamma_dir_full)]
-
-    st.success(f"✔ Dirección dominante detectada automáticamente: {dir_dom}°")
-    # ============================================================
-    # 🤖 AJUSTE AUTOMÁTICO DEL MODELO
-    # ============================================================
-
-    st.markdown("### 🤖 Ajuste Automático del Modelo")
-
-    try:
-        from sklearn.metrics import mean_squared_error
-
-        mse = mean_squared_error(gammas_experimentales, gamma_teorico)
-        st.write(f"• Error del modelo {modelo_tipo}: {mse:.4f}")
-
-        if mse < 0.05:
-            st.success("✔ El modelo teórico se ajusta bien a los datos.")
-        else:
-            st.warning("⚠ El modelo teórico no ajusta bien. Ajuste manual recomendado.")
-
-    except:
-        st.info("ℹ sklearn no disponible, ajuste automático limitado.")
-    # ============================================================
-    # 🧪 PANEL DE DIAGNÓSTICO AVANZADO
-    # ============================================================
-
-    st.markdown("### 🧪 Panel de Diagnóstico Avanzado")
-
-    st.write(f"• Varianza ({col_ley}): {varianza_datos:.4f}")
-    st.write(f"• Sill estructural: {(sill_val - nugget_val):.4f}")
-    st.write(f"• Nugget: {nugget_val:.4f}")
-    st.write(f"• Range: {range_val}")
-    st.write(f"• Dirección dominante detectada: {dir_dom}°")
-
-    try:
-        st.write(f"• Error del modelo ({modelo_tipo}): {mse:.4f}")
-    except:
-        st.write("• Error del modelo: No disponible (sklearn no instalado)")
-
-    # ============================================================
-    # 🌐 VARIOGRAMA OMNIDIRECCIONAL 3D
-    # ============================================================
-
-    st.markdown("### 🌐 Variograma Omnidireccional 3D")
-
-    n_muestras = len(coords_m)
-    muestreo_max = 500 if n_muestras > 500 else n_muestras
-
-    np.random.seed(42)
-    idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
-
-    omni_lags = []
-    omni_gamma = []
+    suma_gamma = 0
+    suma_pairs = 0
 
     for i in range(len(idxs)):
         for j in range(i+1, len(idxs)):
@@ -2175,223 +2099,286 @@ st.plotly_chart(fig_cloud, use_container_width=True)
             dist = np.linalg.norm(vec)
 
             if 0 < dist <= max_dist_estudio:
-                semivar = 0.5 * (leyes_m[p1] - leyes_m[p2])**2
-                omni_lags.append(dist)
-                omni_gamma.append(semivar)
 
-    fig_omni = go.Figure()
-    fig_omni.add_trace(go.Scatter(
-        x=omni_lags,
-        y=omni_gamma,
-        mode="markers",
-        marker=dict(size=4, color="gray"),
-        name="Omnidireccional"
+                cos_alpha = np.abs(np.dot(vec, v_dir_auto)) / dist
+                cos_alpha = np.clip(cos_alpha, -1, 1)
+                angulo = np.degrees(np.arccos(cos_alpha))
+
+                if angulo <= tolerancia_t:
+                    semivar = 0.5 * (leyes_m[p1] - leyes_m[p2])**2
+                    suma_gamma += semivar
+                    suma_pairs += 1
+
+    gamma_dir_full.append(suma_gamma / suma_pairs if suma_pairs > 0 else 0)
+
+dir_dom = direcciones_full[np.argmin(gamma_dir_full)]
+
+st.success(f"✔ Dirección dominante detectada automáticamente: {dir_dom}°")
+
+# ============================================================
+# 🤖 AJUSTE AUTOMÁTICO DEL MODELO
+# ============================================================
+
+st.markdown("### 🤖 Ajuste Automático del Modelo")
+
+try:
+    from sklearn.metrics import mean_squared_error
+
+    mse = mean_squared_error(gammas_experimentales, gamma_teorico)
+    st.write(f"• Error del modelo {modelo_tipo}: {mse:.4f}")
+
+    if mse < 0.05:
+        st.success("✔ El modelo teórico se ajusta bien a los datos.")
+    else:
+        st.warning("⚠ El modelo teórico no ajusta bien. Ajuste manual recomendado.")
+
+except:
+    st.info("ℹ sklearn no disponible, ajuste automático limitado.")
+
+# ============================================================
+# 🧪 PANEL DE DIAGNÓSTICO AVANZADO
+# ============================================================
+
+st.markdown("### 🧪 Panel de Diagnóstico Avanzado")
+
+st.write(f"• Varianza ({col_ley}): {varianza_datos:.4f}")
+st.write(f"• Sill estructural: {(sill_val - nugget_val):.4f}")
+st.write(f"• Nugget: {nugget_val:.4f}")
+st.write(f"• Range: {range_val}")
+st.write(f"• Dirección dominante detectada: {dir_dom}°")
+
+try:
+    st.write(f"• Error del modelo ({modelo_tipo}): {mse:.4f}")
+except:
+    st.write("• Error del modelo: No disponible (sklearn no instalado)")
+
+# ============================================================
+# 🌐 VARIOGRAMA OMNIDIRECCIONAL 3D
+# ============================================================
+
+st.markdown("### 🌐 Variograma Omnidireccional 3D")
+
+n_muestras = len(coords_m)
+muestreo_max = 500 if n_muestras > 500 else n_muestras
+
+np.random.seed(42)
+idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
+
+omni_lags = []
+omni_gamma = []
+
+for i in range(len(idxs)):
+    for j in range(i+1, len(idxs)):
+
+        p1 = idxs[i]
+        p2 = idxs[j]
+
+        vec = coords_m[p1] - coords_m[p2]
+        dist = np.linalg.norm(vec)
+
+        if 0 < dist <= max_dist_estudio:
+            semivar = 0.5 * (leyes_m[p1] - leyes_m[p2])**2
+            omni_lags.append(dist)
+            omni_gamma.append(semivar)
+
+fig_omni = go.Figure()
+fig_omni.add_trace(go.Scatter(
+    x=omni_lags,
+    y=omni_gamma,
+    mode="markers",
+    marker=dict(size=4, color="gray"),
+    name="Omnidireccional"
+))
+
+fig_omni.update_layout(
+    height=450,
+    title="Variograma Omnidireccional 3D",
+    xaxis_title="Distancia (m)",
+    yaxis_title="γ(h)"
+)
+
+st.plotly_chart(fig_omni, use_container_width=True)
+
+# ============================================================
+# BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
+# ============================================================
+
+st.markdown("<h3>🌐 Módulos 3D Avanzados</h3>", unsafe_allow_html=True)
+
+# ------------------------------------------------------------
+# 2️⃣ ANISOTROPÍA 3D — VECTOR Y ROTACIONES
+# ------------------------------------------------------------
+with st.expander("🧭 Anisotropía 3D — Dirección y Rotación"):
+
+    fig_aniso = go.Figure()
+
+    fig_aniso.add_trace(go.Scatter3d(
+        x=[0, v_dir[0] * max_dist_estudio],
+        y=[0, v_dir[1] * max_dist_estudio],
+        z=[0, v_dir[2] * max_dist_estudio],
+        mode="lines+markers",
+        line=dict(color="orange", width=6),
+        marker=dict(size=4),
+        name="Vector Direccional"
     ))
 
-    fig_omni.update_layout(
-        height=450,
-        title="Variograma Omnidireccional 3D",
-        xaxis_title="Distancia (m)",
-        yaxis_title="γ(h)"
+    fig_aniso.update_layout(
+        height=600,
+        title=f"Anisotropía 3D — Acimut {acimut}°, Buzamiento {buzamiento}°",
+        scene=dict(
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
+            aspectmode="data"
+        )
     )
 
-    st.plotly_chart(fig_omni, use_container_width=True)
+    st.plotly_chart(fig_aniso, use_container_width=True)
 
-    # ============================================================
-    # BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
-    # ============================================================
+# ------------------------------------------------------------
+# 3️⃣ ELIPSOIDE DE BÚSQUEDA 3D (Rotado + Anisotropía)
+# ------------------------------------------------------------
+with st.expander("🟡 Elipsoide de Búsqueda 3D (Rotado)"):
 
-    st.markdown("<h3>🌐 Módulos 3D Avanzados</h3>", unsafe_allow_html=True)
+    a = range_val
+    b = range_val * ratio_h
+    c = range_val * ratio_v
 
-    # ------------------------------------------------------------
-    # 2️⃣ ANISOTROPÍA 3D — VECTOR Y ROTACIONES
-    # ------------------------------------------------------------
-    with st.expander("🧭 Anisotropía 3D — Dirección y Rotación"):
+    u = np.linspace(0, 2 * np.pi, 40)
+    v = np.linspace(0, np.pi, 40)
 
-        fig_aniso = go.Figure()
+    x = a * np.outer(np.cos(u), np.sin(v))
+    y = b * np.outer(np.sin(u), np.sin(v))
+    z = c * np.outer(np.ones_like(u), np.cos(v))
 
-        fig_aniso.add_trace(go.Scatter3d(
-            x=[0, v_dir[0] * max_dist_estudio],
-            y=[0, v_dir[1] * max_dist_estudio],
-            z=[0, v_dir[2] * max_dist_estudio],
-            mode="lines+markers",
-            line=dict(color="orange", width=6),
-            marker=dict(size=4),
-            name="Vector Direccional"
-        ))
+    def rotar(X, Y, Z, az, dip):
+        pts = np.vstack([X.flatten(), Y.flatten(), Z.flatten()])
 
-        fig_aniso.update_layout(
-            height=600,
-            title=f"Anisotropía 3D — Acimut {acimut}°, Buzamiento {buzamiento}°",
-            scene=dict(
-                xaxis_title="X",
-                yaxis_title="Y",
-                zaxis_title="Z",
-                aspectmode="data"
-            )
-        )
-
-        st.plotly_chart(fig_aniso, use_container_width=True)
-
-    # ------------------------------------------------------------
-    # 3️⃣ ELIPSOIDE DE BÚSQUEDA 3D (Rotado + Anisotropía)
-    # ------------------------------------------------------------
-    with st.expander("🟡 Elipsoide de Búsqueda 3D (Rotado)"):
-
-        # Parámetros del elipsoide
-        a = range_val
-        b = range_val * ratio_h
-        c = range_val * ratio_v
-
-        u = np.linspace(0, 2 * np.pi, 40)
-        v = np.linspace(0, np.pi, 40)
-
-        x = a * np.outer(np.cos(u), np.sin(v))
-        y = b * np.outer(np.sin(u), np.sin(v))
-        z = c * np.outer(np.ones_like(u), np.cos(v))
-
-        # Rotación 3D
-        def rotar(X, Y, Z, az, dip):
-            pts = np.vstack([X.flatten(), Y.flatten(), Z.flatten()])
-
-            # Rotación por acimut (Z)
-            Rz = np.array([
-                [np.cos(az), -np.sin(az), 0],
-                [np.sin(az),  np.cos(az), 0],
-                [0, 0, 1]
-            ])
-
-            # Rotación por buzamiento (X)
-            Rx = np.array([
-                [1, 0, 0],
-                [0, np.cos(dip), -np.sin(dip)],
-                [0, np.sin(dip),  np.cos(dip)]
-            ])
-
-            pts_rot = Rz @ (Rx @ pts)
-
-            return (
-                pts_rot[0].reshape(X.shape),
-                pts_rot[1].reshape(Y.shape),
-                pts_rot[2].reshape(Z.shape)
-            )
-
-        Xr, Yr, Zr = rotar(x, y, z, az_rad, dip_rad)
-
-        fig_elip = go.Figure(data=[
-            go.Surface(
-                x=Xr, y=Yr, z=Zr,
-                colorscale="Viridis",
-                opacity=0.6,
-                showscale=False
-            )
+        Rz = np.array([
+            [np.cos(az), -np.sin(az), 0],
+            [np.sin(az),  np.cos(az), 0],
+            [0, 0, 1]
         ])
 
-        fig_elip.update_layout(
-            height=600,
-            title="Elipsoide de Búsqueda 3D (Rotado + Anisotropía)",
-            scene=dict(
-                xaxis_title="X",
-                yaxis_title="Y",
-                zaxis_title="Z",
-                aspectmode="data"
-            )
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(dip), -np.sin(dip)],
+            [0, np.sin(dip),  np.cos(dip)]
+        ])
+
+        pts_rot = Rz @ (Rx @ pts)
+
+        return (
+            pts_rot[0].reshape(X.shape),
+            pts_rot[1].reshape(Y.shape),
+            pts_rot[2].reshape(Z.shape)
         )
 
-        st.plotly_chart(fig_elip, use_container_width=True)
-    # ============================================================
-    # 🧭 MAPA 3D DE ANISOTROPÍA DETECTADA
-    # ============================================================
+    Xr, Yr, Zr = rotar(x, y, z, az_rad, dip_rad)
 
-    st.markdown("### 🧭 Mapa 3D de Anisotropía Detectada")
+    fig_elip = go.Figure(data=[
+        go.Surface(
+            x=Xr, y=Yr, z=Zr,
+            colorscale="Viridis",
+            opacity=0.6,
+            showscale=False
+        )
+    ])
 
-    fig_aniso_map = go.Figure()
-
-    fig_aniso_map.add_trace(go.Scatter3d(
-        x=[0, np.cos(np.radians(dir_dom)) * max_dist_estudio],
-        y=[0, np.sin(np.radians(dir_dom)) * max_dist_estudio],
-        z=[0, 0],
-        mode="lines+markers",
-        line=dict(color="red", width=6),
-        marker=dict(size=4),
-        name="Dirección dominante"
-    ))
-
-    fig_aniso_map.update_layout(
+    fig_elip.update_layout(
         height=600,
-        title=f"Anisotropía Detectada — Dirección {dir_dom}°",
-        scene=dict(aspectmode="data")
+        title="Elipsoide de Búsqueda 3D (Rotado + Anisotropía)",
+        scene=dict(
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
+            aspectmode="data"
+        )
     )
 
-    st.plotly_chart(fig_aniso_map, use_container_width=True)
+    st.plotly_chart(fig_elip, use_container_width=True)
 
-    # ============================================================
-    # BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
-    # ============================================================
+# ============================================================
+# 🧭 Mapa 3D de Anisotropía Detectada
+# ============================================================
 
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown("<h3>⚙️ Acciones del Variograma</h3>", unsafe_allow_html=True)
+st.markdown("### 🧭 Mapa 3D de Anisotropía Detectada")
 
-    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+fig_aniso_map = go.Figure()
 
-    # -----------------------------
-    # Botón: regenerar variograma
-    # -----------------------------
-    with col_b1:
-        if st.button("📈 Generar Variograma"):
-            st.info("Variograma regenerado con los parámetros actuales.")
+fig_aniso_map.add_trace(go.Scatter3d(
+    x=[0, np.cos(np.radians(dir_dom)) * max_dist_estudio],
+    y=[0, np.sin(np.radians(dir_dom)) * max_dist_estudio],
+    z=[0, 0],
+    mode="lines+markers",
+    line=dict(color="red", width=6),
+    marker=dict(size=4),
+    name="Dirección dominante"
+))
 
-    # -----------------------------
-    # Botón: guardar configuración
-    # -----------------------------
-    with col_b2:
-        if st.button("💾 Guardar Configuración"):
-            st.success("Configuración guardada correctamente.")
+fig_aniso_map.update_layout(
+    height=600,
+    title=f"Anisotropía Detectada — Dirección {dir_dom}°",
+    scene=dict(aspectmode="data")
+)
 
-    # ============================================================
-    # 📤 EXPORTACIÓN GSlib MULTI‑ELEMENTO
-    # ============================================================
+st.plotly_chart(fig_aniso_map, use_container_width=True)
 
-    st.markdown("### 📤 Exportación GSlib")
+# ============================================================
+# BLOQUE 7 — Botones de Acción + Exportación GSlib / CSV
+# ============================================================
 
-    if st.button("Exportar GSlib"):
-        df_export = df_c.copy()
-        df_export.rename(columns={col_ley: "value"}, inplace=True)
-        df_export[["X", "Y", "Z", "value"]].to_csv("variograma.gs", sep=" ", index=False)
-        st.success(f"Archivo GSlib generado correctamente para {col_ley}.")
+st.markdown('<div class="panel">', unsafe_allow_html=True)
+st.markdown("<h3>⚙️ Acciones del Variograma</h3>", unsafe_allow_html=True)
 
+col_b1, col_b2, col_b3, col_b4 = st.columns(4)
 
-    # -----------------------------
-    # Botón: exportar CSV
-    # -----------------------------
-    with col_b4:
-        if st.button("📤 Exportar CSV"):
-            st.success("Archivo CSV exportado correctamente (placeholder).")
+with col_b1:
+    if st.button("📈 Generar Variograma"):
+        st.info("Variograma regenerado con los parámetros actuales.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+with col_b2:
+    if st.button("💾 Guardar Configuración"):
+        st.success("Configuración guardada correctamente.")
 
-    # ============================================================
-    # BLOQUE 8 — Guardar Parámetros en Sesión
-    # ============================================================
+# ============================================================
+# 📤 EXPORTACIÓN GSlib MULTI‑ELEMENTO
+# ============================================================
 
-    st.session_state["v_parametros"] = dict(
-        modelo=str(modelo_tipo),
-        nugget=float(nugget_val),
-        sill=float(sill_val),
-        range=float(range_val),
-        n_lags=int(n_lags),
-        lag_dist=float(lag_dist),
-        tolerancia=float(tolerancia_t),
-        acimut=float(acimut),
-        buzamiento=float(buzamiento),
-        omni_3d=bool(omni_3d),
-        ratio_h=float(ratio_h),
-        ratio_v=float(ratio_v)
-    )
+st.markdown("### 📤 Exportación GSlib")
 
-    st.success("✔ Parámetros del variograma almacenados correctamente.")
+if st.button("Exportar GSlib"):
+    df_export = df_c.copy()
+    df_export.rename(columns={col_ley: "value"}, inplace=True)
+    df_export[["X", "Y", "Z", "value"]].to_csv("variograma.gs", sep=" ", index=False)
+    st.success(f"Archivo GSlib generado correctamente para {col_ley}.")
 
+with col_b4:
+    if st.button("📤 Exportar CSV"):
+        st.success("Archivo CSV exportado correctamente (placeholder).")
 
+st.markdown("</div>", unsafe_allow_html=True)
+
+# ============================================================
+# BLOQUE 8 — Guardar Parámetros en Sesión
+# ============================================================
+
+st.session_state["v_parametros"] = dict(
+    modelo=str(modelo_tipo),
+    nugget=float(nugget_val),
+    sill=float(sill_val),
+    range=float(range_val),
+    n_lags=int(n_lags),
+    lag_dist=float(lag_dist),
+    tolerancia=float(tolerancia_t),
+    acimut=float(acimut),
+    buzamiento=float(buzamiento),
+    omni_3d=bool(omni_3d),
+    ratio_h=float(ratio_h),
+    ratio_v=float(ratio_v)
+)
+
+st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
 # 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
 # ====================================================================
