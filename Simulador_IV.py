@@ -1938,14 +1938,15 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (TOPOGRÁFICO)
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR PREMIUM
 # ============================================================
 
-st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar")
+st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Premium)")
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import griddata
+from scipy.interpolate import Rbf
+from scipy.ndimage import gaussian_filter
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
@@ -1963,7 +1964,6 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
     theta = np.radians(dirs)
     r = np.arange(1, n_r + 1)
 
-    # Expandir a una nube de puntos (θ, r, γ)
     TH, RR = np.meshgrid(theta, r)
     Z = gammas.T  # shape (n_r, n_dirs)
 
@@ -1971,39 +1971,62 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
     X = RR * np.cos(TH)
     Y = RR * np.sin(TH)
 
-    # Crear malla fina para interpolación
+    # Interpolación RBF (superficie premium)
+    rbf = Rbf(X.flatten(), Y.flatten(), Z.flatten(), function='multiquadric', smooth=0.5)
+
+    # Malla fina premium
+    grid_size = 800
     grid_x, grid_y = np.meshgrid(
-        np.linspace(-n_r, n_r, 400),
-        np.linspace(-n_r, n_r, 400)
+        np.linspace(-n_r, n_r, grid_size),
+        np.linspace(-n_r, n_r, grid_size)
     )
 
-    # Interpolación tipo superficie topográfica
-    points = np.column_stack((X.flatten(), Y.flatten()))
-    values = Z.flatten()
+    grid_z = rbf(grid_x, grid_y)
 
-    grid_z = griddata(points, values, (grid_x, grid_y), method='cubic')
+    # Suavizado profesional
+    grid_z = gaussian_filter(grid_z, sigma=2)
 
     # Crear figura
     fig, ax = plt.subplots(figsize=(8, 8))
 
-    # Contour suave
-    cs = ax.contourf(grid_x, grid_y, grid_z, levels=20, cmap="jet")
+    # Contour suave premium
+    cs = ax.contourf(grid_x, grid_y, grid_z, levels=40, cmap="jet")
 
-    # Contornos
-    ax.contour(grid_x, grid_y, grid_z, levels=20, colors="black", linewidths=0.5)
+    # Contornos finos
+    ax.contour(grid_x, grid_y, grid_z, levels=40, colors="black", linewidths=0.4)
 
-    # Círculo exterior
+    # Círculo exterior perfecto
     circle = plt.Circle((0, 0), n_r, color='black', fill=False, linewidth=2)
     ax.add_artist(circle)
 
-    # Flecha dirección dominante
+    # Flecha dirección dominante premium
     dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
     ang = np.radians(dir_dom)
-    ax.arrow(0, 0, n_r*np.cos(ang), n_r*np.sin(ang),
-             width=0.1, color="magenta")
+
+    ax.arrow(
+        0, 0,
+        n_r * np.cos(ang),
+        n_r * np.sin(ang),
+        width=0.15,
+        head_width=0.6,
+        head_length=0.8,
+        color="magenta"
+    )
+
+    # Etiquetas direccionales premium
+    for d in [0, 45, 90, 135, 180, 225, 270, 315]:
+        ang_d = np.radians(d)
+        ax.text(
+            1.05 * n_r * np.cos(ang_d),
+            1.05 * n_r * np.sin(ang_d),
+            f"{d}°",
+            fontsize=10,
+            ha="center",
+            va="center"
+        )
 
     ax.set_aspect("equal")
-    ax.set_title(f"Mapa Variográfico Horizontal — Superficie Polar (Dir. {dir_dom}°)")
+    ax.set_title(f"Mapa Variográfico Horizontal — Superficie Polar Premium (Dir. {dir_dom}°)")
     ax.axis("off")
 
     st.pyplot(fig)
