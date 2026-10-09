@@ -1938,7 +1938,7 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (ZOOM REAL)
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (ZOOM REAL CORREGIDO)
 # ============================================================
 
 st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Zoom Real)")
@@ -1948,7 +1948,6 @@ import numpy as np
 from scipy.interpolate import Rbf
 from scipy.ndimage import gaussian_filter
 import io
-import base64
 import plotly.express as px
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
@@ -2014,11 +2013,14 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
     fig.savefig(buf, format="png", dpi=200, bbox_inches="tight")
     buf.seek(0)
 
+    # --- Leer PNG y convertir RGBA → RGB ---
+    img = plt.imread(buf)
+
+    if img.shape[2] == 4:  # RGBA → RGB
+        img = img[:, :, :3]
+
     # --- Mostrar con Plotly Express (zoom real) ---
-    fig_zoom = px.imshow(
-        plt.imread(buf),
-        binary_string=True
-    )
+    fig_zoom = px.imshow(img)
 
     fig_zoom.update_layout(
         dragmode="zoom",
@@ -2030,6 +2032,7 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
 
 else:
     st.info("Calcule primero los variogramas multidireccionales.")
+
 
 # ============================================================
 # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
