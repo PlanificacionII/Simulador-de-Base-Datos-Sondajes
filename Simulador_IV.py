@@ -1134,6 +1134,11 @@ with tab8:
     
     coords_m = df_c[["X", "Y", "Z"]].values
     leyes_m = df_c[col_ley].values
+    n_muestras = len(coords_m)
+    muestreo_max = 500 if n_muestras > 500 else n_muestras
+
+    np.random.seed(42)
+    idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
 
     # Varianza de los datos
     varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
@@ -2163,11 +2168,6 @@ except:
 
 st.markdown("### 🌐 Variograma Omnidireccional 3D")
 
-n_muestras = len(coords_m)
-muestreo_max = 500 if n_muestras > 500 else n_muestras
-
-np.random.seed(42)
-idxs = np.random.choice(n_muestras, muestreo_max, replace=False)
 
 omni_lags = []
 omni_gamma = []
