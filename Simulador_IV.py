@@ -1933,25 +1933,24 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — POLAR PROFESIONAL
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — CONTOUR ESTABLE (RECTANGULAR)
 # ============================================================
 
-st.markdown("### 🌀 Mapa Variográfico Horizontal — Polar Profesional")
+st.markdown("### 🌀 Mapa Variográfico Horizontal — Contour Estable")
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
     dirs = np.array(list(st.session_state["variogramas_multi"].keys()))
     gammas_raw = [st.session_state["variogramas_multi"][d][1] for d in dirs]
 
-    # Número mínimo de lags (evita errores)
-    n_r = min([len(g) for g in gammas_raw])
+    # Número mínimo de lags
+    n_r = min(len(g) for g in gammas_raw)
     n_theta = 360
 
-    # Convertir a matriz y eliminar negativos
+    # Matriz de gammas (recortada al mínimo común) y sin negativos
     gammas = np.array([g[:n_r] for g in gammas_raw])
-    gammas = np.clip(gammas, 0, None)  # variograma nunca negativo
+    gammas = np.clip(gammas, 0, None)
 
-    # Interpolación polar
     theta_grid = np.linspace(0, 360, n_theta)
     r_grid = np.arange(1, n_r + 1)
 
@@ -1963,61 +1962,27 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
             idx = np.argmin(np.abs(dirs - ang))
             gamma_grid[i_r, i_t] = gammas[idx][i_r]
 
-    # Suavizado (muy importante)
-    from scipy.ndimage import gaussian_filter
-    gamma_grid = gaussian_filter(gamma_grid, sigma=1.2)
-
-    # Convertir a coordenadas polares reales
-    Theta, R = np.meshgrid(theta_grid, r_grid)
-    X = R * np.cos(np.radians(Theta))
-    Y = R * np.sin(np.radians(Theta))
-
     fig = go.Figure()
 
     fig.add_trace(go.Contour(
-        x=X,
-        y=Y,
-        z=gamma_grid,
+        x=theta_grid,      # eje X: dirección
+        y=r_grid,          # eje Y: lag
+        z=gamma_grid,      # matriz variográfica
         colorscale="Jet",
         ncontours=20,
         contours=dict(
             coloring="heatmap",
             showlines=True
-        ),
-        colorbar=dict(
-            title="γ(h)",
-            titleside="right"
         )
     ))
 
-    # Círculo exterior
-    circle_theta = np.linspace(0, 2*np.pi, 360)
-    fig.add_trace(go.Scatter(
-        x=n_r * np.cos(circle_theta),
-        y=n_r * np.sin(circle_theta),
-        mode="lines",
-        line=dict(color="black", width=2),
-        name="Límite"
-    ))
-
-    # Flecha dirección dominante
+    # Dirección dominante
     dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
-    ang_rad = np.radians(dir_dom)
-
-    fig.add_trace(go.Scatter(
-        x=[0, n_r * np.cos(ang_rad)],
-        y=[0, n_r * np.sin(ang_rad)],
-        mode="lines+markers",
-        line=dict(color="magenta", width=4),
-        marker=dict(size=8, color="magenta"),
-        name=f"Dirección {dir_dom}°"
-    ))
-
     fig.update_layout(
         height=700,
-        title="Mapa Variográfico Horizontal — Polar Profesional",
-        xaxis=dict(scaleanchor="y", showgrid=False, zeroline=False),
-        yaxis=dict(showgrid=False, zeroline=False),
+        title=f"Mapa Variográfico Horizontal — Contour (Dir. dominante {dir_dom}°)",
+        xaxis_title="Dirección (°)",
+        yaxis_title="Lag",
         plot_bgcolor="white",
         paper_bgcolor="white"
     )
@@ -2026,6 +1991,7 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
 
 else:
     st.info("Calcule primero los variogramas multidireccionales.")
+
    
 # ============================================================
 # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
