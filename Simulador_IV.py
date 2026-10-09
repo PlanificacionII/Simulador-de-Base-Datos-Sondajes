@@ -996,13 +996,12 @@ with tab7:
 
     st.markdown("---")
 # ============================================================
-# 6. ENVOLVENTE 2D DE MINERALIZACIÓN — CONVEX HULL
+# 6. ENVOLVENTE 2D DE MINERALIZACIÓN — CONVEX HULL (SIN SHAPELY)
 # ============================================================
 
 st.markdown("### 🧭 Envolvente 2D de Mineralización (Convex Hull)")
 
-import shapely.geometry as geom
-import shapely.ops as ops
+import numpy as np
 from scipy.spatial import ConvexHull
 import plotly.graph_objects as go
 
@@ -1024,9 +1023,9 @@ else:
     else:
         hull2d = ConvexHull(pts2d)
 
-        # Visualización
         fig_env2d = go.Figure()
 
+        # puntos mineralizados
         fig_env2d.add_trace(go.Scatter(
             x=df_min2d["X"],
             y=df_min2d["Y"],
@@ -1035,7 +1034,7 @@ else:
             name="Mineralización"
         ))
 
-        # Polígono hull
+        # polígono hull
         hull_pts = pts2d[hull2d.vertices]
         fig_env2d.add_trace(go.Scatter(
             x=hull_pts[:, 0],
@@ -1056,7 +1055,7 @@ else:
         st.plotly_chart(fig_env2d, use_container_width=True)
 
 # ============================================================
-# 7. ENVOLVENTE 3D DE MINERALIZACIÓN — CONVEX HULL
+# 7. ENVOLVENTE 3D DE MINERALIZACIÓN — CONVEX HULL (SIN SHAPELY)
 # ============================================================
 
 st.markdown("### 🧱 Envolvente 3D de Mineralización (Sólido Hull)")
