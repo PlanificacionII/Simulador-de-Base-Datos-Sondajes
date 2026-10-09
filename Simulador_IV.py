@@ -2203,6 +2203,18 @@ fig_omni.update_layout(
 )
 
 st.plotly_chart(fig_omni, use_container_width=True)
+# ============================================================
+# 🔧 VECTOR DIRECCIONAL GLOBAL PARA MÓDULOS 3D
+# ============================================================
+
+az_rad = np.radians(acimut)
+dip_rad = np.radians(buzamiento)
+
+v_dir = np.array([
+    np.cos(dip_rad) * np.sin(az_rad),
+    np.cos(dip_rad) * np.cos(az_rad),
+    np.sin(dip_rad)
+])
 
 # ============================================================
 # BLOQUE 6B — Módulos 3D (Variograma, Anisotropía, Elipsoide)
