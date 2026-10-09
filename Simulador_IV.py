@@ -1938,93 +1938,65 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (LEAPFROG COMPACTO)
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (LEAPFROG + ZOOM)
 # ============================================================
 
-st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Leapfrog Compacto)")
+st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Leapfrog + Zoom)")
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import Rbf
 from scipy.ndimage import gaussian_filter
+import plotly.graph_objects as go
+import io
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
     dirs = np.array(list(st.session_state["variogramas_multi"].keys()))
     gammas_raw = [st.session_state["variogramas_multi"][d][1] for d in dirs]
 
-    # Número mínimo de lags
     n_r = min(len(g) for g in gammas_raw)
-
-    # Recortar y eliminar negativos
     gammas = np.array([g[:n_r] for g in gammas_raw])
     gammas = np.clip(gammas, 0, None)
 
-    # Crear puntos polares originales
     theta = np.radians(dirs)
     r = np.arange(1, n_r + 1)
 
     TH, RR = np.meshgrid(theta, r)
     Z = gammas.T
 
-    # Convertir a coordenadas cartesianas
     X = RR * np.cos(TH)
     Y = RR * np.sin(TH)
 
-    # Interpolación RBF premium
     rbf = Rbf(X.flatten(), Y.flatten(), Z.flatten(),
               function='multiquadric', smooth=0.3)
 
-    # Malla compacta (más pequeña)
-    grid_size = 450   # antes 900
+    grid_size = 450
     grid_x, grid_y = np.meshgrid(
         np.linspace(-n_r, n_r, grid_size),
         np.linspace(-n_r, n_r, grid_size)
     )
 
     grid_z = rbf(grid_x, grid_y)
-
-    # Suavizado premium
     grid_z = gaussian_filter(grid_z, sigma=1.8)
 
-    # Figura compacta estilo Leapfrog
-    fig, ax = plt.subplots(figsize=(5.5, 5.5))   # antes (9,9)
+    # --- Crear figura Matplotlib ---
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
     fig.patch.set_facecolor("#1a1a1a")
     ax.set_facecolor("#1a1a1a")
 
-    # Contour suave
-    cs = ax.contourf(
-        grid_x, grid_y, grid_z,
-        levels=35,          # menos niveles para compactar
-        cmap="jet"
-    )
+    cs = ax.contourf(grid_x, grid_y, grid_z, levels=35, cmap="jet")
+    ax.contour(grid_x, grid_y, grid_z, levels=35, colors="white", linewidths=0.30, alpha=0.55)
 
-    # Contornos finos
-    ax.contour(
-        grid_x, grid_y, grid_z,
-        levels=35,
-        colors="white",
-        linewidths=0.30,
-        alpha=0.55
-    )
-
-    # Círculo exterior compacto
-    circle = plt.Circle(
-        (0, 0), n_r,
-        color='white',
-        fill=False,
-        linewidth=2,
-        alpha=0.85
-    )
+    circle = plt.Circle((0, 0), n_r, color='white', fill=False, linewidth=2, alpha=0.85)
     ax.add_artist(circle)
 
-    # Flecha dirección dominante compacta
     dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
     ang = np.radians(dir_dom)
 
     ax.arrow(
         0, 0,
-        0.85 * n_r * np.cos(ang),   # antes 1.0 * n_r
+        0.85 * n_r * np.cos(ang),
         0.85 * n_r * np.sin(ang),
         width=0.12,
         head_width=0.45,
@@ -2033,11 +2005,10 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
         alpha=0.9
     )
 
-    # Etiquetas direccionales compactas
     for d in [0, 45, 90, 135, 180, 225, 270, 315]:
         ang_d = np.radians(d)
         ax.text(
-            1.05 * n_r * np.cos(ang_d),   # antes 1.12
+            1.05 * n_r * np.cos(ang_d),
             1.05 * n_r * np.sin(ang_d),
             f"{d}°",
             fontsize=9,
@@ -2047,14 +2018,40 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
         )
 
     ax.set_aspect("equal")
-    ax.set_title(
-        f"Mapa Variográfico Horizontal — Superficie Polar (Leapfrog Compacto)\nDirección dominante: {dir_dom}°",
-        color="white",
-        fontsize=11
-    )
     ax.axis("off")
 
-    st.pyplot(fig)
+    # --- Convertir Matplotlib → PNG ---
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=200, bbox_inches="tight")
+    buf.seek(0)
+
+    # --- Mostrar en Plotly con zoom ---
+    fig_plotly = go.Figure()
+
+    fig_plotly.add_layout_image(
+        dict(
+            source=buf.getvalue(),
+            xref="x",
+            yref="y",
+            x=0,
+            y=0,
+            sizex=1,
+            sizey=1,
+            sizing="contain",
+            layer="below"
+        )
+    )
+
+    fig_plotly.update_xaxes(visible=False)
+    fig_plotly.update_yaxes(visible=False)
+
+    fig_plotly.update_layout(
+        dragmode="zoom",
+        height=600,
+        margin=dict(l=0, r=0, t=0, b=0)
+    )
+
+    st.plotly_chart(fig_plotly, use_container_width=True)
 
 else:
     st.info("Calcule primero los variogramas multidireccionales.")
