@@ -1938,10 +1938,10 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR PREMIUM
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (LEAPFROG COMPACTO)
 # ============================================================
 
-st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Premium)")
+st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Leapfrog Compacto)")
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1965,17 +1965,18 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
     r = np.arange(1, n_r + 1)
 
     TH, RR = np.meshgrid(theta, r)
-    Z = gammas.T  # shape (n_r, n_dirs)
+    Z = gammas.T
 
     # Convertir a coordenadas cartesianas
     X = RR * np.cos(TH)
     Y = RR * np.sin(TH)
 
-    # Interpolación RBF (superficie premium)
-    rbf = Rbf(X.flatten(), Y.flatten(), Z.flatten(), function='multiquadric', smooth=0.5)
+    # Interpolación RBF premium
+    rbf = Rbf(X.flatten(), Y.flatten(), Z.flatten(),
+              function='multiquadric', smooth=0.3)
 
-    # Malla fina premium
-    grid_size = 800
+    # Malla compacta (más pequeña)
+    grid_size = 450   # antes 900
     grid_x, grid_y = np.meshgrid(
         np.linspace(-n_r, n_r, grid_size),
         np.linspace(-n_r, n_r, grid_size)
@@ -1983,57 +1984,80 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
 
     grid_z = rbf(grid_x, grid_y)
 
-    # Suavizado profesional
-    grid_z = gaussian_filter(grid_z, sigma=2)
+    # Suavizado premium
+    grid_z = gaussian_filter(grid_z, sigma=1.8)
 
-    # Crear figura
-    fig, ax = plt.subplots(figsize=(8, 8))
+    # Figura compacta estilo Leapfrog
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))   # antes (9,9)
+    fig.patch.set_facecolor("#1a1a1a")
+    ax.set_facecolor("#1a1a1a")
 
-    # Contour suave premium
-    cs = ax.contourf(grid_x, grid_y, grid_z, levels=40, cmap="jet")
+    # Contour suave
+    cs = ax.contourf(
+        grid_x, grid_y, grid_z,
+        levels=35,          # menos niveles para compactar
+        cmap="jet"
+    )
 
     # Contornos finos
-    ax.contour(grid_x, grid_y, grid_z, levels=40, colors="black", linewidths=0.4)
+    ax.contour(
+        grid_x, grid_y, grid_z,
+        levels=35,
+        colors="white",
+        linewidths=0.30,
+        alpha=0.55
+    )
 
-    # Círculo exterior perfecto
-    circle = plt.Circle((0, 0), n_r, color='black', fill=False, linewidth=2)
+    # Círculo exterior compacto
+    circle = plt.Circle(
+        (0, 0), n_r,
+        color='white',
+        fill=False,
+        linewidth=2,
+        alpha=0.85
+    )
     ax.add_artist(circle)
 
-    # Flecha dirección dominante premium
+    # Flecha dirección dominante compacta
     dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
     ang = np.radians(dir_dom)
 
     ax.arrow(
         0, 0,
-        n_r * np.cos(ang),
-        n_r * np.sin(ang),
-        width=0.15,
-        head_width=0.6,
-        head_length=0.8,
-        color="magenta"
+        0.85 * n_r * np.cos(ang),   # antes 1.0 * n_r
+        0.85 * n_r * np.sin(ang),
+        width=0.12,
+        head_width=0.45,
+        head_length=0.55,
+        color="#ff00ff",
+        alpha=0.9
     )
 
-    # Etiquetas direccionales premium
+    # Etiquetas direccionales compactas
     for d in [0, 45, 90, 135, 180, 225, 270, 315]:
         ang_d = np.radians(d)
         ax.text(
-            1.05 * n_r * np.cos(ang_d),
+            1.05 * n_r * np.cos(ang_d),   # antes 1.12
             1.05 * n_r * np.sin(ang_d),
             f"{d}°",
-            fontsize=10,
+            fontsize=9,
+            color="white",
             ha="center",
             va="center"
         )
 
     ax.set_aspect("equal")
-    ax.set_title(f"Mapa Variográfico Horizontal — Superficie Polar Premium (Dir. {dir_dom}°)")
+    ax.set_title(
+        f"Mapa Variográfico Horizontal — Superficie Polar (Leapfrog Compacto)\nDirección dominante: {dir_dom}°",
+        color="white",
+        fontsize=11
+    )
     ax.axis("off")
 
     st.pyplot(fig)
 
 else:
     st.info("Calcule primero los variogramas multidireccionales.")
-   
 # ============================================================
 # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
 # ============================================================
