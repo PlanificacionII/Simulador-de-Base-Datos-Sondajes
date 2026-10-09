@@ -1933,10 +1933,14 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — CONTOUR ESTABLE (RECTANGULAR)
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (TOPOGRÁFICO)
 # ============================================================
 
-st.markdown("### 🌀 Mapa Variográfico Horizontal — Contour Estable")
+st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar")
+
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import griddata
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
@@ -1945,53 +1949,62 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
 
     # Número mínimo de lags
     n_r = min(len(g) for g in gammas_raw)
-    n_theta = 360
 
-    # Matriz de gammas (recortada al mínimo común) y sin negativos
+    # Recortar y eliminar negativos
     gammas = np.array([g[:n_r] for g in gammas_raw])
     gammas = np.clip(gammas, 0, None)
 
-    theta_grid = np.linspace(0, 360, n_theta)
-    r_grid = np.arange(1, n_r + 1)
+    # Crear puntos polares originales
+    theta = np.radians(dirs)
+    r = np.arange(1, n_r + 1)
 
-    gamma_grid = np.zeros((n_r, n_theta))
+    # Expandir a una nube de puntos (θ, r, γ)
+    TH, RR = np.meshgrid(theta, r)
+    Z = gammas.T  # shape (n_r, n_dirs)
 
-    for i_r in range(n_r):
-        for i_t in range(n_theta):
-            ang = theta_grid[i_t]
-            idx = np.argmin(np.abs(dirs - ang))
-            gamma_grid[i_r, i_t] = gammas[idx][i_r]
+    # Convertir a coordenadas cartesianas
+    X = RR * np.cos(TH)
+    Y = RR * np.sin(TH)
 
-    fig = go.Figure()
-
-    fig.add_trace(go.Contour(
-        x=theta_grid,      # eje X: dirección
-        y=r_grid,          # eje Y: lag
-        z=gamma_grid,      # matriz variográfica
-        colorscale="Jet",
-        ncontours=20,
-        contours=dict(
-            coloring="heatmap",
-            showlines=True
-        )
-    ))
-
-    # Dirección dominante
-    dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
-    fig.update_layout(
-        height=700,
-        title=f"Mapa Variográfico Horizontal — Contour (Dir. dominante {dir_dom}°)",
-        xaxis_title="Dirección (°)",
-        yaxis_title="Lag",
-        plot_bgcolor="white",
-        paper_bgcolor="white"
+    # Crear malla fina para interpolación
+    grid_x, grid_y = np.meshgrid(
+        np.linspace(-n_r, n_r, 400),
+        np.linspace(-n_r, n_r, 400)
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    # Interpolación tipo superficie topográfica
+    points = np.column_stack((X.flatten(), Y.flatten()))
+    values = Z.flatten()
+
+    grid_z = griddata(points, values, (grid_x, grid_y), method='cubic')
+
+    # Crear figura
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    # Contour suave
+    cs = ax.contourf(grid_x, grid_y, grid_z, levels=20, cmap="jet")
+
+    # Contornos
+    ax.contour(grid_x, grid_y, grid_z, levels=20, colors="black", linewidths=0.5)
+
+    # Círculo exterior
+    circle = plt.Circle((0, 0), n_r, color='black', fill=False, linewidth=2)
+    ax.add_artist(circle)
+
+    # Flecha dirección dominante
+    dir_dom = dirs[np.argmin([np.mean(g) for g in gammas])]
+    ang = np.radians(dir_dom)
+    ax.arrow(0, 0, n_r*np.cos(ang), n_r*np.sin(ang),
+             width=0.1, color="magenta")
+
+    ax.set_aspect("equal")
+    ax.set_title(f"Mapa Variográfico Horizontal — Superficie Polar (Dir. {dir_dom}°)")
+    ax.axis("off")
+
+    st.pyplot(fig)
 
 else:
     st.info("Calcule primero los variogramas multidireccionales.")
-
    
 # ============================================================
 # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
