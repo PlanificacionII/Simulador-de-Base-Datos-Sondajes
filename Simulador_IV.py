@@ -1938,18 +1938,18 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (LEAPFROG + ZOOM CORREGIDO)
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (ZOOM REAL)
 # ============================================================
 
-st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Leapfrog + Zoom)")
+st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Zoom Real)")
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import Rbf
 from scipy.ndimage import gaussian_filter
-import plotly.graph_objects as go
 import io
 import base64
+import plotly.express as px
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
@@ -2006,56 +2006,27 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
         alpha=0.9
     )
 
-    for d in [0, 45, 90, 135, 180, 225, 270, 315]:
-        ang_d = np.radians(d)
-        ax.text(
-            1.05 * n_r * np.cos(ang_d),
-            1.05 * n_r * np.sin(ang_d),
-            f"{d}°",
-            fontsize=9,
-            color="white",
-            ha="center",
-            va="center"
-        )
-
     ax.set_aspect("equal")
     ax.axis("off")
 
-    # --- Convertir Matplotlib → PNG base64 ---
+    # --- Convertir Matplotlib → PNG ---
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=200, bbox_inches="tight")
     buf.seek(0)
 
-    encoded = base64.b64encode(buf.read()).decode("utf-8")
-    img_base64 = "data:image/png;base64," + encoded
-
-    # --- Mostrar en Plotly con zoom ---
-    fig_plotly = go.Figure()
-
-    fig_plotly.add_layout_image(
-        dict(
-            source=img_base64,
-            xref="paper",
-            yref="paper",
-            x=0,
-            y=1,
-            sizex=1,
-            sizey=1,
-            sizing="contain",
-            layer="below"
-        )
+    # --- Mostrar con Plotly Express (zoom real) ---
+    fig_zoom = px.imshow(
+        plt.imread(buf),
+        binary_string=True
     )
 
-    fig_plotly.update_xaxes(visible=False)
-    fig_plotly.update_yaxes(visible=False)
-
-    fig_plotly.update_layout(
+    fig_zoom.update_layout(
         dragmode="zoom",
         height=600,
         margin=dict(l=0, r=0, t=0, b=0)
     )
 
-    st.plotly_chart(fig_plotly, use_container_width=True)
+    st.plotly_chart(fig_zoom, use_container_width=True)
 
 else:
     st.info("Calcule primero los variogramas multidireccionales.")
