@@ -756,114 +756,186 @@ with tab7:
     else:
         st.warning("No hay datos de sondajes disponibles para renderizar en el espacio 3D.")
 # ====================================================================
-# 🧱 PESTAÑA 8: MÓDULO DE MODELAMIENTO DE BLOQUES Y RESERVAS MINERAS
+# 📉 PESTAÑA 8: MÓDULO DE VARIOGRAFÍA AVANZADA (UNIFICADO Y PLANO)
 # ====================================================================
 with tab8:
-    st.write("### 🧱 Módulo de Modelamiento de Bloques y Envolvente Geológica")
-    st.caption("Este módulo interpola las leyes de los compositos en una grilla tridimensional utilizando matrices nativas de NumPy sin bucles manuales.")
+    st.write("### 📉 Módulo de Variografía e Isotropía Avanzada")
+    st.caption("Configura la geometría del tubo de búsqueda tridimensional y calibra el modelo teórico de continuidad.")
     
-    st.write("#### 🛠️ Parámetros del Modelo y Ley de Corte (Cut-off)")
-    c_bl1, c_bl2, c_bl3 = st.columns(3)
-    with c_bl1:
-        tamano_bloque = st.number_input("Tamaño del Bloque Cúbico (m):", min_value=5, max_value=20, value=10, step=5, key="size_bloque_key")
-    with c_bl2:
-        ley_corte = st.number_input(f"Ley de Corte / Cut-off ({unidad}):", min_value=0.0, max_value=15.0, value=0.40 if col_seleccionada=="Cu_pct" else 2.50, step=0.1, key="cutoff_bloque_key")
-    with c_bl3:
-        radio_busqueda = st.number_input("Radio de Búsqueda de Compositos (m):", min_value=50, max_value=300, value=120, step=25, key="radio_search_key")
+    # Rescatamos la base de datos de compositos generada en la pestaña 7
+    df_c = st.session_state.get("df_comp_final", pd.DataFrame())
+    
+    if df_c.empty:
+        st.warning("⚠️ No se registran datos compositados en memoria. Realice el procesamiento en la Pestaña 7 primero.")
+    else:
+        col_seleccionada = "Cu_pct" if elemento_render == "Cobre (Cu %)" else "Au_gpt"
+        unidad = "%" if col_seleccionada == "Cu_pct" else "g/t"
         
-    st.markdown("---")
-    df_c_origen = st.session_state.get('df_comp_final', pd.DataFrame())
-    
-    if df_c_origen.empty:
-        st.warning("⚠️ Primero debes ingresar a la pestaña '7. Compositaje de Pozos' para inicializar la base de datos de soporte regularizada.")
-    else:
-        xyz_comp = []
-        df_m = df_c_origen.merge(df_collar, left_on="Sondaje ID", right_on="Nombre", how="inner")
-        if not df_m.empty and "Desde (m)" in df_m.columns:
-            srv_df = pd.DataFrame(surveys)
-            df_m = df_m.merge(srv_df, left_on="Sondaje ID", right_on="ID", how="inner")
-            az_r = np.radians(df_m["Azimuth"].values)
-            dp_r = np.radians(df_m["Dip"].values)
-            pm = df_m["Desde (m)"].values + ((df_m["Hasta (m)"].values - df_m["Desde (m)"].values) / 2)
-            xc = df_m["UTM Este"].values + (pm * np.cos(dp_r) * np.sin(az_r))
-            yc = df_m["UTM Norte"].values + (pm * np.cos(dp_r) * np.cos(az_r))
-            zc = df_m["Z_Cota"].values + (pm * np.sin(dp_r))
-            vl = df_m[f"Ley Comp. ({unidad})"].values
-            xyz_comp = np.column_stack((xc, yc, zc, vl))
-    if len(xyz_comp) == 0:
-            st.error("❌ No se encontraron compositos estructurados espacialmente en la memoria activa.")
-    else:
-            st.write("#### 🧱 Ejecutando Estimación Tridimensional del Modelo")
-            if st.button("🚀 CONSTRUIR MODELO DE BLOQUES Y ENVOLVENTE", key="construir_bloques_btn"):
-                with st.spinner("Interpolando bloques mediante matriz de distancias..."):
-                    min_x, max_x = xyz_comp[:,0].min() - 40, xyz_comp[:,0].max() + 40
-                    min_y, max_y = xyz_comp[:,1].min() - 40, xyz_comp[:,1].max() + 40
-                    min_z, max_z = xyz_comp[:,2].min() - 50, xyz_comp[:,2].max() + 20
-                    grid_x = np.arange(min_x, max_x, tamano_bloque)
-                    grid_y = np.arange(min_y, max_y, tamano_bloque)
-                    grid_z = np.arange(min_z, max_z, tamano_bloque)
-                    mesh_x, mesh_y, mesh_z = np.meshgrid(grid_x, grid_y, grid_z)
-                    bx_flat, by_flat, bz_flat = mesh_x.flatten(), mesh_y.flatten(), mesh_z.flatten()
+        # Extraemos las matrices de coordenadas espaciales y leyes
+        coords_m = df_c[["X", "Y", "Z"]].values
+        leyes_m = df_c["Ley"].values
+        varianza_datos = float(np.var(leyes_m)) if len(leyes_m) > 0 else 1.0
+        
+        # ------------------------------------------------------------------
+        # PANEL 1: CONFIGURACIÓN GEOMÉTRICA DE ANISOTROPÍA ESPACIAL
+        # ------------------------------------------------------------------
+        st.markdown("#### 📐 1. Geometría del Tubo de Búsqueda")
+        c_geo1, c_geo2 = st.columns(2)
+        with c_geo1:
+            n_lags = st.number_input("Número de lags = ", min_value=1, max_value=30, value=7, step=1, key="v_n_lags")
+            lag_dist = st.number_input("Lag separación (L) = ", min_value=5.0, max_value=100.0, value=20.0, step=5.0, key="v_lag_dist")
+        with c_geo2:
+            tolerancia_t = st.number_input("Tolerancia (T) = ", min_value=5.0, max_value=90.0, value=30.0, step=5.0, key="v_tol_t")
+            radio_tubo = st.number_input("Radio del tubo (B) = ", min_value=5.0, max_value=100.0, value=20.0, step=5.0, key="v_radio_b")
+        
+        omni_3d = st.checkbox("Omnidireccional 3D", value=False, key="v_omni_3d")
+        omni_plano = st.checkbox("Omnidireccional en el plano", value=False, key="v_omni_plano")
+        
+        st.markdown("#### 🧭 2. Orientación Angular (Ángulos de Euler)")
+        c_ang1, c_ang2 = st.columns(2)
+        with c_ang1:
+            acimut = st.number_input("Acimut = ", min_value=0, max_value=360, value=18, step=1, key="v_acimut")
+        with c_ang2:
+            buzamiento = st.number_input("Buzamiento = ", min_value=-90, max_value=90, value=65, step=1, key="v_buzamiento")
+            
+        st.markdown("#### 🛠️ 3. Ajuste Teórico (Estructuras)")
+        modelo_tipo = st.selectbox("Modelo Matemático:", ["spherical", "exponential", "gaussian"], key="v_model_type")
+        
+        c_mod1, c_mod2 = st.columns(2)
+        with c_mod1:
+            nugget_val = st.slider("Pepita (Nugget - C0):", min_value=0.00, max_value=round(varianza_datos, 2), value=round(varianza_datos*0.1, 2), step=0.01, key="v_nugget")
+            sill_val = st.slider("Meseta (Sill - C):", min_value=0.01, max_value=round(varianza_datos * 2.0, 2), value=round(varianza_datos, 2), step=0.05, key="v_sill")
+        with c_mod2:
+            range_val = st.slider("Alcance (Range - m):", min_value=10, max_value=int(n_lags * lag_dist), value=int(n_lags * lag_dist * 0.5), step=10, key="v_range")
+
+        # ------------------------------------------------------------------
+        # PANEL 2: MOTOR MATEMÁTICO DE FILTRADO Y PROYECCIÓN VECTORIAL
+        # ------------------------------------------------------------------
+        st.markdown("---")
+        st.markdown("#### 📊 4. Gráfico de Ajuste Variográfico")
+        
+        lags_experimentales = []
+        gammas_experimentales = []
+        max_dist_estudio = float(n_lags * lag_dist)
+        
+        if omni_3d:
+            from scipy.spatial.distance import pdist
+            if len(coords_m) > 500:
+                np.random.seed(42)
+                idx_m = np.random.choice(len(coords_m), 500, replace=False)
+                c_f, l_f = coords_m[idx_m], leyes_m[idx_m]
+            else:
+                c_f, l_f = coords_m, leyes_m
+            
+            matriz_dist = pdist(c_f)
+            n_m = len(l_f)
+            idx_i, idx_j = np.triu_indices(n_m, k=1)
+            matriz_semivarianza = 0.5 * ((l_f[idx_i] - l_f[idx_j]) ** 2)
+            
+            for step in range(int(n_lags)):
+                d_min = step * lag_dist
+                d_max = (step + 1) * lag_dist
+                filtro_par = (matriz_dist >= d_min) & (matriz_dist < d_max)
+                if np.sum(filtro_par) > 2:
+                    lags_experimentales.append((d_min + d_max) / 2)
+                    gammas_experimentales.append(np.mean(matriz_semivarianza[filtro_par]))
+        else:
+            az_rad = np.radians(acimut)
+            dip_rad = np.radians(buzamiento)
+            
+            v_dir = np.array([
+                np.cos(dip_rad) * np.sin(az_rad),
+                np.cos(dip_rad) * np.cos(az_rad),
+                np.sin(dip_rad)
+            ])
+            
+            n_muestras = len(coords_m)
+            muestreo_max = 400 if n_muestras > 400 else n_muestras
+            
+            np.random.seed(42)
+            indices_estudio = np.random.choice(n_muestras, muestreo_max, replace=False) if n_muestras > 400 else np.arange(n_muestras)
+            
+            lags_acum = {s: [] for s in range(int(n_lags))}
+            gammas_acum = {s: [] for s in range(int(n_lags))}
+            
+            for i in range(len(indices_estudio)):
+                for j in range(i + 1, len(indices_estudio)):
+                    idx_i = indices_estudio[i]
+                    idx_j = indices_estudio[j]
                     
-                    bloques_estimados = []
-                    for idx_b in range(len(bx_flat)):
-                        bx, by, bz = bx_flat[idx_b], by_flat[idx_b], bz_flat[idx_b]
-                        distancias = np.sqrt((xyz_comp[:,0] - bx)**2 + (xyz_comp[:,1] - by)**2 + (xyz_comp[:,2] - bz)**2)
-                        filtro = distancias <= radio_busqueda
-                        d_f, l_f = distancias[filtro], xyz_comp[:,3][filtro]
-                        if len(d_f) > 0:
-                            d_f = np.where(d_f == 0, 0.001, d_f)
-                            pesos = 1.0 / (d_f**2)
-                            ley_est = np.sum(l_f * pesos) / np.sum(pesos)
-                            cat = "Envolvente Mineralizada (Mena)" if ley_est >= ley_corte else "Roca Caja (Estéril)"
-                            bloques_estimados.append({
-                                "Centro X (Este)": int(bx), "Centro Y (Norte)": int(by), "Centro Z (Cota)": int(bz),
-                                f"Ley Estimada ({unidad})": round(float(ley_est), 2), "Categoría": cat
-                            })
-                    df_bloques = pd.DataFrame(bloques_estimados)
-                    st.session_state["db_bloques_activa"] = df_bloques
-                    st.success(f"🎉 ¡Modelo de bloques construido con éxito! Se cubicaron un total de {len(df_bloques)} bloques.")
+                    vector_sep = coords_m[idx_i] - coords_m[idx_j]
+                    dist_real = np.linalg.norm(vector_sep)
+                    
+                    if 0 < dist_real <= max_dist_estudio:
+                        bin_lag = int(dist_real // lag_dist)
+                        if bin_lag >= n_lags: bin_lag = int(n_lags - 1)
+                        
+                        cos_alpha = np.abs(np.dot(vector_sep, v_dir)) / (dist_real * 1.0)
+                        cos_alpha = np.clip(cos_alpha, -1.0, 1.0)
+                        angulo_desviacion = np.degrees(np.arccos(cos_alpha))
+                        
+                        if angulo_desviacion <= tolerancia_t:
+                            semivarianza_par = 0.5 * ((leyes_m[idx_i] - leyes_m[idx_j]) ** 2)
+                            lags_acum[bin_lag].append(dist_real)
+                            gammas_acum[bin_lag].append(semivarianza_par)
+            
+            for s in range(int(n_lags)):
+                if len(lags_acum[s]) > 2:
+                    lags_experimentales.append(np.mean(lags_acum[s]))
+                    gammas_experimentales.append(np.mean(gammas_acum[s]))
 
-            if "db_bloques_activa" in st.session_state:
-                df_b = st.session_state["db_bloques_activa"]
-                st.markdown("---")
-                st.write("#### 📊 Reporte Analítico de Estimación de Recursos")
-                df_mena = df_b[df_b["Categoría"] == "Envolvente Mineralizada (Mena)"]
-                df_esteril = df_b[df_b["Categoría"] == "Roca Caja (Estéril)"]
-                n_mena, n_esteril = len(df_mena), len(df_esteril)
-                ley_prom_mena = df_mena[f"Ley Estimada ({unidad})"].mean() if n_mena > 0 else 0.0
-                ley_prom_tot = df_b[f"Ley Estimada ({unidad})"].mean()
-                vol_bloque = tamano_bloque ** 3
-                tonelaje_mena = n_mena * vol_bloque * 2.7
-                
-                c_rep1, c_rep2, c_rep3 = st.columns(3)
-                with c_rep1:
-                    st.metric(label="Bloques de Mena (>= Cut-off)", value=f"{n_mena} uds")
-                    st.metric(label="Ley Media de la Mena", value=f"{ley_prom_mena:.2f} {unidad}")
-                with c_rep2:
-                    st.metric(label="Bloques Estériles (Roca Caja)", value=f"{n_esteril} uds")
-                    st.metric(label="Ley Media Total del Proyecto", value=f"{ley_prom_tot:.2f} {unidad}")
-                with c_rep3:
-                    st.metric(label="Masa de Mineral Cubicada", value=f"{tonelaje_mena:,.0f} Ton")
-                    st.metric(label="Volumen Neto de Mena", value=f"{n_mena * vol_bloque:,.0f} m³")
+        # --- GENERACIÓN DE LA CURVA TEÓRICA CONTINUA ---
+        h_curva = np.linspace(0, max_dist_estudio, 200)
+        gamma_teorico = np.zeros_like(h_curva)
+        c_estructural = sill_val - nugget_val
+        
+        if modelo_tipo == "spherical":
+            for idx, h in enumerate(h_curva):
+                if h <= range_val:
+                    gamma_teorico[idx] = nugget_val + c_estructural * (1.5 * (h / range_val) - 0.5 * (h / range_val)**3)
+                else:
+                    gamma_teorico[idx] = sill_val
+        elif modelo_tipo == "exponential":
+            gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * h_curva / range_val))
+        elif modelo_tipo == "gaussian":
+            gamma_teorico = nugget_val + c_estructural * (1.0 - np.exp(-3.0 * (h_curva / range_val)**2))
 
-                st.markdown("---")
-                st.write("#### 🛰️ Visualizador de la Envolvente Geológica 3D")
-                filtro_visual = st.radio("Selección de Despliegue en la Escena 3D:", ["Mostrar Solo el Cuerpo Mineralizado (Envolvente)", "Mostrar Modelo de Bloques Completo"], key="filtro_visor_bloques_key")
-                df_render_b = df_mena if filtro_visual == "Mostrar Solo el Cuerpo Mineralizado (Envolvente)" else df_b
-                
-                fig_bloques = go.Figure()
-                colores_mapeo = df_render_b["Categoría"].map({"Envolvente Mineralizada (Mena)": "rgba(231, 76, 60, 0.9)", "Roca Caja (Estéril)": "rgba(189, 195, 199, 0.15)"}).values
-                textos_bloques = [f"Bloque Minero<br>Cota Z: {row['Centro Z (Cota)']}m<br>Ley: {row[f'Ley Estimada ({unidad})']:.2f} {unidad}<br>{row['Categoría']}" for _, row in df_render_b.iterrows()]
-                fig_bloques.add_trace(go.Scatter3d(
-                    x=df_render_b["Centro X (Este)"], y=df_render_b["Centro Y (Norte)"], z=df_render_b["Centro Z (Cota)"],
-                    mode='markers', marker=dict(size=tamano_bloque * 1.1, color=colores_mapeo, symbol='square'), text=textos_bloques, hoverinfo='text', showlegend=False
-                ))
-                config_escena_bloques = dict(xaxis=dict(title="Este (X)", gridcolor="lightgray"), yaxis=dict(title="Norte (Y)", gridcolor="lightgray"), zaxis=dict(title="Cota (Z)", gridcolor="lightgray"), aspectmode="manual", aspectratio=dict(x=1, y=1, z=0.5))
-                fig_bloques.update_layout(width=1300, height=650, margin=dict(l=0, r=0, t=10, b=0), scene=config_escena_bloques)
-                st.plotly_chart(fig_bloques, use_container_width=True, key="visor_grafico_bloques_envolvente_3d")
-                st.session_state["df_bloques"] = df_b
-                crear_boton_excel(df_b, f"Modelo_Bloques_Estimado_{tamano_bloque}m")
+        # --- RENDERIZADO DEL GRÁFICO INTERACTIVO EN PLOTLY ---
+        import plotly.graph_objects as go
+        fig_v = go.Figure()
+        
+        if len(lags_experimentales) > 0:
+            fig_v.add_trace(go.Scatter(
+                x=lags_experimentales, y=gammas_experimentales, mode="markers+lines",
+                name="Variograma Experimental",
+                marker=dict(size=10, color="#1f77b4", symbol="circle"),
+                line=dict(color="rgba(31, 119, 180, 0.4)", width=1, dash="dash")
+            ))
+        
+        fig_v.add_trace(go.Scatter(
+            x=h_curva, y=gamma_teorico, mode="lines",
+            name=f"Modelo Teórico ({modelo_tipo.capitalize()})", line=dict(color="#d62728", width=3)
+        ))
+        
+        fig_v.add_trace(go.Scatter(
+            x=[0, max_dist_estudio], y=[varianza_datos, varianza_datos], mode="lines",
+            name="Varianza de las Muestras", line=dict(color="gray", width=1.5, dash="dash")
+        ))
+        
+        fig_v.update_layout(
+            title=f"Ajuste Geoestadístico (Dirección: Acimut {acimut}° / Buzamiento {buzamiento}°)",
+            title_x=0.5, xaxis_title="Distancia de Separación (h) [Metros]", yaxis_title="Semivarianza γ(h)",
+            hovermode="closest", legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
+            height=520, margin=dict(l=40, r=20, t=40, b=40)
+        )
+        fig_v.update_xaxes(gridcolor="rgba(200,200,200,0.3)", range=[0, max_dist_estudio])
+        fig_v.update_yaxes(gridcolor="rgba(200,200,200,0.3)", range=[0, varianza_datos * 1.8])
+        
+        st.plotly_chart(fig_v, use_container_width=True)
+        
+        # ASIGNACIÓN FINAL TOTALMENTE PLANA E INMUNE A DESFASES
+        st.session_state["v_parametros"] = dict(modelo=modelo_tipo, nugget=nugget_val, sill=sill_val, range=range_val)
+        st.success(f"💾 Variograma guardado. Orientación calibrada: Az={acimut}°, Dip={buzamiento}°. Alcance={range_val}m.")
            
 	#===========================================================================
 	# PESTAÑA 9 RESUMEN Y CURVAS TONELAJE-LEY (TABLA COMPLETA DE DISTRIBUCIÓN)
