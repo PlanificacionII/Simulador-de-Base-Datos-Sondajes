@@ -996,6 +996,100 @@ with tab7:
 
     st.markdown("---")
 # ============================================================
+# 6. ENVOLVENTE 2D DE MINERALIZACIÓN — ALPHA SHAPE
+# ============================================================
+
+st.markdown("### 🧭 Envolvente 2D de Mineralización (Alpha Shape)")
+
+import alphashape
+import shapely.geometry as geom
+import plotly.graph_objects as go
+
+# Selección del cutoff según elemento
+if elemento_visual == "Cu(%)":
+    cutoff2d = st.slider("Cutoff de Cu para envolvente 2D (%):", 0.0, 2.0, 0.2, 0.01)
+    df_min2d = df_comp_final[df_comp_final["Cu(%)"] >= cutoff2d]
+else:
+    cutoff2d = st.slider("Cutoff de Au para envolvente 2D (g/t):", 0.0, 5.0, 0.2, 0.01)
+    df_min2d = df_comp_final[df_comp_final["Au(grs/t)"] >= cutoff2d]
+
+if df_min2d.empty:
+    st.warning("⚠ No hay compositos que cumplan el cutoff para la envolvente 2D.")
+else:
+
+    # Slider para concavidad
+    alpha2d = st.slider(
+        "Nivel de concavidad 2D (alpha):",
+        min_value=0.1, max_value=10.0, value=2.0, step=0.1,
+        help="Valores bajos → más cóncavo. Valores altos → más convexo."
+    )
+
+    # Puntos XY
+    pts2d = list(zip(df_min2d["X"], df_min2d["Y"]))
+
+    if len(pts2d) < 4:
+        st.warning("⚠ No hay suficientes puntos para generar Alpha Shape 2D.")
+    else:
+        # Alpha Shape
+        poly2d = alphashape.alphashape(pts2d, alpha2d)
+
+        # Si es multipolígono → tomar el mayor
+        if isinstance(poly2d, geom.MultiPolygon):
+            poly2d = max(poly2d.geoms, key=lambda p: p.area)
+
+        # Reparar geometrías inválidas
+        poly2d = poly2d.buffer(0)
+
+        # ============================================================
+        # Visualización
+        # ============================================================
+
+        fig_env2d = go.Figure()
+
+        # puntos mineralizados
+        fig_env2d.add_trace(go.Scatter(
+            x=df_min2d["X"],
+            y=df_min2d["Y"],
+            mode="markers",
+            marker=dict(size=4, color="orange"),
+            name="Mineralización"
+        ))
+
+        # polígono alpha shape
+        xs, ys = poly2d.exterior.xy
+
+        fig_env2d.add_trace(go.Scatter(
+            x=xs,
+            y=ys,
+            mode="lines",
+            line=dict(width=3, color="red"),
+            name="Envolvente 2D"
+        ))
+
+        fig_env2d.update_layout(
+            height=500,
+            title=f"Envolvente 2D de Mineralización (Alpha Shape) — Cutoff {cutoff2d}",
+            xaxis_title="X",
+            yaxis_title="Y",
+            showlegend=True
+        )
+
+        st.plotly_chart(fig_env2d, use_container_width=True)
+
+        # ============================================================
+        # Exportación
+        # ============================================================
+
+        def exportar_alpha2d(poly):
+            filas = []
+            for x, y in poly.exterior.coords:
+                filas.append({"X": x, "Y": y})
+            return pd.DataFrame(filas)
+
+        df_export2d = exportar_alpha2d(poly2d)
+        crear_boton_excel(df_export2d, "Envolvente2D_Mineralizacion")
+
+# ============================================================
 # 7. ENVOLVENTE 3D DE MINERALIZACIÓN — ALPHA SHAPE 3D
 # ============================================================
 
