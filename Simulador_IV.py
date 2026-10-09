@@ -996,13 +996,14 @@ with tab7:
 
     st.markdown("---")
 # ============================================================
-# 6. ENVOLVENTE 2D DE MINERALIZACIÓN — ALPHA SHAPE
+# 6. ENVOLVENTE 2D DE MINERALIZACIÓN — CONVEX HULL
 # ============================================================
 
-st.markdown("### 🧭 Envolvente 2D de Mineralización (Alpha Shape)")
+st.markdown("### 🧭 Envolvente 2D de Mineralización (Convex Hull)")
 
-import alphashape
 import shapely.geometry as geom
+import shapely.ops as ops
+from scipy.spatial import ConvexHull
 import plotly.graph_objects as go
 
 # Selección del cutoff según elemento
@@ -1016,37 +1017,16 @@ else:
 if df_min2d.empty:
     st.warning("⚠ No hay compositos que cumplan el cutoff para la envolvente 2D.")
 else:
+    pts2d = df_min2d[["X", "Y"]].values
 
-    # Slider para concavidad
-    alpha2d = st.slider(
-        "Nivel de concavidad 2D (alpha):",
-        min_value=0.1, max_value=10.0, value=2.0, step=0.1,
-        help="Valores bajos → más cóncavo. Valores altos → más convexo."
-    )
-
-    # Puntos XY
-    pts2d = list(zip(df_min2d["X"], df_min2d["Y"]))
-
-    if len(pts2d) < 4:
-        st.warning("⚠ No hay suficientes puntos para generar Alpha Shape 2D.")
+    if len(pts2d) < 3:
+        st.warning("⚠ No hay suficientes puntos para generar una envolvente 2D.")
     else:
-        # Alpha Shape
-        poly2d = alphashape.alphashape(pts2d, alpha2d)
+        hull2d = ConvexHull(pts2d)
 
-        # Si es multipolígono → tomar el mayor
-        if isinstance(poly2d, geom.MultiPolygon):
-            poly2d = max(poly2d.geoms, key=lambda p: p.area)
-
-        # Reparar geometrías inválidas
-        poly2d = poly2d.buffer(0)
-
-        # ============================================================
         # Visualización
-        # ============================================================
-
         fig_env2d = go.Figure()
 
-        # puntos mineralizados
         fig_env2d.add_trace(go.Scatter(
             x=df_min2d["X"],
             y=df_min2d["Y"],
@@ -1055,20 +1035,19 @@ else:
             name="Mineralización"
         ))
 
-        # polígono alpha shape
-        xs, ys = poly2d.exterior.xy
-
+        # Polígono hull
+        hull_pts = pts2d[hull2d.vertices]
         fig_env2d.add_trace(go.Scatter(
-            x=xs,
-            y=ys,
-            mode="lines",
+            x=hull_pts[:, 0],
+            y=hull_pts[:, 1],
+            mode="lines+markers",
             line=dict(width=3, color="red"),
             name="Envolvente 2D"
         ))
 
         fig_env2d.update_layout(
             height=500,
-            title=f"Envolvente 2D de Mineralización (Alpha Shape) — Cutoff {cutoff2d}",
+            title=f"Envolvente 2D de Mineralización (Convex Hull) — Cutoff {cutoff2d}",
             xaxis_title="X",
             yaxis_title="Y",
             showlegend=True
@@ -1076,28 +1055,15 @@ else:
 
         st.plotly_chart(fig_env2d, use_container_width=True)
 
-        # ============================================================
-        # Exportación
-        # ============================================================
-
-        def exportar_alpha2d(poly):
-            filas = []
-            for x, y in poly.exterior.coords:
-                filas.append({"X": x, "Y": y})
-            return pd.DataFrame(filas)
-
-        df_export2d = exportar_alpha2d(poly2d)
-        crear_boton_excel(df_export2d, "Envolvente2D_Mineralizacion")
-
 # ============================================================
-# 7. ENVOLVENTE 3D DE MINERALIZACIÓN — ALPHA SHAPE 3D
+# 7. ENVOLVENTE 3D DE MINERALIZACIÓN — CONVEX HULL
 # ============================================================
 
-st.markdown("### 🧱 Envolvente 3D de Mineralización (Alpha Shape 3D)")
+st.markdown("### 🧱 Envolvente 3D de Mineralización (Sólido Hull)")
 
 import numpy as np
 import plotly.graph_objects as go
-from scipy.spatial import Delaunay
+from scipy.spatial import ConvexHull
 
 # Selección del cutoff según elemento
 if elemento_visual == "Cu(%)":
@@ -1108,128 +1074,48 @@ else:
     df_min3d = df_comp_final[df_comp_final["Au(grs/t)"] >= cutoff3d]
 
 if df_min3d.empty:
-    st.warning("⚠ No hay compositos que cumplan el cutoff para Alpha Shape 3D.")
+    st.warning("⚠ No hay compositos que cumplan el cutoff para la envolvente 3D.")
 else:
-
-    # Slider de concavidad
-    alpha3d = st.slider(
-        "Nivel de concavidad 3D (alpha):",
-        min_value=0.1, max_value=5.0, value=1.5, step=0.1,
-        help="Valores bajos → cuerpo más ajustado. Valores altos → más convexo."
-    )
-
-    # Nube de puntos 3D
     pts3d = df_min3d[["X", "Y", "Z"]].values
 
-    # Delaunay tetrahedralization
-    delaunay = Delaunay(pts3d)
+    if len(pts3d) < 4:
+        st.warning("⚠ No hay suficientes puntos para generar una envolvente 3D.")
+    else:
+        hull3d = ConvexHull(pts3d)
 
-    # Función para calcular circunradio de tetraedro
-    def circunradio(tetra):
-        A = tetra[1] - tetra[0]
-        B = tetra[2] - tetra[0]
-        C = tetra[3] - tetra[0]
-        M = np.vstack([A, B, C]).T
-        vol = np.abs(np.linalg.det(M)) / 6.0
-        edge_lengths = np.array([
-            np.linalg.norm(A),
-            np.linalg.norm(B),
-            np.linalg.norm(C),
-            np.linalg.norm(tetra[2] - tetra[1]),
-            np.linalg.norm(tetra[3] - tetra[1]),
-            np.linalg.norm(tetra[3] - tetra[2])
-        ])
-        R = (edge_lengths.prod()) / (24 * vol)
-        return R
+        fig_env3d = go.Figure()
 
-    # Filtrar tetraedros según alpha
-    good_tetras = []
-    for simplex in delaunay.simplices:
-        tetra = pts3d[simplex]
-        R = circunradio(tetra)
-        if R < (1.0 / alpha3d):
-            good_tetras.append(simplex)
+        # puntos mineralizados
+        fig_env3d.add_trace(go.Scatter3d(
+            x=pts3d[:, 0],
+            y=pts3d[:, 1],
+            z=pts3d[:, 2],
+            mode="markers",
+            marker=dict(size=3, color="orange"),
+            name="Mineralización"
+        ))
 
-    # Extraer triángulos de superficie
-    faces = set()
-    for tet in good_tetras:
-        tet_faces = [
-            (tet[0], tet[1], tet[2]),
-            (tet[0], tet[1], tet[3]),
-            (tet[0], tet[2], tet[3]),
-            (tet[1], tet[2], tet[3])
-        ]
-        for f in tet_faces:
-            if f in faces:
-                faces.remove(f)
-            else:
-                faces.add(f)
+        # sólido 3D
+        fig_env3d.add_trace(go.Mesh3d(
+            x=pts3d[:, 0],
+            y=pts3d[:, 1],
+            z=pts3d[:, 2],
+            i=hull3d.simplices[:, 0],
+            j=hull3d.simplices[:, 1],
+            k=hull3d.simplices[:, 2],
+            color="red",
+            opacity=0.45,
+            name="Envolvente 3D"
+        ))
 
-    # Convertir a arrays para Plotly
-    tri_x = []
-    tri_y = []
-    tri_z = []
+        fig_env3d.update_layout(
+            height=650,
+            title=f"Envolvente 3D de Mineralización (Convex Hull) — Cutoff {cutoff3d}",
+            scene=dict(aspectmode="data"),
+            margin=dict(l=0, r=0, t=40, b=0)
+        )
 
-    for f in faces:
-        tri_x.append([pts3d[f[0]][0], pts3d[f[1]][0], pts3d[f[2]][0]])
-        tri_y.append([pts3d[f[0]][1], pts3d[f[1]][1], pts3d[f[2]][1]])
-        tri_z.append([pts3d[f[0]][2], pts3d[f[1]][2], pts3d[f[2]][2]])
-
-    # ============================================================
-    # Visualización 3D del cuerpo Alpha Shape
-    # ============================================================
-
-    fig_alpha3d = go.Figure()
-
-    # puntos mineralizados
-    fig_alpha3d.add_trace(go.Scatter3d(
-        x=df_min3d["X"],
-        y=df_min3d["Y"],
-        z=df_min3d["Z"],
-        mode="markers",
-        marker=dict(size=3, color="orange"),
-        name="Mineralización"
-    ))
-
-    # malla 3D del cuerpo
-    fig_alpha3d.add_trace(go.Mesh3d(
-        x=np.array(tri_x).flatten(),
-        y=np.array(tri_y).flatten(),
-        z=np.array(tri_z).flatten(),
-        i=np.arange(len(tri_x)),
-        j=np.arange(len(tri_x)),
-        k=np.arange(len(tri_x)),
-        color="red",
-        opacity=0.45,
-        name="Alpha Shape 3D"
-    ))
-
-    fig_alpha3d.update_layout(
-        height=650,
-        title=f"Alpha Shape 3D — Cutoff {cutoff3d}",
-        scene=dict(aspectmode="data"),
-        margin=dict(l=0, r=0, t=40, b=0)
-    )
-
-    st.plotly_chart(fig_alpha3d, use_container_width=True)
-
-    # ============================================================
-    # Exportación del cuerpo 3D
-    # ============================================================
-
-    def exportar_alpha3d(tri_x, tri_y, tri_z):
-        filas = []
-        for i in range(len(tri_x)):
-            filas.append({
-                "X1": tri_x[i][0], "Y1": tri_y[i][0], "Z1": tri_z[i][0],
-                "X2": tri_x[i][1], "Y2": tri_y[i][1], "Z2": tri_z[i][1],
-                "X3": tri_x[i][2], "Y3": tri_y[i][2], "Z3": tri_z[i][2],
-            })
-        return pd.DataFrame(filas)
-
-    df_export3d = exportar_alpha3d(tri_x, tri_y, tri_z)
-    crear_boton_excel(df_export3d, "AlphaShape3D_Mineralizacion")
-
+        st.plotly_chart(fig_env3d, use_container_width=True)
     # ============================================================
     # 5. VISUALIZACIÓN 3D (SOLO EN PESTAÑA 7)
     # ============================================================
