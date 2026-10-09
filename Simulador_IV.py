@@ -1938,7 +1938,7 @@ if len(variomulti) > 0:
 else:
     st.info("Calcule primero los variogramas multidireccionales para ver el elipsoide variográfico.")
 # ============================================================
-# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (LEAPFROG + ZOOM)
+# 🌀 MAPA VARIOGRÁFICO HORIZONTAL — SUPERFICIE POLAR (LEAPFROG + ZOOM CORREGIDO)
 # ============================================================
 
 st.markdown("### 🌀 Mapa Variográfico Horizontal — Superficie Polar (Leapfrog + Zoom)")
@@ -1949,6 +1949,7 @@ from scipy.interpolate import Rbf
 from scipy.ndimage import gaussian_filter
 import plotly.graph_objects as go
 import io
+import base64
 
 if "variogramas_multi" in st.session_state and len(st.session_state["variogramas_multi"]) > 0:
 
@@ -2020,21 +2021,24 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
     ax.set_aspect("equal")
     ax.axis("off")
 
-    # --- Convertir Matplotlib → PNG ---
+    # --- Convertir Matplotlib → PNG base64 ---
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=200, bbox_inches="tight")
     buf.seek(0)
+
+    encoded = base64.b64encode(buf.read()).decode("utf-8")
+    img_base64 = "data:image/png;base64," + encoded
 
     # --- Mostrar en Plotly con zoom ---
     fig_plotly = go.Figure()
 
     fig_plotly.add_layout_image(
         dict(
-            source=buf.getvalue(),
-            xref="x",
-            yref="y",
+            source=img_base64,
+            xref="paper",
+            yref="paper",
             x=0,
-            y=0,
+            y=1,
             sizex=1,
             sizey=1,
             sizing="contain",
@@ -2055,6 +2059,7 @@ if "variogramas_multi" in st.session_state and len(st.session_state["variogramas
 
 else:
     st.info("Calcule primero los variogramas multidireccionales.")
+
 # ============================================================
 # 📘 VARIOGRAMA VERTICAL (Downhole Variogram)
 # ============================================================
