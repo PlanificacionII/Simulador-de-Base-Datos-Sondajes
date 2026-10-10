@@ -1055,66 +1055,74 @@ else:
         st.plotly_chart(fig_env2d, use_container_width=True)
 
 # ============================================================
-# 7. ENVOLVENTE 3D DE MINERALIZACIÓN — CONVEX HULL (SIN SHAPELY)
+# 7. SÓLIDO 3D AJUSTADO DE MINERALIZACIÓN (Isosuperficie por ley)
 # ============================================================
 
-st.markdown("### 🧱 Envolvente 3D de Mineralización (Sólido Hull)")
+st.markdown("### 🧱 Sólido 3D Ajustado de Mineralización (Isosuperficie)")
 
 import numpy as np
 import plotly.graph_objects as go
-from scipy.spatial import ConvexHull
+from scipy.interpolate import griddata
 
 # Selección del cutoff según elemento
 if elemento_visual == "Cu(%)":
-    cutoff3d = st.slider("Cutoff de Cu para envolvente 3D (%):", 0.0, 2.0, 0.2, 0.01)
-    df_min3d = df_comp_final[df_comp_final["Cu(%)"] >= cutoff3d]
+    cutoff3d = st.slider("Cutoff de Cu para sólido 3D (%):", 0.0, 2.0, 0.2, 0.01)
+    df_min3d = df_comp_final[df_comp_final["Cu(%)"] > 0]
+    valores = df_min3d["Cu(%)"].values
 else:
-    cutoff3d = st.slider("Cutoff de Au para envolvente 3D (g/t):", 0.0, 5.0, 0.2, 0.01)
-    df_min3d = df_comp_final[df_comp_final["Au(grs/t)"] >= cutoff3d]
+    cutoff3d = st.slider("Cutoff de Au para sólido 3D (g/t):", 0.0, 5.0, 0.2, 0.01)
+    df_min3d = df_comp_final[df_comp_final["Au(grs/t)"] > 0]
+    valores = df_min3d["Au(grs/t)"].values
 
 if df_min3d.empty:
-    st.warning("⚠ No hay compositos que cumplan el cutoff para la envolvente 3D.")
+    st.warning("⚠ No hay compositos con ley para generar el sólido 3D.")
 else:
-    pts3d = df_min3d[["X", "Y", "Z"]].values
+    pts = df_min3d[["X", "Y", "Z"]].values
 
-    if len(pts3d) < 4:
-        st.warning("⚠ No hay suficientes puntos para generar una envolvente 3D.")
-    else:
-        hull3d = ConvexHull(pts3d)
+    # Definir malla 3D
+    nx, ny, nz = 40, 40, 40  # puedes ajustar resolución
+    xg = np.linspace(pts[:,0].min(), pts[:,0].max(), nx)
+    yg = np.linspace(pts[:,1].min(), pts[:,1].max(), ny)
+    zg = np.linspace(pts[:,2].min(), pts[:,2].max(), nz)
+    Xg, Yg, Zg = np.meshgrid(xg, yg, zg)
 
-        fig_env3d = go.Figure()
+    # Interpolar ley en la malla
+    grid_ley = griddata(pts, valores, (Xg, Yg, Zg), method="linear", fill_value=0)
 
-        # puntos mineralizados
-        fig_env3d.add_trace(go.Scatter3d(
-            x=pts3d[:, 0],
-            y=pts3d[:, 1],
-            z=pts3d[:, 2],
-            mode="markers",
-            marker=dict(size=3, color="orange"),
-            name="Mineralización"
-        ))
+    # Visualización como volumen con isosuperficie
+    fig_vol = go.Figure()
 
-        # sólido 3D
-        fig_env3d.add_trace(go.Mesh3d(
-            x=pts3d[:, 0],
-            y=pts3d[:, 1],
-            z=pts3d[:, 2],
-            i=hull3d.simplices[:, 0],
-            j=hull3d.simplices[:, 1],
-            k=hull3d.simplices[:, 2],
-            color="red",
-            opacity=0.45,
-            name="Envolvente 3D"
-        ))
+    fig_vol.add_trace(go.Volume(
+        x=Xg.flatten(),
+        y=Yg.flatten(),
+        z=Zg.flatten(),
+        value=grid_ley.flatten(),
+        isomin=cutoff3d,
+        isomax=grid_ley.max(),
+        opacity=0.15,
+        surface_count=12,
+        colorscale="Hot",
+        name="Sólido 3D ajustado"
+    ))
 
-        fig_env3d.update_layout(
-            height=650,
-            title=f"Envolvente 3D de Mineralización (Convex Hull) — Cutoff {cutoff3d}",
-            scene=dict(aspectmode="data"),
-            margin=dict(l=0, r=0, t=40, b=0)
-        )
+    # puntos mineralizados
+    fig_vol.add_trace(go.Scatter3d(
+        x=pts[:,0],
+        y=pts[:,1],
+        z=pts[:,2],
+        mode="markers",
+        marker=dict(size=2, color="orange"),
+        name="Compositos"
+    ))
 
-        st.plotly_chart(fig_env3d, use_container_width=True)
+    fig_vol.update_layout(
+        height=650,
+        title=f"Sólido 3D Ajustado por Ley — Cutoff {cutoff3d}",
+        scene=dict(aspectmode="data"),
+        margin=dict(l=0, r=0, t=40, b=0)
+    )
+
+    st.plotly_chart(fig_vol, use_container_width=True)
     # ============================================================
     # 5. VISUALIZACIÓN 3D (SOLO EN PESTAÑA 7)
     # ============================================================
