@@ -2547,12 +2547,12 @@ st.session_state["v_parametros"] = dict(
 
 st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
-# 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING SIMPLIFICADO)
+# 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (KRIGING ORDINARIO COMPLETO)
 # ====================================================================
 with tab9:
 
-    st.write("### 🧊 Modelo de Bloques 3D (Kriging Simplificado)")
-    st.caption("Estimación de leyes en un modelo de bloques regular usando IDW, compatible con variografía.")
+    st.write("### 🧊 Modelo de Bloques 3D (Kriging Ordinario Completo)")
+    st.caption("Estimación de leyes en un modelo de bloques regular usando Kriging Ordinario, compatible con variografía.")
 
     # Parámetros del modelo de bloques
     col1, col2, col3 = st.columns(3)
@@ -2588,37 +2588,114 @@ with tab9:
 
     # Extraer coordenadas y leyes
     coords_assay = df_c[["X", "Y", "Z"]].values
-    valores_assay = df_c[col_ley].values
+    valores_assay = df_c[col_ley_b].values
 
     # 🔥 Filtrar leyes cero
     mask_ley = valores_assay > 0
     coords_assay = coords_assay[mask_ley]
     valores_assay = valores_assay[mask_ley]
 
-    st.info("🔧 Se utilizará un kriging simplificado (IDW) para fines docentes.")
+    if len(valores_assay) == 0:
+        st.warning("⚠️ No hay compositos con ley > 0 para estimar bloques.")
+        st.stop()
 
+    st.info("🔧 Se utilizará Kriging Ordinario Completo basado en variograma esférico.")
+
+    # ----------------------------------------------------------------
+    # Variograma esférico + covarianza
+    # ----------------------------------------------------------------
+    v_params = st.session_state.get("v_parametros", {})
+    nugget = v_params.get("nugget", 0.1)
+    sill   = v_params.get("sill",   1.0)
+    rango  = v_params.get("range",  200.0)
+
+    st.write(f"Parámetros de variograma usados → Nugget: {nugget}, Sill: {sill}, Rango: {rango} m")
+
+    def gamma_esferico(h, nugget, sill, rango):
+        h = np.array(h)
+        g = np.zeros_like(h)
+        mask = h > 0
+        h_m = h[mask]
+        g[mask] = np.where(
+            h_m >= rango,
+            nugget + sill,
+            nugget + sill * (1.5*(h_m/rango) - 0.5*(h_m/rango)**3)
+        )
+        return g
+
+    def covarianza(h, nugget, sill, rango):
+        c0 = nugget + sill
+        return c0 - gamma_esferico(h, nugget, sill, rango)
+
+    from numpy.linalg import solve
+
+    def kriging_ordinario_bloque(
+        x_block, y_block, z_block,
+        coords_comp, vals_comp,
+        nugget, sill, rango
+    ):
+        centro = np.array([x_block, y_block, z_block])
+        d = np.linalg.norm(coords_comp - centro, axis=1)
+
+        # vecinos dentro del alcance (rango)
+        mask = d <= rango
+        if np.sum(mask) < 3:
+            return 0.0
+
+        coords_n = coords_comp[mask]
+        vals_n = vals_comp[mask]
+        n = len(coords_n)
+
+        # matriz de distancias entre vecinos
+        D_ij = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                D_ij[i, j] = np.linalg.norm(coords_n[i] - coords_n[j])
+
+        # matriz de covarianza C_ij
+        C_ij = covarianza(D_ij, nugget, sill, rango)
+
+        # sistema de kriging ordinario (n+1 x n+1)
+        K = np.zeros((n+1, n+1))
+        K[:n, :n] = C_ij
+        K[:n, n] = 1.0
+        K[n, :n] = 1.0
+
+        # covarianza bloque–vecinos
+        d_block = np.linalg.norm(coords_n - centro, axis=1)
+        c_block = covarianza(d_block, nugget, sill, rango)
+
+        rhs = np.zeros(n+1)
+        rhs[:n] = c_block
+        rhs[n] = 1.0
+
+        try:
+            sol = solve(K, rhs)
+        except:
+            return 0.0
+
+        w = sol[:n]  # pesos kriging
+
+        # estimación
+        z_est = np.sum(w * vals_n)
+        return float(z_est)
+
+    # ----------------------------------------------------------------
+    # Estimación de bloques por Kriging Ordinario
+    # ----------------------------------------------------------------
     bx_list, by_list, bz_list, ley_block = [], [], [], []
 
-    # Alcance del variograma (si existe)
-    alcance_variograma = st.session_state.get("v_parametros", {}).get("range", 200)
-
-    # Estimación por IDW
     for x0 in x_centros:
         for y0 in y_centros:
             for z0 in z_centros:
-                centro = np.array([x0, y0, z0])
-                dist = np.linalg.norm(coords_assay - centro, axis=1)
+                est_ley = kriging_ordinario_bloque(
+                    x0, y0, z0,
+                    coords_assay, valores_assay,
+                    nugget, sill, rango
+                )
 
-                dist[dist == 0] = 0.1  # evitar división por cero
-
-                mask = dist <= alcance_variograma
-
-                if np.sum(mask) < 3:
+                if est_ley <= 0:
                     continue
-
-                w = 1.0 / dist[mask]
-                w = w / np.sum(w)
-                est_ley = np.sum(w * valores_assay[mask])
 
                 bx_list.append(x0)
                 by_list.append(y0)
@@ -2626,19 +2703,19 @@ with tab9:
                 ley_block.append(est_ley)
 
     if len(ley_block) == 0:
-        st.warning("⚠️ No se pudieron estimar bloques. Ajusta el alcance o el tamaño de bloque.")
+        st.warning("⚠️ No se pudieron estimar bloques. Ajusta el rango del variograma o el tamaño de bloque.")
     else:
         df_blocks = pd.DataFrame({
             "X_centro": bx_list,
             "Y_centro": by_list,
             "Z_centro": bz_list,
-            f"Ley_{col_ley_b}": ley_block
+            f"Krig_{col_ley_b}": ley_block
         })
 
-        st.write("#### 📋 Tabla Resumida del Modelo de Bloques")
+        st.write("#### 📋 Tabla Resumida del Modelo de Bloques (Kriging Ordinario)")
         st.dataframe(df_blocks.head(200), use_container_width=True)
 
-        crear_boton_excel(df_blocks, "Modelo_Bloques_Kriging_Simplificado")
+        crear_boton_excel(df_blocks, "Modelo_Bloques_Kriging_Ordinario")
 
         # Visualización 3D del modelo de bloques
         st.write("#### 🛰️ Visualización 3D del Modelo de Bloques")
@@ -2652,13 +2729,13 @@ with tab9:
             mode="markers",
             marker=dict(
                 size=4,
-                color=df_blocks[f"Ley_{col_ley_b}"],
+                color=df_blocks[f"Krig_{col_ley_b}"],
                 colorscale="Viridis",
-                cmin=float(df_blocks[f"Ley_{col_ley_b}"].min()),
-                cmax=float(df_blocks[f"Ley_{col_ley_b}"].max()),
+                cmin=float(df_blocks[f"Krig_{col_ley_b}"].min()),
+                cmax=float(df_blocks[f"Krig_{col_ley_b}"].max()),
                 colorbar=dict(title=f"Ley {unidad_b}")
             ),
-            name="Bloques Estimados"
+            name="Bloques Kriging"
         ))
 
         fig_blocks.update_layout(
@@ -2669,7 +2746,7 @@ with tab9:
                 aspectmode="data"
             ),
             margin=dict(l=0, r=0, t=30, b=0),
-            title="Modelo de Bloques 3D – Kriging Simplificado"
+            title="Modelo de Bloques 3D – Kriging Ordinario Completo"
         )
 
         st.plotly_chart(fig_blocks, use_container_width=True)
