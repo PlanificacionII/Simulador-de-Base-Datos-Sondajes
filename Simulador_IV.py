@@ -2547,41 +2547,44 @@ st.session_state["v_parametros"] = dict(
 
 st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
-# 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (IDW² / KRIGING / ANISOTROPÍA)
+# 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (IDW² / KRIGING PRO / ANISOTROPÍA / OCTANTES)
 # ====================================================================
 with tab9:
 
-    st.write("### 🧊 Modelo de Bloques 3D (IDW² / Kriging Ordinario / Anisotropía)")
-    st.caption("Estimación de leyes en un modelo de bloques regular usando IDW², Kriging Ordinario y Kriging con Anisotropía.")
+    st.write("### 🧊 Modelo de Bloques 3D (IDW² / Kriging Profesional)")
+    st.caption("Estimación de leyes en un modelo de bloques regular usando IDW², Kriging Ordinario, anisotropía y octantes.")
 
+    # -----------------------------
     # Parámetros del modelo de bloques
+    # -----------------------------
     col1, col2, col3 = st.columns(3)
     with col1:
-        bx = st.number_input("Tamaño bloque X (m):", min_value=10, max_value=100, value=40, step=10)
+        bx = st.number_input("Tamaño bloque X (m):", min_value=10.0, max_value=100.0, value=40.0, step=10.0)
     with col2:
-        by = st.number_input("Tamaño bloque Y (m):", min_value=10, max_value=100, value=40, step=10)
+        by = st.number_input("Tamaño bloque Y (m):", min_value=10.0, max_value=100.0, value=40.0, step=10.0)
     with col3:
-        bz = st.number_input("Tamaño bloque Z (m):", min_value=10, max_value=100, value=20, step=10)
+        bz = st.number_input("Tamaño bloque Z (m):", min_value=10.0, max_value=100.0, value=20.0, step=10.0)
 
     # Extensión del modelo según collares
     min_x_b = float(df_collar["UTM Este"].min())
     max_x_b = float(df_collar["UTM Este"].max())
     min_y_b = float(df_collar["UTM Norte"].min())
     max_y_b = float(df_collar["UTM Norte"].max())
-    min_z_b = float(df_collar["Z_Cota"].min()) - 400
+    min_z_b = float(df_collar["Z_Cota"].min()) - 400.0
     max_z_b = float(df_collar["Z_Cota"].max())
 
     x_centros = np.arange(min_x_b, max_x_b + bx, bx)
     y_centros = np.arange(min_y_b, max_y_b + by, by)
     z_centros = np.arange(min_z_b, max_z_b, bz)
 
+    # -----------------------------
     # Selección de ley
+    # -----------------------------
     col_ley_b = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
     unidad_b = "%" if col_ley_b == "Cu(%)" else "g/t"
 
     # Recuperar compositos
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
-
     if df_c.empty:
         st.warning("⚠️ No hay compositos disponibles. Genera la base en la Pestaña 7.")
         st.stop()
@@ -2598,104 +2601,183 @@ with tab9:
         st.warning("⚠️ No hay compositos con ley > 0 para estimar bloques.")
         st.stop()
 
+    # -----------------------------
     # Selección de método
-    metodo = st.radio("Método de estimación:", ["IDW²", "Kriging Ordinario", "Kriging con Anisotropía"], horizontal=True)
+    # -----------------------------
+    metodo = st.radio(
+        "Método de estimación:",
+        ["IDW²", "Kriging Ordinario", "Kriging Anisotrópico"],
+        horizontal=True
+    )
 
-    # Variograma desde pestaña 8
+    # -----------------------------
+    # Variograma desde Pestaña 8
+    # -----------------------------
     v_params = st.session_state.get("v_parametros", {})
-    nugget = v_params.get("nugget", 0.1)
-    sill   = v_params.get("sill",   1.0)
-    rango  = v_params.get("range",  200.0)
+    nugget = float(v_params.get("nugget", 0.1))
+    sill   = float(v_params.get("sill",   1.0))
+    rango  = float(v_params.get("range",  200.0))
 
-    st.write(f"Variograma → Nugget: {nugget}, Sill: {sill}, Rango: {rango} m")
+    st.write(f"Variograma base → Nugget={nugget}, Sill={sill}, Rango={rango} m")
 
-    # ============================================================
-    # Variograma esférico + covarianza
-    # ============================================================
-    def gamma_esferico(h, nugget, sill, rango):
-        h = np.array(h)
-        g = np.zeros_like(h)
-        mask = h > 0
-        h_m = h[mask]
-        g[mask] = np.where(
-            h_m >= rango,
-            nugget + sill,
-            nugget + sill * (1.5*(h_m/rango) - 0.5*(h_m/rango)**3)
-        )
-        return g
+    # -----------------------------
+    # Parámetros de anisotropía y vecinos
+    # -----------------------------
+    st.markdown("### 🎯 Parámetros de Anisotropía y Vecinos")
 
-    def covarianza(h, nugget, sill, rango):
-        c0 = nugget + sill
-        return c0 - gamma_esferico(h, nugget, sill, rango)
-
-    # ============================================================
-    # ANISOTROPÍA PROFESIONAL
-    # ============================================================
-    st.subheader("⚙️ Parámetros de Anisotropía (solo si se selecciona Kriging Anisotrópico)")
-    colA, colB, colC, colD = st.columns(4)
+    colA, colB, colC = st.columns(3)
     with colA:
-        azimut = st.number_input("Azimut (°):", 0, 360, 0, 5)
+        a1 = st.number_input("Alcance mayor a₁ (m):", 10.0, 2000.0, rango, 10.0)
     with colB:
-        a1 = st.number_input("Alcance mayor a₁ (m):", 10, 2000, rango, 10)
+        a2 = st.number_input("Alcance intermedio a₂ (m):", 10.0, 2000.0, rango * 0.7, 10.0)
     with colC:
-        a2 = st.number_input("Alcance menor a₂ (m):", 10, 2000, rango/2, 10)
-    with colD:
-        a3 = st.number_input("Alcance vertical a₃ (m):", 10, 2000, rango/3, 10)
+        a3 = st.number_input("Alcance menor a₃ (m):", 10.0, 2000.0, rango * 0.4, 10.0)
 
-    def distancia_anisotropica(p1, p2):
-        dx = p1[0] - p2[0]
-        dy = p1[1] - p2[1]
-        dz = p1[2] - p2[2]
+    colR1, colR2, colR3 = st.columns(3)
+    with colR1:
+        azimut = st.number_input("Azimut (°)", 0.0, 360.0, 0.0, 5.0)
+    with colR2:
+        buzamiento = st.number_input("Buzamiento (°)", -90.0, 90.0, 0.0, 5.0)
+    with colR3:
+        rake = st.number_input("Rake (°)", -180.0, 180.0, 0.0, 5.0)
 
-        theta = np.radians(azimut)
-        xr = dx * np.cos(theta) + dy * np.sin(theta)
-        yr = -dx * np.sin(theta) + dy * np.cos(theta)
-        zr = dz
+    colN1, colN2 = st.columns(2)
+    with colN1:
+        max_vecinos = st.number_input("Máximo de vecinos por bloque:", 4, 64, 16, 2)
+    with colN2:
+        usar_octantes = st.checkbox("Usar búsqueda por octantes", value=True)
 
-        return np.sqrt((xr/a1)**2 + (yr/a2)**2 + (zr/a3)**2)
+    # -----------------------------
+    # Rotación y distancia anisotrópica
+    # -----------------------------
+    def rot_matrix(az, dip, rk):
+        az = np.radians(az)
+        dip = np.radians(dip)
+        rk = np.radians(rk)
 
-    # ============================================================
-    # KRIGING ORDINARIO COMPLETO
-    # ============================================================
+        Rz = np.array([[ np.cos(az), -np.sin(az), 0],
+                       [ np.sin(az),  np.cos(az), 0],
+                       [ 0,           0,          1]])
+
+        Rx = np.array([[1, 0, 0],
+                       [0, np.cos(dip), -np.sin(dip)],
+                       [0, np.sin(dip),  np.cos(dip)]])
+
+        Ry = np.array([[ np.cos(rk), 0, np.sin(rk)],
+                       [ 0,          1, 0],
+                       [-np.sin(rk), 0, np.cos(rk)]])
+        return Rz @ Rx @ Ry
+
+    R = rot_matrix(azimut, buzamiento, rake)
+
+    def dist_aniso(p1, p2):
+        d = p2 - p1
+        d_rot = R @ d
+        return np.sqrt((d_rot[0]/a1)**2 + (d_rot[1]/a2)**2 + (d_rot[2]/a3)**2)
+
+    # -----------------------------
+    # Variograma esférico + covarianza
+    # -----------------------------
+    def gamma_esferico(h, nugget, sill):
+        h = np.array(h)
+        return np.where(
+            h >= 1.0,
+            nugget + sill,
+            nugget + sill * (1.5*h - 0.5*h**3)
+        )
+
+    def covarianza(h, nugget, sill):
+        c0 = nugget + sill
+        return c0 - gamma_esferico(h, nugget, sill)
+
     from numpy.linalg import solve
 
-    def kriging_ordinario_bloque(xb, yb, zb, anisotropia=False):
+    # -----------------------------
+    # Búsqueda de vecinos (con octantes)
+    # -----------------------------
+    def obtener_vecinos(centro):
+        # distancia isotrópica para preselección
+        d = np.linalg.norm(coords_assay - centro, axis=1)
+        mask = d <= rango
+        idx_candidatos = np.where(mask)[0]
+        if len(idx_candidatos) < 3:
+            return np.array([], dtype=int)
+
+        if not usar_octantes:
+            # ordenar por distancia y limitar
+            orden = np.argsort(d[idx_candidatos])
+            idx_sel = idx_candidatos[orden][:max_vecinos]
+            return idx_sel
+
+        # octantes: dividir por signos de dx, dy, dz
+        vecinos_por_octante = max(1, max_vecinos // 8)
+        seleccion = []
+
+        for i in idx_candidatos:
+            dx, dy, dz = coords_assay[i] - centro
+            oct_key = (dx >= 0, dy >= 0, dz >= 0)
+            # asignar índice de octante
+            # 8 octantes: (True/False, True/False, True/False)
+            # usamos dict para contar
+            # pero para simplificar, seleccionamos por distancia luego
+            seleccion.append((i, oct_key, d[i]))
+
+        # agrupar por octante
+        from collections import defaultdict
+        oct_dict = defaultdict(list)
+        for i, oct_key, dist_i in seleccion:
+            oct_dict[oct_key].append((i, dist_i))
+
+        final_idx = []
+        for oct_key, lista in oct_dict.items():
+            lista_sorted = sorted(lista, key=lambda x: x[1])
+            for i, dist_i in lista_sorted[:vecinos_por_octante]:
+                final_idx.append(i)
+
+        if len(final_idx) > max_vecinos:
+            # recortar por distancia global
+            d_sel = [(i, np.linalg.norm(coords_assay[i] - centro)) for i in final_idx]
+            d_sel_sorted = sorted(d_sel, key=lambda x: x[1])
+            final_idx = [i for i, _ in d_sel_sorted[:max_vecinos]]
+
+        return np.array(final_idx, dtype=int)
+
+    # -----------------------------
+    # Kriging ordinario (isotrópico / anisotrópico)
+    # -----------------------------
+    def kriging_bloque(xb, yb, zb, anisotropico=False):
         centro = np.array([xb, yb, zb])
 
-        if anisotropia:
-            d = np.array([distancia_anisotropica(centro, p) for p in coords_assay])
-        else:
-            d = np.linalg.norm(coords_assay - centro, axis=1)
-
-        mask = d <= rango
-        if np.sum(mask) < 3:
+        idx_vecinos = obtener_vecinos(centro)
+        if len(idx_vecinos) < 3:
             return 0.0
 
-        coords_n = coords_assay[mask]
-        vals_n = valores_assay[mask]
+        coords_n = coords_assay[idx_vecinos]
+        vals_n = valores_assay[idx_vecinos]
         n = len(coords_n)
 
+        # matriz de distancias
         D_ij = np.zeros((n, n))
         for i in range(n):
             for j in range(n):
-                if anisotropia:
-                    D_ij[i, j] = distancia_anisotropica(coords_n[i], coords_n[j])
+                if anisotropico:
+                    D_ij[i, j] = dist_aniso(coords_n[i], coords_n[j])
                 else:
                     D_ij[i, j] = np.linalg.norm(coords_n[i] - coords_n[j])
 
-        C_ij = covarianza(D_ij, nugget, sill, rango)
+        C_ij = covarianza(D_ij, nugget, sill)
 
         K = np.zeros((n+1, n+1))
         K[:n, :n] = C_ij
         K[:n, n] = 1.0
         K[n, :n] = 1.0
 
-        if anisotropia:
-            d_block = np.array([distancia_anisotropica(centro, p) for p in coords_n])
+        if anisotropico:
+            d_block = np.array([dist_aniso(centro, p) for p in coords_n])
         else:
             d_block = np.linalg.norm(coords_n - centro, axis=1)
 
-        c_block = covarianza(d_block, nugget, sill, rango)
+        c_block = covarianza(d_block, nugget, sill)
 
         rhs = np.zeros(n+1)
         rhs[:n] = c_block
@@ -2709,9 +2791,9 @@ with tab9:
         w = sol[:n]
         return float(np.sum(w * vals_n))
 
-    # ============================================================
-    # ESTIMACIÓN DE BLOQUES
-    # ============================================================
+    # -----------------------------
+    # Estimación de bloques
+    # -----------------------------
     bx_list, by_list, bz_list, ley_block = [], [], [], []
 
     for x0 in x_centros:
@@ -2719,22 +2801,22 @@ with tab9:
             for z0 in z_centros:
 
                 centro = np.array([x0, y0, z0])
-                dist = np.linalg.norm(coords_assay - centro, axis=1)
-                mask = dist <= rango
-                if np.sum(mask) < 3:
-                    continue
 
                 if metodo == "IDW²":
+                    dist = np.linalg.norm(coords_assay - centro, axis=1)
+                    mask = dist <= rango
+                    if np.sum(mask) < 3:
+                        continue
                     dist[dist == 0] = 0.1
                     w = 1.0 / (dist[mask] ** 2)
                     w = w / np.sum(w)
-                    est_ley = np.sum(w * valores_assay[mask])
+                    est_ley = float(np.sum(w * valores_assay[mask]))
 
                 elif metodo == "Kriging Ordinario":
-                    est_ley = kriging_ordinario_bloque(x0, y0, z0, anisotropia=False)
+                    est_ley = kriging_bloque(x0, y0, z0, anisotropico=False)
 
-                else:  # Kriging con anisotropía
-                    est_ley = kriging_ordinario_bloque(x0, y0, z0, anisotropia=True)
+                else:  # Kriging Anisotrópico
+                    est_ley = kriging_bloque(x0, y0, z0, anisotropico=True)
 
                 if est_ley <= 0:
                     continue
@@ -2744,11 +2826,11 @@ with tab9:
                 bz_list.append(z0)
                 ley_block.append(est_ley)
 
-    # ============================================================
-    # RESULTADOS
-    # ============================================================
+    # -----------------------------
+    # Resultados y visualización
+    # -----------------------------
     if len(ley_block) == 0:
-        st.warning("⚠️ No se pudieron estimar bloques. Ajusta el rango o el tamaño de bloque.")
+        st.warning("⚠️ No se pudieron estimar bloques. Ajusta rango, vecinos o tamaño de bloque.")
     else:
         df_blocks = pd.DataFrame({
             "X_centro": bx_list,
@@ -2760,11 +2842,8 @@ with tab9:
         st.write("#### 📋 Tabla Resumida del Modelo de Bloques")
         st.dataframe(df_blocks.head(200), use_container_width=True)
 
-        crear_boton_excel(df_blocks, "Modelo_Bloques_Estimado")
+        crear_boton_excel(df_blocks, "Modelo_Bloques_Optimizado")
 
-        # ============================================================
-        # VISUALIZACIÓN 3D
-        # ============================================================
         st.write("#### 🛰️ Visualización 3D del Modelo de Bloques")
 
         fig_blocks = go.Figure()
@@ -2778,6 +2857,8 @@ with tab9:
                 size=4,
                 color=df_blocks[f"Ley_{col_ley_b}"],
                 colorscale="Viridis",
+                cmin=float(df_blocks[f"Ley_{col_ley_b}"].min()),
+                cmax=float(df_blocks[f"Ley_{col_ley_b}"].max()),
                 colorbar=dict(title=f"Ley {unidad_b}")
             ),
             name="Bloques Estimados"
@@ -2795,7 +2876,6 @@ with tab9:
         )
 
         st.plotly_chart(fig_blocks, use_container_width=True)
-
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
