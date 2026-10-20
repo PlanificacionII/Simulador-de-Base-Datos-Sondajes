@@ -2844,38 +2844,46 @@ with tab9:
 
         crear_boton_excel(df_blocks, "Modelo_Bloques_Optimizado")
 
-        st.write("#### 🛰️ Visualización 3D del Modelo de Bloques")
+        # ============================================================
+# 🧱 VISUALIZACIÓN 3D — MODELO DE BLOQUES COMO CUBO SÓLIDO
+# ============================================================
 
-        fig_blocks = go.Figure()
+st.write("#### 🧱 Visualización 3D del Modelo de Bloques (Cubo Sólido)")
 
-        fig_blocks.add_trace(go.Scatter3d(
-            x=df_blocks["X_centro"],
-            y=df_blocks["Y_centro"],
-            z=df_blocks["Z_centro"],
-            mode="markers",
-            marker=dict(
-                size=4,
-                color=df_blocks[f"Ley_{col_ley_b}"],
-                colorscale="Viridis",
-                cmin=float(df_blocks[f"Ley_{col_ley_b}"].min()),
-                cmax=float(df_blocks[f"Ley_{col_ley_b}"].max()),
-                colorbar=dict(title=f"Ley {unidad_b}")
-            ),
-            name="Bloques Estimados"
-        ))
+# Convertir a grilla 3D
+X = df_blocks["X_centro"].values
+Y = df_blocks["Y_centro"].values
+Z = df_blocks["Z_centro"].values
+V = df_blocks[f"Ley_{col_ley_b}"].values
 
-        fig_blocks.update_layout(
-            scene=dict(
-                xaxis_title="X (UTM Este)",
-                yaxis_title="Y (UTM Norte)",
-                zaxis_title="Z (Cota)",
-                aspectmode="data"
-            ),
-            margin=dict(l=0, r=0, t=30, b=0),
-            title=f"Modelo de Bloques 3D – {metodo}"
-        )
+fig_cubo = go.Figure()
 
-        st.plotly_chart(fig_blocks, use_container_width=True)
+fig_cubo.add_trace(go.Volume(
+    x=X,
+    y=Y,
+    z=Z,
+    value=V,
+    isomin=float(np.percentile(V, 10)),   # mínimo visible
+    isomax=float(np.percentile(V, 90)),   # máximo visible
+    opacity=0.25,                         # transparencia del sólido
+    surface_count=20,                     # suavidad del sólido
+    colorscale="Viridis",
+    caps=dict(x_show=False, y_show=False, z_show=False)
+))
+
+fig_cubo.update_layout(
+    scene=dict(
+        xaxis_title="X (UTM Este)",
+        yaxis_title="Y (UTM Norte)",
+        zaxis_title="Z (Cota)",
+        aspectmode="data"
+    ),
+    margin=dict(l=0, r=0, t=30, b=0),
+    title="Modelo de Bloques 3D — Cubo Sólido"
+)
+
+st.plotly_chart(fig_cubo, use_container_width=True)
+
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
