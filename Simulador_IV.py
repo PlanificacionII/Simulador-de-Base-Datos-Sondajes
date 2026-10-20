@@ -1088,7 +1088,11 @@ else:
 
     # Interpolar ley en la malla
     grid_ley = griddata(pts, valores, (Xg, Yg, Zg), method="linear", fill_value=0)
-
+    # Guardar sólido 3D en session_state para Pestaña 9
+    st.session_state["grid_ley"] = grid_ley
+    st.session_state["Xg"] = Xg
+    st.session_state["Yg"] = Yg
+    st.session_state["Zg"] = Zg
     # Visualización como volumen con isosuperficie
     fig_vol = go.Figure()
 
@@ -2547,12 +2551,12 @@ st.session_state["v_parametros"] = dict(
 
 st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
-# 🧊 PESTAÑA 9 — MODELO DE BLOQUES MINERO REAL (Bloqueo + Estimación)
+# 🧊 PESTAÑA 9 — MODELO DE BLOQUES MINERO (Bloqueo + Estimación)
 # ====================================================================
 with tab9:
 
     st.write("### 🧊 Modelo de Bloques Minero (Bloqueo + Estimación)")
-    st.caption("Bloqueo de la envolvente mineralizada y estimación por IDW² / Kriging.")
+    st.caption("Bloqueo de la envolvente mineralizada y estimación por IDW² / Kriging Ordinario.")
 
     # ============================================================
     # 1. Recuperar compositos y sólido mineralizado desde Pestaña 7
@@ -2562,7 +2566,6 @@ with tab9:
         st.error("⚠ No hay compositos. Genera compositos en Pestaña 7.")
         st.stop()
 
-    # Sólido 3D interpolado (grid_ley) y malla Xg,Yg,Zg
     if "grid_ley" not in st.session_state:
         st.error("⚠ No existe sólido 3D. Genera el sólido en Pestaña 7.")
         st.stop()
@@ -2586,25 +2589,21 @@ with tab9:
         bz = st.number_input("Tamaño bloque Z (m):", 5.0, 100.0, 20.0, 5.0)
 
     # ============================================================
-    # 3. Generar grilla de bloques dentro del sólido mineralizado
+    # 3. Bloqueo del sólido mineralizado
     # ============================================================
     st.markdown("### 🧱 Bloqueo del Sólido Mineralizado")
 
-    # Coordenadas del sólido
     xs = Xg.flatten()
     ys = Yg.flatten()
     zs = Zg.flatten()
     vs = grid_ley.flatten()
 
-    # Solo puntos mineralizados
     pts_min = np.vstack([xs[vs > 0], ys[vs > 0], zs[vs > 0]]).T
 
-    # Rango del sólido
     min_x, max_x = pts_min[:,0].min(), pts_min[:,0].max()
     min_y, max_y = pts_min[:,1].min(), pts_min[:,1].max()
     min_z, max_z = pts_min[:,2].min(), pts_min[:,2].max()
 
-    # Grilla de bloques
     Xb = np.arange(min_x, max_x + bx, bx)
     Yb = np.arange(min_y, max_y + by, by)
     Zb = np.arange(min_z, max_z + bz, bz)
@@ -2613,11 +2612,9 @@ with tab9:
     for x in Xb:
         for y in Yb:
             for z in Zb:
-                # verificar si el bloque está dentro del sólido
-                # buscamos el valor interpolado más cercano
                 dist = np.sqrt((xs - x)**2 + (ys - y)**2 + (zs - z)**2)
                 idx = np.argmin(dist)
-                if vs[idx] > 0:  # mineralizado
+                if vs[idx] > 0:
                     bloques.append([x, y, z])
 
     df_blocks = pd.DataFrame(bloques, columns=["X_centro", "Y_centro", "Z_centro"])
@@ -2625,11 +2622,11 @@ with tab9:
     st.success(f"Bloques dentro del sólido mineralizado: {len(df_blocks)}")
 
     # ============================================================
-    # 4. Estimación de bloques (IDW² / Kriging)
+    # 4. Estimación de bloques
     # ============================================================
     st.markdown("### 📐 Estimación de Bloques")
 
-    metodo = st.radio("Método de estimación:", ["IDW²", "Kriging"], horizontal=True)
+    metodo = st.radio("Método de estimación:", ["IDW²", "Kriging Ordinario"], horizontal=True)
 
     coords = df_comp[["X","Y","Z"]].values
     leyes = df_comp[elemento_visual].values
@@ -2653,8 +2650,7 @@ with tab9:
         mask = d <= rango
         if np.sum(mask) < 3:
             return 0.0
-        vals = leyes[mask]
-        return float(np.mean(vals))
+        return float(np.mean(leyes[mask]))
 
     est = []
     for _, row in df_blocks.iterrows():
