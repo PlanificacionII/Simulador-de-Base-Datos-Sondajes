@@ -2843,30 +2843,52 @@ with tab9:
         st.dataframe(df_blocks.head(200), use_container_width=True)
 
         crear_boton_excel(df_blocks, "Modelo_Bloques_Optimizado")
-
-        # ============================================================
-# 🧱 VISUALIZACIÓN 3D — MODELO DE BLOQUES COMO CUBO SÓLIDO
+# ============================================================
+# 🧱 VISUALIZACIÓN 3D — CUBO SÓLIDO COMPLETO
 # ============================================================
 
 st.write("#### 🧱 Visualización 3D del Modelo de Bloques (Cubo Sólido)")
 
-# Convertir a grilla 3D
-X = df_blocks["X_centro"].values
-Y = df_blocks["Y_centro"].values
-Z = df_blocks["Z_centro"].values
-V = df_blocks[f"Ley_{col_ley_b}"].values
+# Crear grilla completa
+X_unique = np.unique(df_blocks["X_centro"])
+Y_unique = np.unique(df_blocks["Y_centro"])
+Z_unique = np.unique(df_blocks["Z_centro"])
+
+nx = len(X_unique)
+ny = len(Y_unique)
+nz = len(Z_unique)
+
+# Crear volumen vacío
+volumen = np.zeros((nx, ny, nz))
+
+# Llenar volumen con las leyes
+for i, x in enumerate(X_unique):
+    for j, y in enumerate(Y_unique):
+        for k, z in enumerate(Z_unique):
+            fila = df_blocks[
+                (df_blocks["X_centro"] == x) &
+                (df_blocks["Y_centro"] == y) &
+                (df_blocks["Z_centro"] == z)
+            ]
+            if len(fila) > 0:
+                volumen[i, j, k] = fila[f"Ley_{col_ley_b}"].values[0]
+            else:
+                volumen[i, j, k] = 0.0  # bloque vacío
+
+# Convertir a vectores para Plotly
+Xg, Yg, Zg = np.meshgrid(X_unique, Y_unique, Z_unique, indexing="ij")
 
 fig_cubo = go.Figure()
 
 fig_cubo.add_trace(go.Volume(
-    x=X,
-    y=Y,
-    z=Z,
-    value=V,
-    isomin=float(np.percentile(V, 10)),   # mínimo visible
-    isomax=float(np.percentile(V, 90)),   # máximo visible
-    opacity=0.25,                         # transparencia del sólido
-    surface_count=20,                     # suavidad del sólido
+    x=Xg.flatten(),
+    y=Yg.flatten(),
+    z=Zg.flatten(),
+    value=volumen.flatten(),
+    isomin=float(np.percentile(volumen, 10)),
+    isomax=float(np.percentile(volumen, 90)),
+    opacity=0.25,
+    surface_count=20,
     colorscale="Viridis",
     caps=dict(x_show=False, y_show=False, z_show=False)
 ))
@@ -2883,7 +2905,6 @@ fig_cubo.update_layout(
 )
 
 st.plotly_chart(fig_cubo, use_container_width=True)
-
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
