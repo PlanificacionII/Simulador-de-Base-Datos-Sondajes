@@ -2547,44 +2547,42 @@ st.session_state["v_parametros"] = dict(
 
 st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
-# 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (CUBO SÓLIDO + KRIGING PRO)
+# 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (CUBO SÓLIDO REAL)
 # ====================================================================
 with tab9:
 
-    st.write("### 🧊 Modelo de Bloques 3D (IDW² / Kriging Profesional)")
-    st.caption("Modelo de bloques cúbico sólido con estimación IDW², Kriging Ordinario y Kriging Anisotrópico.")
+    st.write("### 🧊 Modelo de Bloques 3D — Cubo Sólido Real")
+    st.caption("Generación de un modelo de bloques cúbico real y estimación por IDW² / Kriging / Anisotropía.")
 
-    # -----------------------------
-    # Parámetros del modelo de bloques
-    # -----------------------------
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        bx = st.number_input("Tamaño bloque X (m):", 10.0, 100.0, 40.0, 10.0)
-    with col2:
-        by = st.number_input("Tamaño bloque Y (m):", 10.0, 100.0, 40.0, 10.0)
-    with col3:
-        bz = st.number_input("Tamaño bloque Z (m):", 10.0, 100.0, 20.0, 10.0)
+    # ---------------------------------------------------------------
+    # 1. DEFINICIÓN DEL CUBO (NO DEPENDE DE COLLARES)
+    # ---------------------------------------------------------------
+    st.markdown("### 📦 Dimensiones del Cubo de Bloques")
 
-    # -----------------------------
-    # Extensión del modelo según collares
-    # -----------------------------
-    min_x_b = float(df_collar["UTM Este"].min())
-    max_x_b = float(df_collar["UTM Este"].max())
-    min_y_b = float(df_collar["UTM Norte"].min())
-    max_y_b = float(df_collar["UTM Norte"].max())
-    min_z_b = float(df_collar["Z_Cota"].min()) - 400.0
-    max_z_b = float(df_collar["Z_Cota"].max())
+    colA, colB, colC = st.columns(3)
+    with colA:
+        nx = st.number_input("Bloques en X:", 5, 200, 20)
+    with colB:
+        ny = st.number_input("Bloques en Y:", 5, 200, 20)
+    with colC:
+        nz = st.number_input("Bloques en Z:", 5, 200, 10)
 
-    # -----------------------------
-    # Crear grilla cúbica completa
-    # -----------------------------
-    X_unique = np.arange(min_x_b, max_x_b + bx, bx)
-    Y_unique = np.arange(min_y_b, max_y_b + by, by)
-    Z_unique = np.arange(min_z_b, max_z_b, bz)
+    colD, colE, colF = st.columns(3)
+    with colD:
+        bx = st.number_input("Tamaño bloque X (m):", 5.0, 100.0, 40.0, 5.0)
+    with colE:
+        by = st.number_input("Tamaño bloque Y (m):", 5.0, 100.0, 40.0, 5.0)
+    with colF:
+        bz = st.number_input("Tamaño bloque Z (m):", 5.0, 100.0, 20.0, 5.0)
 
-    nx, ny, nz = len(X_unique), len(Y_unique), len(Z_unique)
+    st.info("El cubo será EXACTAMENTE nx × ny × nz bloques. Siempre cuadrado. Siempre sólido.")
 
-    st.info(f"Grilla cúbica generada: {nx} × {ny} × {nz} bloques = {nx*ny*nz} bloques totales.")
+    # ---------------------------------------------------------------
+    # 2. GENERACIÓN DEL CUBO
+    # ---------------------------------------------------------------
+    X_unique = np.arange(0, nx * bx, bx)
+    Y_unique = np.arange(0, ny * by, by)
+    Z_unique = np.arange(0, nz * bz, bz)
 
     bloques = []
     for x in X_unique:
@@ -2594,18 +2592,16 @@ with tab9:
 
     df_blocks = pd.DataFrame(bloques, columns=["X_centro", "Y_centro", "Z_centro"])
 
-    # -----------------------------
-    # Selección de ley
-    # -----------------------------
-    col_ley_b = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
-    unidad_b = "%" if col_ley_b == "Cu(%)" else "g/t"
+    st.success(f"Cubo generado: {nx} × {ny} × {nz} = {nx*ny*nz} bloques.")
 
-    # -----------------------------
-    # Recuperar compositos
-    # -----------------------------
+    # ---------------------------------------------------------------
+    # 3. RECUPERAR COMPOSITOS
+    # ---------------------------------------------------------------
+    col_ley_b = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
+
     df_c = st.session_state.get("df_comp_final", pd.DataFrame())
     if df_c.empty:
-        st.error("⚠️ No hay compositos disponibles. Genera la base en la Pestaña 7.")
+        st.error("⚠️ No hay compositos disponibles.")
         st.stop()
 
     coords_assay = df_c[["X", "Y", "Z"]].values
@@ -2615,74 +2611,51 @@ with tab9:
     coords_assay = coords_assay[mask_ley]
     valores_assay = valores_assay[mask_ley]
 
-    if len(valores_assay) == 0:
-        st.error("⚠️ No hay compositos con ley > 0.")
-        st.stop()
+    # ---------------------------------------------------------------
+    # 4. MÉTODO DE ESTIMACIÓN
+    # ---------------------------------------------------------------
+    metodo = st.radio("Método:", ["IDW²", "Kriging Ordinario", "Kriging Anisotrópico"], horizontal=True)
 
-    # -----------------------------
-    # Selección de método
-    # -----------------------------
-    metodo = st.radio(
-        "Método de estimación:",
-        ["IDW²", "Kriging Ordinario", "Kriging Anisotrópico"],
-        horizontal=True
-    )
-
-    # -----------------------------
-    # Variograma desde Pestaña 8
-    # -----------------------------
+    # Variograma
     v_params = st.session_state.get("v_parametros", {})
     nugget = float(v_params.get("nugget", 0.1))
     sill   = float(v_params.get("sill",   1.0))
     rango  = float(v_params.get("range",  200.0))
 
-    st.write(f"Variograma → Nugget={nugget}, Sill={sill}, Rango={rango} m")
-
-    # -----------------------------
-    # Parámetros de anisotropía
-    # -----------------------------
-    st.markdown("### 🎯 Parámetros de Anisotropía y Vecinos")
-
+    # ---------------------------------------------------------------
+    # 5. ANISOTROPÍA
+    # ---------------------------------------------------------------
     colA, colB, colC = st.columns(3)
     with colA:
-        a1 = st.number_input("Alcance mayor a₁ (m):", 10.0, 2000.0, rango, 10.0)
+        a1 = st.number_input("Alcance mayor a₁:", 10.0, 2000.0, rango, 10.0)
     with colB:
-        a2 = st.number_input("Alcance intermedio a₂ (m):", 10.0, 2000.0, rango*0.7, 10.0)
+        a2 = st.number_input("Alcance intermedio a₂:", 10.0, 2000.0, rango*0.7, 10.0)
     with colC:
-        a3 = st.number_input("Alcance menor a₃ (m):", 10.0, 2000.0, rango*0.4, 10.0)
+        a3 = st.number_input("Alcance menor a₃:", 10.0, 2000.0, rango*0.4, 10.0)
 
     colR1, colR2, colR3 = st.columns(3)
     with colR1:
-        azimut = st.number_input("Azimut (°)", 0.0, 360.0, 0.0, 5.0)
+        azimut = st.number_input("Azimut:", 0.0, 360.0, 0.0, 5.0)
     with colR2:
-        buzamiento = st.number_input("Buzamiento (°)", -90.0, 90.0, 0.0, 5.0)
+        buzamiento = st.number_input("Buzamiento:", -90.0, 90.0, 0.0, 5.0)
     with colR3:
-        rake = st.number_input("Rake (°)", -180.0, 180.0, 0.0, 5.0)
+        rake = st.number_input("Rake:", -180.0, 180.0, 0.0, 5.0)
 
-    colN1, colN2 = st.columns(2)
-    with colN1:
-        max_vecinos = st.number_input("Máximo de vecinos:", 4, 64, 16, 2)
-    with colN2:
-        usar_octantes = st.checkbox("Usar octantes", value=True)
-
-    # -----------------------------
-    # Rotación y distancia anisotrópica
-    # -----------------------------
+    # ---------------------------------------------------------------
+    # 6. FUNCIONES DE KRIGING
+    # ---------------------------------------------------------------
     def rot_matrix(az, dip, rk):
         az = np.radians(az)
         dip = np.radians(dip)
         rk = np.radians(rk)
-
-        Rz = np.array([[ np.cos(az), -np.sin(az), 0],
-                       [ np.sin(az),  np.cos(az), 0],
-                       [ 0,           0,          1]])
-
+        Rz = np.array([[np.cos(az), -np.sin(az), 0],
+                       [np.sin(az),  np.cos(az), 0],
+                       [0, 0, 1]])
         Rx = np.array([[1, 0, 0],
                        [0, np.cos(dip), -np.sin(dip)],
                        [0, np.sin(dip),  np.cos(dip)]])
-
-        Ry = np.array([[ np.cos(rk), 0, np.sin(rk)],
-                       [ 0,          1, 0],
+        Ry = np.array([[np.cos(rk), 0, np.sin(rk)],
+                       [0, 1, 0],
                        [-np.sin(rk), 0, np.cos(rk)]])
         return Rz @ Rx @ Ry
 
@@ -2693,64 +2666,19 @@ with tab9:
         d_rot = R @ d
         return np.sqrt((d_rot[0]/a1)**2 + (d_rot[1]/a2)**2 + (d_rot[2]/a3)**2)
 
-    # -----------------------------
-    # Variograma esférico
-    # -----------------------------
-    def gamma_esferico(h, nugget, sill):
-        h = np.array(h)
-        return np.where(
-            h >= 1.0,
-            nugget + sill,
-            nugget + sill * (1.5*h - 0.5*h**3)
-        )
+    def gamma_esferico(h):
+        return np.where(h >= 1.0, nugget + sill, nugget + sill * (1.5*h - 0.5*h**3))
 
-    def covarianza(h, nugget, sill):
-        return (nugget + sill) - gamma_esferico(h, nugget, sill)
+    def covarianza(h):
+        return (nugget + sill) - gamma_esferico(h)
 
     from numpy.linalg import solve
 
-    # -----------------------------
-    # Búsqueda de vecinos
-    # -----------------------------
-    def obtener_vecinos(centro):
+    def kriging(xb, yb, zb, anisotropico=False):
+        centro = np.array([xb, yb, zb])
         d = np.linalg.norm(coords_assay - centro, axis=1)
         mask = d <= rango
         idx = np.where(mask)[0]
-
-        if len(idx) < 3:
-            return np.array([], dtype=int)
-
-        if not usar_octantes:
-            orden = np.argsort(d[idx])
-            return idx[orden][:max_vecinos]
-
-        vecinos_por_octante = max(1, max_vecinos // 8)
-        grupos = {}
-
-        for i in idx:
-            dx, dy, dz = coords_assay[i] - centro
-            oct_key = (dx >= 0, dy >= 0, dz >= 0)
-            if oct_key not in grupos:
-                grupos[oct_key] = []
-            grupos[oct_key].append((i, d[i]))
-
-        final = []
-        for oct_key, lista in grupos.items():
-            lista_sorted = sorted(lista, key=lambda x: x[1])
-            final.extend([i for i, dist_i in lista_sorted[:vecinos_por_octante]])
-
-        if len(final) > max_vecinos:
-            final = sorted(final, key=lambda i: np.linalg.norm(coords_assay[i] - centro))[:max_vecinos]
-
-        return np.array(final, dtype=int)
-
-    # -----------------------------
-    # Kriging
-    # -----------------------------
-    def kriging_bloque(xb, yb, zb, anisotropico=False):
-        centro = np.array([xb, yb, zb])
-        idx = obtener_vecinos(centro)
-
         if len(idx) < 3:
             return 0.0
 
@@ -2766,7 +2694,7 @@ with tab9:
                 else:
                     D_ij[i, j] = np.linalg.norm(coords_n[i] - coords_n[j])
 
-        C_ij = covarianza(D_ij, nugget, sill)
+        C_ij = covarianza(D_ij)
 
         K = np.zeros((n+1, n+1))
         K[:n, :n] = C_ij
@@ -2778,7 +2706,7 @@ with tab9:
         else:
             d_block = np.linalg.norm(coords_n - centro, axis=1)
 
-        c_block = covarianza(d_block, nugget, sill)
+        c_block = covarianza(d_block)
 
         rhs = np.zeros(n+1)
         rhs[:n] = c_block
@@ -2792,61 +2720,45 @@ with tab9:
         w = sol[:n]
         return float(np.sum(w * vals_n))
 
-    # -----------------------------
-    # Estimación de bloques
-    # -----------------------------
-    st.info("Estimando bloques…")
+    # ---------------------------------------------------------------
+    # 7. ESTIMACIÓN DEL CUBO
+    # ---------------------------------------------------------------
+    st.info("Estimando cubo sólido…")
 
-    ley_block = []
-
+    leyes = []
     for _, row in df_blocks.iterrows():
         x0, y0, z0 = row["X_centro"], row["Y_centro"], row["Z_centro"]
-        centro = np.array([x0, y0, z0])
 
         if metodo == "IDW²":
-            dist = np.linalg.norm(coords_assay - centro, axis=1)
+            dist = np.linalg.norm(coords_assay - np.array([x0, y0, z0]), axis=1)
             mask = dist <= rango
             if np.sum(mask) < 3:
-                ley_block.append(0.0)
+                leyes.append(0.0)
                 continue
             dist[dist == 0] = 0.1
             w = 1.0 / (dist[mask] ** 2)
             w = w / np.sum(w)
-            est_ley = float(np.sum(w * valores_assay[mask]))
+            leyes.append(float(np.sum(w * valores_assay[mask])))
 
         elif metodo == "Kriging Ordinario":
-            est_ley = kriging_bloque(x0, y0, z0, anisotropico=False)
+            leyes.append(kriging(x0, y0, z0, anisotropico=False))
 
         else:
-            est_ley = kriging_bloque(x0, y0, z0, anisotropico=True)
+            leyes.append(kriging(x0, y0, z0, anisotropico=True))
 
-        ley_block.append(est_ley)
+    df_blocks[f"Ley_{col_ley_b}"] = leyes
 
-    df_blocks[f"Ley_{col_ley_b}"] = ley_block
-
-    # -----------------------------
-    # Validación del volumen
-    # -----------------------------
-    total_bloques = nx * ny * nz
-    total_valores = len(df_blocks)
-
-    st.info(f"Bloques esperados: {total_bloques} — Bloques generados: {total_valores}")
-
-    if total_bloques != total_valores:
-        st.error("❌ ERROR: La grilla cúbica no coincide con los valores estimados.")
-        st.stop()
-
-    # -----------------------------
-    # Visualización 3D — Cubo sólido
-    # -----------------------------
-    st.write("#### 🧱 Visualización 3D del Modelo de Bloques (Cubo Sólido)")
+    # ---------------------------------------------------------------
+    # 8. VISUALIZACIÓN — CUBO SÓLIDO REAL
+    # ---------------------------------------------------------------
+    st.write("### 🧱 Cubo Sólido 3D")
 
     Xg, Yg, Zg = np.meshgrid(X_unique, Y_unique, Z_unique, indexing="ij")
     volumen = df_blocks[f"Ley_{col_ley_b}"].values.reshape(nx, ny, nz)
 
-    fig_cubo = go.Figure()
+    fig = go.Figure()
 
-    fig_cubo.add_trace(go.Volume(
+    fig.add_trace(go.Volume(
         x=Xg.flatten(),
         y=Yg.flatten(),
         z=Zg.flatten(),
@@ -2855,27 +2767,23 @@ with tab9:
         isomax=float(np.percentile(volumen, 90)),
         opacity=0.25,
         surface_count=20,
-        colorscale="Viridis",
-        caps=dict(x_show=False, y_show=False, z_show=False)
+        colorscale="Viridis"
     ))
 
-    fig_cubo.update_layout(
+    fig.update_layout(
         scene=dict(
-            xaxis_title="X (UTM Este)",
-            yaxis_title="Y (UTM Norte)",
-            zaxis_title="Z (Cota)",
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
             aspectmode="data"
         ),
-        margin=dict(l=0, r=0, t=30, b=0),
-        title=f"Modelo de Bloques 3D — Cubo Sólido ({metodo})"
+        height=700,
+        title=f"Cubo Sólido — {metodo}"
     )
 
-    st.plotly_chart(fig_cubo, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-    # -----------------------------
-    # Exportación
-    # -----------------------------
-    crear_boton_excel(df_blocks, "Modelo_Bloques_Optimizado")
+    crear_boton_excel(df_blocks, "Modelo_Bloques_Cubo_Solido")
 
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
