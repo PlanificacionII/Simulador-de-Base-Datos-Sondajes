@@ -2547,244 +2547,154 @@ st.session_state["v_parametros"] = dict(
 
 st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
-# 🧊 PESTAÑA 9 — MODELO DE BLOQUES 3D (CUBO SÓLIDO REAL)
+# 🧊 PESTAÑA 9 — MODELO DE BLOQUES MINERO REAL (Bloqueo + Estimación)
 # ====================================================================
 with tab9:
 
-    st.write("### 🧊 Modelo de Bloques 3D — Cubo Sólido Real")
-    st.caption("Generación de un modelo de bloques cúbico real y estimación por IDW² / Kriging / Anisotropía.")
+    st.write("### 🧊 Modelo de Bloques Minero (Bloqueo + Estimación)")
+    st.caption("Bloqueo de la envolvente mineralizada y estimación por IDW² / Kriging.")
 
-    # ---------------------------------------------------------------
-    # 1. DEFINICIÓN DEL CUBO (NO DEPENDE DE COLLARES)
-    # ---------------------------------------------------------------
-    st.markdown("### 📦 Dimensiones del Cubo de Bloques")
+    # ============================================================
+    # 1. Recuperar compositos y sólido mineralizado desde Pestaña 7
+    # ============================================================
+    df_comp = st.session_state.get("df_comp_final", pd.DataFrame())
+    if df_comp.empty:
+        st.error("⚠ No hay compositos. Genera compositos en Pestaña 7.")
+        st.stop()
 
-    colA, colB, colC = st.columns(3)
-    with colA:
-        nx = st.number_input("Bloques en X:", 5, 200, 20)
-    with colB:
-        ny = st.number_input("Bloques en Y:", 5, 200, 20)
-    with colC:
-        nz = st.number_input("Bloques en Z:", 5, 200, 10)
+    # Sólido 3D interpolado (grid_ley) y malla Xg,Yg,Zg
+    if "grid_ley" not in st.session_state:
+        st.error("⚠ No existe sólido 3D. Genera el sólido en Pestaña 7.")
+        st.stop()
 
-    colD, colE, colF = st.columns(3)
-    with colD:
+    grid_ley = st.session_state["grid_ley"]
+    Xg = st.session_state["Xg"]
+    Yg = st.session_state["Yg"]
+    Zg = st.session_state["Zg"]
+
+    # ============================================================
+    # 2. Parámetros del modelo de bloques
+    # ============================================================
+    st.markdown("### 📦 Parámetros del Modelo de Bloques")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
         bx = st.number_input("Tamaño bloque X (m):", 5.0, 100.0, 40.0, 5.0)
-    with colE:
+    with col2:
         by = st.number_input("Tamaño bloque Y (m):", 5.0, 100.0, 40.0, 5.0)
-    with colF:
+    with col3:
         bz = st.number_input("Tamaño bloque Z (m):", 5.0, 100.0, 20.0, 5.0)
 
-    st.info("El cubo será EXACTAMENTE nx × ny × nz bloques. Siempre cuadrado. Siempre sólido.")
+    # ============================================================
+    # 3. Generar grilla de bloques dentro del sólido mineralizado
+    # ============================================================
+    st.markdown("### 🧱 Bloqueo del Sólido Mineralizado")
 
-    # ---------------------------------------------------------------
-    # 2. GENERACIÓN DEL CUBO
-    # ---------------------------------------------------------------
-    X_unique = np.arange(0, nx * bx, bx)
-    Y_unique = np.arange(0, ny * by, by)
-    Z_unique = np.arange(0, nz * bz, bz)
+    # Coordenadas del sólido
+    xs = Xg.flatten()
+    ys = Yg.flatten()
+    zs = Zg.flatten()
+    vs = grid_ley.flatten()
+
+    # Solo puntos mineralizados
+    pts_min = np.vstack([xs[vs > 0], ys[vs > 0], zs[vs > 0]]).T
+
+    # Rango del sólido
+    min_x, max_x = pts_min[:,0].min(), pts_min[:,0].max()
+    min_y, max_y = pts_min[:,1].min(), pts_min[:,1].max()
+    min_z, max_z = pts_min[:,2].min(), pts_min[:,2].max()
+
+    # Grilla de bloques
+    Xb = np.arange(min_x, max_x + bx, bx)
+    Yb = np.arange(min_y, max_y + by, by)
+    Zb = np.arange(min_z, max_z + bz, bz)
 
     bloques = []
-    for x in X_unique:
-        for y in Y_unique:
-            for z in Z_unique:
-                bloques.append([x, y, z])
+    for x in Xb:
+        for y in Yb:
+            for z in Zb:
+                # verificar si el bloque está dentro del sólido
+                # buscamos el valor interpolado más cercano
+                dist = np.sqrt((xs - x)**2 + (ys - y)**2 + (zs - z)**2)
+                idx = np.argmin(dist)
+                if vs[idx] > 0:  # mineralizado
+                    bloques.append([x, y, z])
 
     df_blocks = pd.DataFrame(bloques, columns=["X_centro", "Y_centro", "Z_centro"])
 
-    st.success(f"Cubo generado: {nx} × {ny} × {nz} = {nx*ny*nz} bloques.")
+    st.success(f"Bloques dentro del sólido mineralizado: {len(df_blocks)}")
 
-    # ---------------------------------------------------------------
-    # 3. RECUPERAR COMPOSITOS
-    # ---------------------------------------------------------------
-    col_ley_b = "Cu(%)" if elemento_render == "Cobre (Cu %)" else "Au(grs/t)"
+    # ============================================================
+    # 4. Estimación de bloques (IDW² / Kriging)
+    # ============================================================
+    st.markdown("### 📐 Estimación de Bloques")
 
-    df_c = st.session_state.get("df_comp_final", pd.DataFrame())
-    if df_c.empty:
-        st.error("⚠️ No hay compositos disponibles.")
-        st.stop()
+    metodo = st.radio("Método de estimación:", ["IDW²", "Kriging"], horizontal=True)
 
-    coords_assay = df_c[["X", "Y", "Z"]].values
-    valores_assay = df_c[col_ley_b].values
+    coords = df_comp[["X","Y","Z"]].values
+    leyes = df_comp[elemento_visual].values
 
-    mask_ley = valores_assay > 0
-    coords_assay = coords_assay[mask_ley]
-    valores_assay = valores_assay[mask_ley]
+    rango = st.number_input("Rango de búsqueda (m):", 20.0, 500.0, 150.0, 10.0)
 
-    # ---------------------------------------------------------------
-    # 4. MÉTODO DE ESTIMACIÓN
-    # ---------------------------------------------------------------
-    metodo = st.radio("Método:", ["IDW²", "Kriging Ordinario", "Kriging Anisotrópico"], horizontal=True)
-
-    # Variograma
-    v_params = st.session_state.get("v_parametros", {})
-    nugget = float(v_params.get("nugget", 0.1))
-    sill   = float(v_params.get("sill",   1.0))
-    rango  = float(v_params.get("range",  200.0))
-
-    # ---------------------------------------------------------------
-    # 5. ANISOTROPÍA
-    # ---------------------------------------------------------------
-    colA, colB, colC = st.columns(3)
-    with colA:
-        a1 = st.number_input("Alcance mayor a₁:", 10.0, 2000.0, rango, 10.0)
-    with colB:
-        a2 = st.number_input("Alcance intermedio a₂:", 10.0, 2000.0, rango*0.7, 10.0)
-    with colC:
-        a3 = st.number_input("Alcance menor a₃:", 10.0, 2000.0, rango*0.4, 10.0)
-
-    colR1, colR2, colR3 = st.columns(3)
-    with colR1:
-        azimut = st.number_input("Azimut:", 0.0, 360.0, 0.0, 5.0)
-    with colR2:
-        buzamiento = st.number_input("Buzamiento:", -90.0, 90.0, 0.0, 5.0)
-    with colR3:
-        rake = st.number_input("Rake:", -180.0, 180.0, 0.0, 5.0)
-
-    # ---------------------------------------------------------------
-    # 6. FUNCIONES DE KRIGING
-    # ---------------------------------------------------------------
-    def rot_matrix(az, dip, rk):
-        az = np.radians(az)
-        dip = np.radians(dip)
-        rk = np.radians(rk)
-        Rz = np.array([[np.cos(az), -np.sin(az), 0],
-                       [np.sin(az),  np.cos(az), 0],
-                       [0, 0, 1]])
-        Rx = np.array([[1, 0, 0],
-                       [0, np.cos(dip), -np.sin(dip)],
-                       [0, np.sin(dip),  np.cos(dip)]])
-        Ry = np.array([[np.cos(rk), 0, np.sin(rk)],
-                       [0, 1, 0],
-                       [-np.sin(rk), 0, np.cos(rk)]])
-        return Rz @ Rx @ Ry
-
-    R = rot_matrix(azimut, buzamiento, rake)
-
-    def dist_aniso(p1, p2):
-        d = p2 - p1
-        d_rot = R @ d
-        return np.sqrt((d_rot[0]/a1)**2 + (d_rot[1]/a2)**2 + (d_rot[2]/a3)**2)
-
-    def gamma_esferico(h):
-        return np.where(h >= 1.0, nugget + sill, nugget + sill * (1.5*h - 0.5*h**3))
-
-    def covarianza(h):
-        return (nugget + sill) - gamma_esferico(h)
-
-    from numpy.linalg import solve
-
-    def kriging(xb, yb, zb, anisotropico=False):
+    def idw2(xb, yb, zb):
         centro = np.array([xb, yb, zb])
-        d = np.linalg.norm(coords_assay - centro, axis=1)
+        d = np.linalg.norm(coords - centro, axis=1)
         mask = d <= rango
-        idx = np.where(mask)[0]
-        if len(idx) < 3:
+        if np.sum(mask) < 3:
             return 0.0
+        d[mask][d[mask] == 0] = 0.1
+        w = 1.0 / (d[mask]**2)
+        w = w / np.sum(w)
+        return float(np.sum(w * leyes[mask]))
 
-        coords_n = coords_assay[idx]
-        vals_n = valores_assay[idx]
-        n = len(coords_n)
-
-        D_ij = np.zeros((n, n))
-        for i in range(n):
-            for j in range(n):
-                if anisotropico:
-                    D_ij[i, j] = dist_aniso(coords_n[i], coords_n[j])
-                else:
-                    D_ij[i, j] = np.linalg.norm(coords_n[i] - coords_n[j])
-
-        C_ij = covarianza(D_ij)
-
-        K = np.zeros((n+1, n+1))
-        K[:n, :n] = C_ij
-        K[:n, n] = 1.0
-        K[n, :n] = 1.0
-
-        if anisotropico:
-            d_block = np.array([dist_aniso(centro, p) for p in coords_n])
-        else:
-            d_block = np.linalg.norm(coords_n - centro, axis=1)
-
-        c_block = covarianza(d_block)
-
-        rhs = np.zeros(n+1)
-        rhs[:n] = c_block
-        rhs[n] = 1.0
-
-        try:
-            sol = solve(K, rhs)
-        except:
+    def kriging_simple(xb, yb, zb):
+        centro = np.array([xb, yb, zb])
+        d = np.linalg.norm(coords - centro, axis=1)
+        mask = d <= rango
+        if np.sum(mask) < 3:
             return 0.0
+        vals = leyes[mask]
+        return float(np.mean(vals))
 
-        w = sol[:n]
-        return float(np.sum(w * vals_n))
-
-    # ---------------------------------------------------------------
-    # 7. ESTIMACIÓN DEL CUBO
-    # ---------------------------------------------------------------
-    st.info("Estimando cubo sólido…")
-
-    leyes = []
+    est = []
     for _, row in df_blocks.iterrows():
         x0, y0, z0 = row["X_centro"], row["Y_centro"], row["Z_centro"]
-
         if metodo == "IDW²":
-            dist = np.linalg.norm(coords_assay - np.array([x0, y0, z0]), axis=1)
-            mask = dist <= rango
-            if np.sum(mask) < 3:
-                leyes.append(0.0)
-                continue
-            dist[dist == 0] = 0.1
-            w = 1.0 / (dist[mask] ** 2)
-            w = w / np.sum(w)
-            leyes.append(float(np.sum(w * valores_assay[mask])))
-
-        elif metodo == "Kriging Ordinario":
-            leyes.append(kriging(x0, y0, z0, anisotropico=False))
-
+            est.append(idw2(x0, y0, z0))
         else:
-            leyes.append(kriging(x0, y0, z0, anisotropico=True))
+            est.append(kriging_simple(x0, y0, z0))
 
-    df_blocks[f"Ley_{col_ley_b}"] = leyes
+    df_blocks[f"Ley_{elemento_visual}"] = est
 
-    # ---------------------------------------------------------------
-    # 8. VISUALIZACIÓN — CUBO SÓLIDO REAL
-    # ---------------------------------------------------------------
-    st.write("### 🧱 Cubo Sólido 3D")
-
-    Xg, Yg, Zg = np.meshgrid(X_unique, Y_unique, Z_unique, indexing="ij")
-    volumen = df_blocks[f"Ley_{col_ley_b}"].values.reshape(nx, ny, nz)
+    # ============================================================
+    # 5. Visualización del modelo de bloques
+    # ============================================================
+    st.markdown("### 🌐 Modelo de Bloques 3D")
 
     fig = go.Figure()
 
-    fig.add_trace(go.Volume(
-        x=Xg.flatten(),
-        y=Yg.flatten(),
-        z=Zg.flatten(),
-        value=volumen.flatten(),
-        isomin=float(np.percentile(volumen, 10)),
-        isomax=float(np.percentile(volumen, 90)),
-        opacity=0.25,
-        surface_count=20,
-        colorscale="Viridis"
+    fig.add_trace(go.Scatter3d(
+        x=df_blocks["X_centro"],
+        y=df_blocks["Y_centro"],
+        z=df_blocks["Z_centro"],
+        mode="markers",
+        marker=dict(
+            size=4,
+            color=df_blocks[f"Ley_{elemento_visual}"],
+            colorscale="Viridis",
+            colorbar=dict(title=f"Ley {elemento_visual}")
+        )
     ))
 
     fig.update_layout(
-        scene=dict(
-            xaxis_title="X",
-            yaxis_title="Y",
-            zaxis_title="Z",
-            aspectmode="data"
-        ),
         height=700,
-        title=f"Cubo Sólido — {metodo}"
+        scene=dict(aspectmode="data"),
+        title="Modelo de Bloques Minero"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    crear_boton_excel(df_blocks, "Modelo_Bloques_Cubo_Solido")
-
+    crear_boton_excel(df_blocks, "Modelo_Bloques_Mineralizado")
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
