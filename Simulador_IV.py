@@ -2573,9 +2573,24 @@ with tab9:
     min_z_b = float(df_collar["Z_Cota"].min()) - 400.0
     max_z_b = float(df_collar["Z_Cota"].max())
 
-    x_centros = np.arange(min_x_b, max_x_b + bx, bx)
-    y_centros = np.arange(min_y_b, max_y_b + by, by)
-    z_centros = np.arange(min_z_b, max_z_b, bz)
+    # -----------------------------
+    # Crear grilla cúbica completa
+    # -----------------------------
+    X_unique = np.arange(min_x_b, max_x_b + bx, bx)
+    Y_unique = np.arange(min_y_b, max_y_b + by, by)
+    Z_unique = np.arange(min_z_b, max_z_b, bz)
+
+    nx = len(X_unique)
+    ny = len(Y_unique)
+    nz = len(Z_unique)
+
+    bloques = []
+    for x in X_unique:
+        for y in Y_unique:
+            for z in Z_unique:
+                bloques.append([x, y, z])
+
+    df_blocks = pd.DataFrame(bloques, columns=["X_centro", "Y_centro", "Z_centro"])
 
     # -----------------------------
     # Selección de ley
@@ -2696,7 +2711,6 @@ with tab9:
     # Búsqueda de vecinos (con octantes)
     # -----------------------------
     def obtener_vecinos(centro):
-        # distancia isotrópica para preselección
         d = np.linalg.norm(coords_assay - centro, axis=1)
         mask = d <= rango
         idx_candidatos = np.where(mask)[0]
@@ -2704,25 +2718,17 @@ with tab9:
             return np.array([], dtype=int)
 
         if not usar_octantes:
-            # ordenar por distancia y limitar
             orden = np.argsort(d[idx_candidatos])
-            idx_sel = idx_candidatos[orden][:max_vecinos]
-            return idx_sel
+            return idx_candidatos[orden][:max_vecinos]
 
-        # octantes: dividir por signos de dx, dy, dz
         vecinos_por_octante = max(1, max_vecinos // 8)
         seleccion = []
 
         for i in idx_candidatos:
             dx, dy, dz = coords_assay[i] - centro
             oct_key = (dx >= 0, dy >= 0, dz >= 0)
-            # asignar índice de octante
-            # 8 octantes: (True/False, True/False, True/False)
-            # usamos dict para contar
-            # pero para simplificar, seleccionamos por distancia luego
             seleccion.append((i, oct_key, d[i]))
 
-        # agrupar por octante
         from collections import defaultdict
         oct_dict = defaultdict(list)
         for i, oct_key, dist_i in seleccion:
@@ -2735,7 +2741,6 @@ with tab9:
                 final_idx.append(i)
 
         if len(final_idx) > max_vecinos:
-            # recortar por distancia global
             d_sel = [(i, np.linalg.norm(coords_assay[i] - centro)) for i in final_idx]
             d_sel_sorted = sorted(d_sel, key=lambda x: x[1])
             final_idx = [i for i, _ in d_sel_sorted[:max_vecinos]]
@@ -2756,7 +2761,6 @@ with tab9:
         vals_n = valores_assay[idx_vecinos]
         n = len(coords_n)
 
-        # matriz de distancias
         D_ij = np.zeros((n, n))
         for i in range(n):
             for j in range(n):
@@ -2794,117 +2798,73 @@ with tab9:
     # -----------------------------
     # Estimación de bloques
     # -----------------------------
-    bx_list, by_list, bz_list, ley_block = [], [], [], []
+    ley_block = []
 
-    for x0 in x_centros:
-        for y0 in y_centros:
-            for z0 in z_centros:
+    for _, row in df_blocks.iterrows():
+        x0, y0, z0 = row["X_centro"], row["Y_centro"], row["Z_centro"]
+        centro = np.array([x0, y0, z0])
 
-                centro = np.array([x0, y0, z0])
+        if metodo == "IDW²":
+            dist = np.linalg.norm(coords_assay - centro, axis=1)
+            mask = dist <= rango
+            if np.sum(mask) < 3:
+                ley_block.append(0.0)
+                continue
+            dist[dist == 0] = 0.1
+            w = 1.0 / (dist[mask] ** 2)
+            w = w / np.sum(w)
+            est_ley = float(np.sum(w * valores_assay[mask]))
 
-                if metodo == "IDW²":
-                    dist = np.linalg.norm(coords_assay - centro, axis=1)
-                    mask = dist <= rango
-                    if np.sum(mask) < 3:
-                        continue
-                    dist[dist == 0] = 0.1
-                    w = 1.0 / (dist[mask] ** 2)
-                    w = w / np.sum(w)
-                    est_ley = float(np.sum(w * valores_assay[mask]))
+        elif metodo == "Kriging Ordinario":
+            est_ley = kriging_bloque(x0, y0, z0, anisotropico=False)
 
-                elif metodo == "Kriging Ordinario":
-                    est_ley = kriging_bloque(x0, y0, z0, anisotropico=False)
+        else:  # Kriging Anisotrópico
+            est_ley = kriging_bloque(x0, y0, z0, anisotropico=True)
 
-                else:  # Kriging Anisotrópico
-                    est_ley = kriging_bloque(x0, y0, z0, anisotropico=True)
+        ley_block.append(est_ley)
 
-                if est_ley <= 0:
-                    continue
-
-                bx_list.append(x0)
-                by_list.append(y0)
-                bz_list.append(z0)
-                ley_block.append(est_ley)
+    df_blocks[f"Ley_{col_ley_b}"] = ley_block
 
     # -----------------------------
-    # Resultados y visualización
+    # Visualización 3D — Cubo sólido
     # -----------------------------
-    if len(ley_block) == 0:
-        st.warning("⚠️ No se pudieron estimar bloques. Ajusta rango, vecinos o tamaño de bloque.")
-    else:
-        df_blocks = pd.DataFrame({
-            "X_centro": bx_list,
-            "Y_centro": by_list,
-            "Z_centro": bz_list,
-            f"Ley_{col_ley_b}": ley_block
-        })
+    st.write("#### 🧱 Visualización 3D del Modelo de Bloques (Cubo Sólido)")
 
-        st.write("#### 📋 Tabla Resumida del Modelo de Bloques")
-        st.dataframe(df_blocks.head(200), use_container_width=True)
+    Xg, Yg, Zg = np.meshgrid(X_unique, Y_unique, Z_unique, indexing="ij")
+    volumen = df_blocks[f"Ley_{col_ley_b}"].values.reshape(nx, ny, nz)
 
-        crear_boton_excel(df_blocks, "Modelo_Bloques_Optimizado")
-# ============================================================
-# 🧱 VISUALIZACIÓN 3D — CUBO SÓLIDO COMPLETO
-# ============================================================
+    fig_cubo = go.Figure()
 
-st.write("#### 🧱 Visualización 3D del Modelo de Bloques (Cubo Sólido)")
+    fig_cubo.add_trace(go.Volume(
+        x=Xg.flatten(),
+        y=Yg.flatten(),
+        z=Zg.flatten(),
+        value=volumen.flatten(),
+        isomin=float(np.percentile(volumen, 10)),
+        isomax=float(np.percentile(volumen, 90)),
+        opacity=0.25,
+        surface_count=20,
+        colorscale="Viridis",
+        caps=dict(x_show=False, y_show=False, z_show=False)
+    ))
 
-# Crear grilla completa
-X_unique = np.unique(df_blocks["X_centro"])
-Y_unique = np.unique(df_blocks["Y_centro"])
-Z_unique = np.unique(df_blocks["Z_centro"])
+    fig_cubo.update_layout(
+        scene=dict(
+            xaxis_title="X (UTM Este)",
+            yaxis_title="Y (UTM Norte)",
+            zaxis_title="Z (Cota)",
+            aspectmode="data"
+        ),
+        margin=dict(l=0, r=0, t=30, b=0),
+        title=f"Modelo de Bloques 3D — Cubo Sólido ({metodo})"
+    )
 
-nx = len(X_unique)
-ny = len(Y_unique)
-nz = len(Z_unique)
+    st.plotly_chart(fig_cubo, use_container_width=True)
 
-# Crear volumen vacío
-volumen = np.zeros((nx, ny, nz))
-
-# Llenar volumen con las leyes
-for i, x in enumerate(X_unique):
-    for j, y in enumerate(Y_unique):
-        for k, z in enumerate(Z_unique):
-            fila = df_blocks[
-                (df_blocks["X_centro"] == x) &
-                (df_blocks["Y_centro"] == y) &
-                (df_blocks["Z_centro"] == z)
-            ]
-            if len(fila) > 0:
-                volumen[i, j, k] = fila[f"Ley_{col_ley_b}"].values[0]
-            else:
-                volumen[i, j, k] = 0.0  # bloque vacío
-
-# Convertir a vectores para Plotly
-Xg, Yg, Zg = np.meshgrid(X_unique, Y_unique, Z_unique, indexing="ij")
-
-fig_cubo = go.Figure()
-
-fig_cubo.add_trace(go.Volume(
-    x=Xg.flatten(),
-    y=Yg.flatten(),
-    z=Zg.flatten(),
-    value=volumen.flatten(),
-    isomin=float(np.percentile(volumen, 10)),
-    isomax=float(np.percentile(volumen, 90)),
-    opacity=0.25,
-    surface_count=20,
-    colorscale="Viridis",
-    caps=dict(x_show=False, y_show=False, z_show=False)
-))
-
-fig_cubo.update_layout(
-    scene=dict(
-        xaxis_title="X (UTM Este)",
-        yaxis_title="Y (UTM Norte)",
-        zaxis_title="Z (Cota)",
-        aspectmode="data"
-    ),
-    margin=dict(l=0, r=0, t=30, b=0),
-    title="Modelo de Bloques 3D — Cubo Sólido"
-)
-
-st.plotly_chart(fig_cubo, use_container_width=True)
+    # -----------------------------
+    # Exportación
+    # -----------------------------
+    crear_boton_excel(df_blocks, "Modelo_Bloques_Optimizado")
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
