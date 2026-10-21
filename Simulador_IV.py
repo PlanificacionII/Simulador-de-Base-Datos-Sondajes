@@ -2823,34 +2823,47 @@ with tab9:
 
     df_blocks[f"Ley_{elemento_visual}"] = est_leyes
 
-    # ============================================================
-    # 10. Visualización 3D del modelo de bloques (centros)
-    # ============================================================
-    st.markdown("### 🌐 Modelo de Bloques 3D (Centros de Bloque)")
+# ============================================================
+# 10. Visualización 3D del modelo de BLOQUES (cúbicos)
+# ============================================================
+st.markdown("### 🧱 Modelo de Bloques 3D (Bloques Cúbicos con Ley Estimada)")
 
-    fig_centros = go.Figure()
+fig_bloques = go.Figure()
 
-    fig_centros.add_trace(go.Scatter3d(
-        x=df_blocks["X_centro"],
-        y=df_blocks["Y_centro"],
-        z=df_blocks["Z_centro"],
-        mode="markers",
-        marker=dict(
-            size=4,
-            color=df_blocks[f"Ley_{elemento_visual}"],
-            colorscale="Viridis",
-            colorbar=dict(title=f"Ley {elemento_visual}")
-        ),
-        name="Centros de Bloque"
+for _, row in df_blocks.iterrows():
+    x = row["X_centro"]
+    y = row["Y_centro"]
+    z = row["Z_centro"]
+    ley = row[f"Ley_{elemento_visual}"]
+
+    # vértices del cubo (bloque)
+    Xv = [x, x+bx, x+bx, x,   x,   x+bx, x+bx, x]
+    Yv = [y, y,   y+by, y+by, y,   y,    y+by, y+by]
+    Zv = [z, z,   z,    z,   z+bz, z+bz, z+bz, z+bz]
+
+    fig_bloques.add_trace(go.Mesh3d(
+        x=Xv,
+        y=Yv,
+        z=Zv,
+        intensity=[ley]*8,          # misma ley en todos los vértices del bloque
+        colorscale="Viridis",
+        opacity=0.45,
+        showscale=False
     ))
 
-    fig_centros.update_layout(
-        height=700,
-        scene=dict(aspectmode="data"),
-        title=f"Modelo de Bloques Minero — {metodo}"
-    )
+fig_bloques.update_layout(
+    height=700,
+    scene=dict(
+        xaxis_title="X",
+        yaxis_title="Y",
+        zaxis_title="Z",
+        aspectmode="data"
+    ),
+    title=f"Modelo de Bloques Minero — {metodo} (Bloques Cúbicos)"
+)
 
-    st.plotly_chart(fig_centros, use_container_width=True)
+st.plotly_chart(fig_bloques, use_container_width=True)
+
 
     # ============================================================
     # 11. Exportación del modelo de bloques
