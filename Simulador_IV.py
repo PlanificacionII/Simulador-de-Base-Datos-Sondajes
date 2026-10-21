@@ -2551,12 +2551,12 @@ st.session_state["v_parametros"] = dict(
 
 st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
-# 🧊 PESTAÑA 9 — MODELO DE BLOQUES MINERO (Bloqueo + Estimación)
+# 🧊 PESTAÑA 9 — MODELO DE BLOQUES MINERO (Bloques cúbicos reales)
 # ====================================================================
 with tab9:
 
     st.write("### 🧊 Modelo de Bloques Minero (Bloqueo + Estimación)")
-    st.caption("Bloqueo de la envolvente mineralizada y estimación por IDW² / Kriging Ordinario.")
+    st.caption("Bloques cúbicos reales dentro del sólido mineralizado, estimados por IDW² o Kriging.")
 
     # ============================================================
     # 1. Recuperar compositos y sólido mineralizado desde Pestaña 7
@@ -2591,8 +2591,6 @@ with tab9:
     # ============================================================
     # 3. Bloqueo del sólido mineralizado
     # ============================================================
-    st.markdown("### 🧱 Bloqueo del Sólido Mineralizado")
-
     xs = Xg.flatten()
     ys = Yg.flatten()
     zs = Zg.flatten()
@@ -2624,8 +2622,6 @@ with tab9:
     # ============================================================
     # 4. Estimación de bloques
     # ============================================================
-    st.markdown("### 📐 Estimación de Bloques")
-
     metodo = st.radio("Método de estimación:", ["IDW²", "Kriging Ordinario"], horizontal=True)
 
     coords = df_comp[["X","Y","Z"]].values
@@ -2663,34 +2659,42 @@ with tab9:
     df_blocks[f"Ley_{elemento_visual}"] = est
 
     # ============================================================
-    # 5. Visualización del modelo de bloques
+    # 5. Visualización de BLOQUES CÚBICOS reales
     # ============================================================
-    st.markdown("### 🌐 Modelo de Bloques 3D")
+    st.markdown("### 🧱 Modelo de Bloques Cúbicos 3D")
 
     fig = go.Figure()
 
-    fig.add_trace(go.Scatter3d(
-        x=df_blocks["X_centro"],
-        y=df_blocks["Y_centro"],
-        z=df_blocks["Z_centro"],
-        mode="markers",
-        marker=dict(
-            size=4,
-            color=df_blocks[f"Ley_{elemento_visual}"],
+    # Dibujar cada bloque como un cubo
+    for _, row in df_blocks.iterrows():
+        x, y, z = row["X_centro"], row["Y_centro"], row["Z_centro"]
+        ley = row[f"Ley_{elemento_visual}"]
+
+        # vértices del cubo
+        Xv = [x, x+bx, x+bx, x, x, x+bx, x+bx, x]
+        Yv = [y, y, y+by, y+by, y, y, y+by, y+by]
+        Zv = [z, z, z, z, z+bz, z+bz, z+bz, z+bz]
+
+        fig.add_trace(go.Mesh3d(
+            x=Xv,
+            y=Yv,
+            z=Zv,
+            colorbar_title=f"Ley {elemento_visual}",
+            intensity=[ley]*8,
             colorscale="Viridis",
-            colorbar=dict(title=f"Ley {elemento_visual}")
-        )
-    ))
+            opacity=0.4,
+            alphahull=0
+        ))
 
     fig.update_layout(
         height=700,
         scene=dict(aspectmode="data"),
-        title="Modelo de Bloques Minero"
+        title="Modelo de Bloques Minero — Bloques Cúbicos Reales"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    crear_boton_excel(df_blocks, "Modelo_Bloques_Mineralizado")
+    crear_boton_excel(df_blocks, "Modelo_Bloques_Cubicos")
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
