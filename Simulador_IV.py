@@ -2551,12 +2551,12 @@ st.session_state["v_parametros"] = dict(
 
 st.success("✔ Parámetros del variograma almacenados correctamente.")
 # ====================================================================
-# 🧊 PESTAÑA 9 — MODELO DE BLOQUES MINERO (Bloques cúbicos reales)
+# 🧊 PESTAÑA 9 — MODELO DE BLOQUES MINERO (Bloqueo + Kriging Pro)
 # ====================================================================
 with tab9:
 
-    st.write("### 🧊 Modelo de Bloques Minero (Bloqueo + Estimación)")
-    st.caption("Bloques cúbicos reales dentro del sólido mineralizado, estimados por IDW² o Kriging.")
+    st.write("### 🧊 Modelo de Bloques Minero (Bloqueo + Kriging Pro)")
+    st.caption("Bloqueo de la envolvente mineralizada y estimación por IDW² / Kriging Ordinario / Kriging Anisotrópico con octantes.")
 
     # ============================================================
     # 1. Recuperar compositos y sólido mineralizado desde Pestaña 7
@@ -2591,6 +2591,8 @@ with tab9:
     # ============================================================
     # 3. Bloqueo del sólido mineralizado
     # ============================================================
+    st.markdown("### 🧱 Bloqueo del Sólido Mineralizado")
+
     xs = Xg.flatten()
     ys = Yg.flatten()
     zs = Zg.flatten()
@@ -2620,81 +2622,241 @@ with tab9:
     st.success(f"Bloques dentro del sólido mineralizado: {len(df_blocks)}")
 
     # ============================================================
-    # 4. Estimación de bloques
+    # 4. Parámetros de estimación (IDW² / Kriging / Anisotropía / Octantes)
     # ============================================================
-    metodo = st.radio("Método de estimación:", ["IDW²", "Kriging Ordinario"], horizontal=True)
+    st.markdown("### 📐 Parámetros de Estimación")
+
+    metodo = st.radio(
+        "Método de estimación:",
+        ["IDW²", "Kriging Ordinario", "Kriging Anisotrópico"],
+        horizontal=True
+    )
 
     coords = df_comp[["X","Y","Z"]].values
     leyes = df_comp[elemento_visual].values
 
-    rango = st.number_input("Rango de búsqueda (m):", 20.0, 500.0, 150.0, 10.0)
+    colR, colN, colO = st.columns(3)
+    with colR:
+        rango = st.number_input("Rango de búsqueda (m):", 20.0, 500.0, 150.0, 10.0)
+    with colN:
+        max_vecinos = st.number_input("Máximo de vecinos:", 4, 64, 16, 2)
+    with colO:
+        usar_octantes = st.checkbox("Usar búsqueda por octantes", value=True)
 
-    def idw2(xb, yb, zb):
+    st.markdown("### 🎯 Parámetros de Anisotropía (para Kriging Anisotrópico)")
+
+    colA, colB, colC = st.columns(3)
+    with colA:
+        a1 = st.number_input("Alcance mayor a₁ (m):", 10.0, 2000.0, rango, 10.0)
+    with colB:
+        a2 = st.number_input("Alcance intermedio a₂ (m):", 10.0, 2000.0, rango*0.7, 10.0)
+    with colC:
+        a3 = st.number_input("Alcance menor a₃ (m):", 10.0, 2000.0, rango*0.4, 10.0)
+
+    colR1, colR2, colR3 = st.columns(3)
+    with colR1:
+        azimut = st.number_input("Azimut (°)", 0.0, 360.0, 0.0, 5.0)
+    with colR2:
+        buzamiento = st.number_input("Buzamiento (°)", -90.0, 90.0, 0.0, 5.0)
+    with colR3:
+        rake = st.number_input("Rake (°)", -180.0, 180.0, 0.0, 5.0)
+
+    # ============================================================
+    # 5. Variograma (parámetros desde Pestaña 8)
+    # ============================================================
+    v_params = st.session_state.get("v_parametros", {})
+    nugget = float(v_params.get("nugget", 0.1))
+    sill   = float(v_params.get("sill",   1.0))
+    rango_v = float(v_params.get("range",  200.0))
+
+    st.info(f"Variograma esférico: Nugget={nugget}, Sill={sill}, Rango={rango_v} m")
+
+    def gamma_esferico(h):
+        h = np.array(h)
+        return np.where(
+            h >= rango_v,
+            nugget + sill,
+            nugget + sill * (1.5*(h/rango_v) - 0.5*(h/rango_v)**3)
+        )
+
+    def covarianza(h):
+        return (nugget + sill) - gamma_esferico(h)
+
+    # ============================================================
+    # 6. Rotación y distancia anisotrópica
+    # ============================================================
+    def rot_matrix(az, dip, rk):
+        az = np.radians(az)
+        dip = np.radians(dip)
+        rk = np.radians(rk)
+
+        Rz = np.array([[ np.cos(az), -np.sin(az), 0],
+                       [ np.sin(az),  np.cos(az), 0],
+                       [ 0,           0,          1]])
+
+        Rx = np.array([[1, 0, 0],
+                       [0, np.cos(dip), -np.sin(dip)],
+                       [0, np.sin(dip),  np.cos(dip)]])
+        Ry = np.array([[ np.cos(rk), 0, np.sin(rk)],
+                       [ 0,          1, 0],
+                       [-np.sin(rk), 0, np.cos(rk)]])
+        return Rz @ Rx @ Ry
+
+    R = rot_matrix(azimut, buzamiento, rake)
+
+    def dist_aniso(p1, p2):
+        d = p2 - p1
+        d_rot = R @ d
+        return np.sqrt((d_rot[0]/a1)**2 + (d_rot[1]/a2)**2 + (d_rot[2]/a3)**2)
+
+    # ============================================================
+    # 7. Búsqueda de vecinos (con octantes)
+    # ============================================================
+    def obtener_vecinos(centro):
+        d = np.linalg.norm(coords - centro, axis=1)
+        mask = d <= rango
+        idx = np.where(mask)[0]
+
+        if len(idx) < 3:
+            return np.array([], dtype=int)
+
+        if not usar_octantes:
+            orden = np.argsort(d[idx])
+            return idx[orden][:max_vecinos]
+
+        vecinos_por_octante = max(1, max_vecinos // 8)
+        grupos = {}
+
+        for i in idx:
+            dx, dy, dz = coords[i] - centro
+            oct_key = (dx >= 0, dy >= 0, dz >= 0)
+            if oct_key not in grupos:
+                grupos[oct_key] = []
+            grupos[oct_key].append((i, d[i]))
+
+        final = []
+        for oct_key, lista in grupos.items():
+            lista_sorted = sorted(lista, key=lambda x: x[1])
+            final.extend([i for i, dist_i in lista_sorted[:vecinos_por_octante]])
+
+        if len(final) > max_vecinos:
+            final = sorted(final, key=lambda i: np.linalg.norm(coords[i] - centro))[:max_vecinos]
+
+        return np.array(final, dtype=int)
+
+    # ============================================================
+    # 8. Estimadores: IDW², Kriging Ordinario, Kriging Anisotrópico
+    # ============================================================
+    from numpy.linalg import solve
+
+    def idw2_est(xb, yb, zb):
         centro = np.array([xb, yb, zb])
         d = np.linalg.norm(coords - centro, axis=1)
         mask = d <= rango
         if np.sum(mask) < 3:
             return 0.0
-        d[mask][d[mask] == 0] = 0.1
-        w = 1.0 / (d[mask]**2)
+        d_sel = d[mask]
+        d_sel[d_sel == 0] = 0.1
+        w = 1.0 / (d_sel**2)
         w = w / np.sum(w)
         return float(np.sum(w * leyes[mask]))
 
-    def kriging_simple(xb, yb, zb):
+    def kriging_bloque(xb, yb, zb, anisotropico=False):
         centro = np.array([xb, yb, zb])
-        d = np.linalg.norm(coords - centro, axis=1)
-        mask = d <= rango
-        if np.sum(mask) < 3:
+        idx = obtener_vecinos(centro)
+        if len(idx) < 3:
             return 0.0
-        return float(np.mean(leyes[mask]))
 
-    est = []
+        coords_n = coords[idx]
+        vals_n = leyes[idx]
+        n = len(coords_n)
+
+        D_ij = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                if anisotropico:
+                    D_ij[i, j] = dist_aniso(coords_n[i], coords_n[j])
+                else:
+                    D_ij[i, j] = np.linalg.norm(coords_n[i] - coords_n[j])
+
+        C_ij = covarianza(D_ij)
+
+        K = np.zeros((n+1, n+1))
+        K[:n, :n] = C_ij
+        K[:n, n] = 1.0
+        K[n, :n] = 1.0
+
+        if anisotropico:
+            d_block = np.array([dist_aniso(centro, p) for p in coords_n])
+        else:
+            d_block = np.linalg.norm(coords_n - centro, axis=1)
+
+        c_block = covarianza(d_block)
+
+        rhs = np.zeros(n+1)
+        rhs[:n] = c_block
+        rhs[n] = 1.0
+
+        try:
+            sol = solve(K, rhs)
+        except:
+            return 0.0
+
+        w = sol[:n]
+        return float(np.sum(w * vals_n))
+
+    # ============================================================
+    # 9. Estimación de todos los bloques
+    # ============================================================
+    st.info("Estimando bloques dentro del sólido mineralizado…")
+
+    est_leyes = []
     for _, row in df_blocks.iterrows():
         x0, y0, z0 = row["X_centro"], row["Y_centro"], row["Z_centro"]
+
         if metodo == "IDW²":
-            est.append(idw2(x0, y0, z0))
+            est_leyes.append(idw2_est(x0, y0, z0))
+        elif metodo == "Kriging Ordinario":
+            est_leyes.append(kriging_bloque(x0, y0, z0, anisotropico=False))
         else:
-            est.append(kriging_simple(x0, y0, z0))
+            est_leyes.append(kriging_bloque(x0, y0, z0, anisotropico=True))
 
-    df_blocks[f"Ley_{elemento_visual}"] = est
+    df_blocks[f"Ley_{elemento_visual}"] = est_leyes
 
     # ============================================================
-    # 5. Visualización de BLOQUES CÚBICOS reales
+    # 10. Visualización 3D del modelo de bloques (centros)
     # ============================================================
-    st.markdown("### 🧱 Modelo de Bloques Cúbicos 3D")
+    st.markdown("### 🌐 Modelo de Bloques 3D (Centros de Bloque)")
 
-    fig = go.Figure()
+    fig_centros = go.Figure()
 
-    # Dibujar cada bloque como un cubo
-    for _, row in df_blocks.iterrows():
-        x, y, z = row["X_centro"], row["Y_centro"], row["Z_centro"]
-        ley = row[f"Ley_{elemento_visual}"]
-
-        # vértices del cubo
-        Xv = [x, x+bx, x+bx, x, x, x+bx, x+bx, x]
-        Yv = [y, y, y+by, y+by, y, y, y+by, y+by]
-        Zv = [z, z, z, z, z+bz, z+bz, z+bz, z+bz]
-
-        fig.add_trace(go.Mesh3d(
-            x=Xv,
-            y=Yv,
-            z=Zv,
-            colorbar_title=f"Ley {elemento_visual}",
-            intensity=[ley]*8,
+    fig_centros.add_trace(go.Scatter3d(
+        x=df_blocks["X_centro"],
+        y=df_blocks["Y_centro"],
+        z=df_blocks["Z_centro"],
+        mode="markers",
+        marker=dict(
+            size=4,
+            color=df_blocks[f"Ley_{elemento_visual}"],
             colorscale="Viridis",
-            opacity=0.4,
-            alphahull=0
-        ))
+            colorbar=dict(title=f"Ley {elemento_visual}")
+        ),
+        name="Centros de Bloque"
+    ))
 
-    fig.update_layout(
+    fig_centros.update_layout(
         height=700,
         scene=dict(aspectmode="data"),
-        title="Modelo de Bloques Minero — Bloques Cúbicos Reales"
+        title=f"Modelo de Bloques Minero — {metodo}"
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig_centros, use_container_width=True)
 
-    crear_boton_excel(df_blocks, "Modelo_Bloques_Cubicos")
+    # ============================================================
+    # 11. Exportación del modelo de bloques
+    # ============================================================
+    crear_boton_excel(df_blocks, "Modelo_Bloques_Mineralizado_KrigingPro")
+
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
 # ====================================================================
