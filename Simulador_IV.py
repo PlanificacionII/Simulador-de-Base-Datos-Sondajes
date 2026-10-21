@@ -2823,7 +2823,7 @@ with tab9:
 
     df_blocks[f"Ley_{elemento_visual}"] = est_leyes
 
- # ============================================================
+# ============================================================
 # 10. VISUALIZACIÓN 3D DEL MODELO DE BLOQUES (CÚBICOS)
 # ============================================================
 st.markdown("### 🧱 Modelo de Bloques 3D (Bloques Cúbicos con Ley Estimada)")
@@ -2845,7 +2845,7 @@ for _, row in df_blocks.iterrows():
         x=Xv,
         y=Yv,
         z=Zv,
-        intensity=[ley]*8,          # ley del bloque
+        intensity=[ley]*8,
         colorscale="Viridis",
         opacity=0.45,
         showscale=False
@@ -2864,12 +2864,7 @@ fig_bloques.update_layout(
 
 st.plotly_chart(fig_bloques, use_container_width=True)
 
-
-
-    # ============================================================
-    # 11. Exportación del modelo de bloques
-    # ============================================================
-    crear_boton_excel(df_blocks, "Modelo_Bloques_Mineralizado_KrigingPro")
+crear_boton_excel(df_blocks, "Modelo_Bloques_Mineralizado_KrigingPro")
 
 # ====================================================================
 # 📈 PESTAÑA 10 — CURVAS LEY–TONELAJE (CORREGIDO Y PROFESIONAL)
