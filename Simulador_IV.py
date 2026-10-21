@@ -2823,8 +2823,8 @@ with tab9:
 
     df_blocks[f"Ley_{elemento_visual}"] = est_leyes
 
-# ============================================================
-# 10. Visualización 3D del modelo de BLOQUES (cúbicos)
+ # ============================================================
+# 10. VISUALIZACIÓN 3D DEL MODELO DE BLOQUES (CÚBICOS)
 # ============================================================
 st.markdown("### 🧱 Modelo de Bloques 3D (Bloques Cúbicos con Ley Estimada)")
 
@@ -2836,7 +2836,7 @@ for _, row in df_blocks.iterrows():
     z = row["Z_centro"]
     ley = row[f"Ley_{elemento_visual}"]
 
-    # vértices del cubo (bloque)
+    # Vértices del cubo (bloque)
     Xv = [x, x+bx, x+bx, x,   x,   x+bx, x+bx, x]
     Yv = [y, y,   y+by, y+by, y,   y,    y+by, y+by]
     Zv = [z, z,   z,    z,   z+bz, z+bz, z+bz, z+bz]
@@ -2845,7 +2845,7 @@ for _, row in df_blocks.iterrows():
         x=Xv,
         y=Yv,
         z=Zv,
-        intensity=[ley]*8,          # misma ley en todos los vértices del bloque
+        intensity=[ley]*8,          # ley del bloque
         colorscale="Viridis",
         opacity=0.45,
         showscale=False
@@ -2863,6 +2863,7 @@ fig_bloques.update_layout(
 )
 
 st.plotly_chart(fig_bloques, use_container_width=True)
+
 
 
     # ============================================================
